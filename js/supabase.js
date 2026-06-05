@@ -3,7 +3,7 @@
 // This initializes the client using credentials from config.js
 
 // Create Supabase client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // getSession() — Retrieve current session
 // Returns: session object or null
