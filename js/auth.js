@@ -1,53 +1,35 @@
-// ─────────────────────────────────────────────────────────
 // Authentication Module — Login, Logout, Session, Realtime
-// ─────────────────────────────────────────────────────────
 // Global state for current user and profile
 // Handles login/logout, session validation, realtime syncing
+// (supabase, getSession, getUser loaded from supabase.js)
 
-import { supabase, getSession, getUser } from './supabase.js';
-
-// ─────────────────────────────────────────────────────────
 // Global State
-// ─────────────────────────────────────────────────────────
-
 window.currentUser = null;
 window.currentProfile = null;
 let realtimeChannel = null;
 
-// ─────────────────────────────────────────────────────────
 // getCurrentUser() — Return current authenticated user
-// ─────────────────────────────────────────────────────────
 // Returns: user object or null
-
 function getCurrentUser() {
   return window.currentUser;
 }
 
-// ─────────────────────────────────────────────────────────
 // getCurrentProfile() — Return current user's profile
-// ─────────────────────────────────────────────────────────
 // Returns: profile object or null
-
 function getCurrentProfile() {
   return window.currentProfile;
 }
 
-// ─────────────────────────────────────────────────────────
 // isAuthenticated() — Check if user is logged in
-// ─────────────────────────────────────────────────────────
 // Returns: boolean
-
 function isAuthenticated() {
   return window.currentUser !== null;
 }
 
-// ─────────────────────────────────────────────────────────
 // login(email, password) — Sign in with email & password
-// ─────────────────────────────────────────────────────────
 // Args: email (string), password (string)
 // Returns: user object on success, throws error on failure
 // Side effects: saves JWT to localStorage, rehydrates user/profile, sets up realtime
-
 async function login(email, password) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -79,12 +61,9 @@ async function login(email, password) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // logout() — Sign out and clear state
-// ─────────────────────────────────────────────────────────
 // Returns: undefined
 // Side effects: clears localStorage, resets memory, closes realtime, redirects to #login
-
 async function logout() {
   try {
     const { error } = await supabase.auth.signOut();
@@ -111,13 +90,10 @@ async function logout() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // loadProfile(userId) — Load user profile from DB
-// ─────────────────────────────────────────────────────────
 // Args: userId (string)
 // Returns: profile object
 // Side effects: rehydrates window.currentProfile
-
 async function loadProfile(userId) {
   try {
     const { data, error } = await supabase
@@ -140,13 +116,10 @@ async function loadProfile(userId) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // setupRealtimeProfiles(userId) — Subscribe to profile changes
-// ─────────────────────────────────────────────────────────
 // Args: userId (string)
 // Returns: undefined
 // Side effects: creates channel listener, updates currentProfile on change
-
 async function setupRealtimeProfiles(userId) {
   try {
     if (realtimeChannel) {
@@ -188,13 +161,10 @@ async function setupRealtimeProfiles(userId) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // initAuth() — Initialize authentication on page load
-// ─────────────────────────────────────────────────────────
 // Returns: undefined
 // Side effects: checks localStorage, validates with Supabase, rehydrates, sets up realtime
 // Called automatically at end of module
-
 async function initAuth() {
   try {
     const token = localStorage.getItem('sb-token');
@@ -228,23 +198,5 @@ async function initAuth() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Export all functions
-// ─────────────────────────────────────────────────────────
-
-export {
-  getCurrentUser,
-  getCurrentProfile,
-  isAuthenticated,
-  login,
-  logout,
-  loadProfile,
-  setupRealtimeProfiles,
-  initAuth,
-};
-
-// ─────────────────────────────────────────────────────────
 // Initialize auth on module load
-// ─────────────────────────────────────────────────────────
-
 initAuth();

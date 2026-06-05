@@ -1,20 +1,13 @@
-// ─────────────────────────────────────────────────────────
 // Supabase Client & Session Helpers
-// ─────────────────────────────────────────────────────────
 // NOTE: Supabase SDK loaded from CDN in index.html
 // This initializes the client using credentials from config.js
-
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 // Create Supabase client
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ─────────────────────────────────────────────────────────
 // getSession() — Retrieve current session
-// ─────────────────────────────────────────────────────────
 // Returns: session object or null
 // Errors are caught and logged; function returns null on error
-
 async function getSession() {
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -29,12 +22,9 @@ async function getSession() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // getUser() — Retrieve authenticated user
-// ─────────────────────────────────────────────────────────
 // Returns: user object or null
 // Errors are caught and logged; function returns null on error
-
 async function getUser() {
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -48,5 +38,3 @@ async function getUser() {
     return null;
   }
 }
-
-export { supabase, getSession, getUser };

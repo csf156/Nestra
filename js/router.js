@@ -1,37 +1,25 @@
-// ─────────────────────────────────────────────────────────
 // Router Module — Hash-Based SPA Navigation & View Injection
-// ─────────────────────────────────────────────────────────
 // Global state for current route and context
 // Handles navigation, view loading, route protection, error handling
+// (isAuthenticated, initAuth loaded from auth.js)
 
-import { isAuthenticated, initAuth } from './auth.js';
-
-// ─────────────────────────────────────────────────────────
 // Global State
-// ─────────────────────────────────────────────────────────
-
 window.routerContext = {};
 
-// ─────────────────────────────────────────────────────────
 // navigateTo(route) — Change hash and trigger route change
-// ─────────────────────────────────────────────────────────
 // Args: route (string) — e.g. 'dashboard', 'login', 'profile'
 // Returns: undefined
 // Side effects: sets window.location.hash, triggers hashchange event
-
 function navigateTo(route) {
   window.location.hash = `#${route}`;
 }
 
-// ─────────────────────────────────────────────────────────
 // loadView(viewName, context) — Fetch & inject view into DOM
-// ─────────────────────────────────────────────────────────
 // Args: viewName (string) — view file name, e.g. 'dashboard'
 //       context (object) — data to attach to window.routerContext
 // Returns: undefined
 // Side effects: fetches views/${viewName}.html, updates routerContext,
 //               injects HTML into #app container, scrolls to top, logs load
-
 async function loadView(viewName, context = {}) {
   try {
     const response = await fetch(`views/${viewName}.html`);
@@ -81,13 +69,10 @@ async function loadView(viewName, context = {}) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // handleRouteChange() — Parse hash, check auth, load view
-// ─────────────────────────────────────────────────────────
 // Returns: undefined
 // Side effects: reads window.location.hash, checks isAuthenticated(),
 //               redirects to #login if needed, calls loadView()
-
 async function handleRouteChange() {
   try {
     // Get current hash, strip # and lowercase
@@ -99,7 +84,7 @@ async function handleRouteChange() {
     const publicRoutes = ['login', 'register', 'forgot-password'];
 
     // Protected routes
-    const protectedRoutes = ['dashboard', 'profile', 'settings'];
+    const protectedRoutes = ['dashboard', 'profile', 'settings', 'transaccion', 'historial', 'metas', 'config'];
 
     // Check if route is protected
     if (protectedRoutes.includes(hash) && !isAuthenticated()) {
@@ -129,11 +114,17 @@ async function handleRouteChange() {
       case 'dashboard':
         await loadView('dashboard');
         break;
-      case 'profile':
-        await loadView('profile');
+      case 'transaccion':
+        await loadView('transaccion');
         break;
-      case 'settings':
-        await loadView('settings');
+      case 'historial':
+        await loadView('historial');
+        break;
+      case 'metas':
+        await loadView('metas');
+        break;
+      case 'config':
+        await loadView('config');
         break;
       default:
         console.warn(`Unknown route: ${hash}, defaulting to dashboard`);
@@ -152,13 +143,10 @@ async function handleRouteChange() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // initRouter() — Initialize router after auth is ready
-// ─────────────────────────────────────────────────────────
 // Returns: undefined
 // Side effects: waits 100ms for auth init, then calls handleRouteChange()
 // Called automatically on DOMContentLoaded
-
 async function initRouter() {
   try {
     // Wait for auth module to initialize (100ms buffer)
@@ -173,18 +161,10 @@ async function initRouter() {
   }
 }
 
-// ─────────────────────────────────────────────────────────
 // Event Listeners
-// ─────────────────────────────────────────────────────────
 
 // Listen for hash changes and re-render view
 window.addEventListener('hashchange', handleRouteChange);
 
 // Initialize router when DOM is ready
 document.addEventListener('DOMContentLoaded', initRouter);
-
-// ─────────────────────────────────────────────────────────
-// Export all functions
-// ─────────────────────────────────────────────────────────
-
-export { navigateTo, loadView, handleRouteChange, initRouter };
