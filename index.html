@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nestra - Gestor de Finanzas Personales</title>
+
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav id="navbar" class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">Nestra</div>
+            <ul class="navbar-links">
+                <li>
+                    <a href="#/dashboard" class="nav-link">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-label">Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#/transaccion" class="nav-link">
+                        <span class="nav-icon">💳</span>
+                        <span class="nav-label">Transacción</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#/historial" class="nav-link">
+                        <span class="nav-icon">📜</span>
+                        <span class="nav-label">Historial</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#/metas" class="nav-link">
+                        <span class="nav-icon">🎯</span>
+                        <span class="nav-label">Metas</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#/config" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-label">Configuración</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main App Container -->
+    <main id="app" class="app-container">
+        <!-- Router injects vistas here -->
+    </main>
+
+    <!-- Supabase SDK (jsDelivr CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Application Scripts (in order) -->
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/format.js"></script>
+    <script src="js/router.js"></script>
+</body>
+</html>
