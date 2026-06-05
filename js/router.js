@@ -14,6 +14,22 @@ function navigateTo(route) {
   window.location.hash = `#${route}`;
 }
 
+// executeScripts(container) — Re-create <script> tags so they run
+// Browsers do NOT execute <script> inserted via innerHTML. This finds each
+// script in the injected view and replaces it with a fresh node, which the
+// browser then executes (inline form handlers, dashboard init, etc).
+function executeScripts(container) {
+  const scripts = container.querySelectorAll('script');
+  scripts.forEach((oldScript) => {
+    const newScript = document.createElement('script');
+    Array.from(oldScript.attributes).forEach((attr) =>
+      newScript.setAttribute(attr.name, attr.value)
+    );
+    newScript.textContent = oldScript.textContent;
+    oldScript.parentNode.replaceChild(newScript, oldScript);
+  });
+}
+
 // loadView(viewName, context) — Fetch & inject view into DOM
 // Args: viewName (string) — view file name, e.g. 'dashboard'
 //       context (object) — data to attach to window.routerContext
@@ -41,6 +57,9 @@ async function loadView(viewName, context = {}) {
     const appContainer = document.getElementById('app');
     if (appContainer) {
       appContainer.innerHTML = html;
+      // <script> tags from innerHTML don't run — re-create them so inline
+      // view scripts (login form handler, dashboard init) actually execute.
+      executeScripts(appContainer);
     } else {
       console.error('App container (#app) not found in DOM');
       throw new Error('App container not found');

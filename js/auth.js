@@ -99,7 +99,7 @@ async function loadProfile(userId) {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -134,7 +134,7 @@ async function setupRealtimeProfiles(userId) {
           event: '*',
           schema: 'public',
           table: 'profiles',
-          filter: `id=eq.${userId}`,
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           if (payload.eventType === 'UPDATE') {

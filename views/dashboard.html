@@ -317,14 +317,15 @@
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', async function () {
+  // IIFE runs immediately on injection (DOMContentLoaded already fired by now).
+  (function () {
     try {
-      // Get user profile and set greeting
-      const profile = await getProfile();
-      if (profile && profile.email) {
-        const greeting = document.getElementById('userGreeting');
-        const firstName = profile.email.split('@')[0];
-        greeting.textContent = `Bienvenido, ${firstName}`;
+      const user = getCurrentUser();
+      const profile = getCurrentProfile();
+      const greeting = document.getElementById('userGreeting');
+      const nombre = (profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '');
+      if (nombre) {
+        greeting.textContent = `Bienvenido, ${nombre}`;
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -336,5 +337,5 @@
     // - Cargar últimas transacciones
     // - Cargar metas en progreso
     // - Mostrar alertas dinámicas
-  });
+  })();
 </script>
