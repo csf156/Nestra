@@ -52,7 +52,7 @@ async function login(email, password) {
     console.log('User logged in:', user.email);
 
     await loadProfile(user.id);
-    await setupRealtimeProfiles(user.id);
+    // await setupRealtimeProfiles(user.id); // TODO: fix realtime
 
     return user;
   } catch (err) {
