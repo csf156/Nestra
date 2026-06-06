@@ -47,6 +47,15 @@
         <input type="date" id="fecha" name="fecha" required />
       </div>
 
+      <!-- Aporte al hogar (solo visible cuando ámbito=hogar y tipo=gasto) -->
+      <div id="aporteHogarGroup" class="form-group aporte-hogar-group" style="display: none;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="aporteHogar" name="aporteHogar" />
+          <span>Registrar como aporte al hogar</span>
+        </label>
+        <p class="form-hint">Crea dos transacciones vinculadas: tu gasto y el ingreso del hogar.</p>
+      </div>
+
       <!-- Nota (opcional) -->
       <div class="form-group">
         <label for="nota">Nota <span class="label-opcional">(opcional)</span></label>
@@ -110,6 +119,37 @@
   .transaccion-actions .btn {
     flex: 1;
   }
+
+  /* Aporte al hogar toggle */
+  .aporte-hogar-group {
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .form-hint {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+  }
 </style>
 
 <script>
@@ -121,6 +161,9 @@
     const montoEl      = document.getElementById('monto');
     const fechaEl      = document.getElementById('fecha');
     const notaEl       = document.getElementById('nota');
+
+    const aporteHogarGroup = document.getElementById('aporteHogarGroup');
+    const aporteHogarEl    = document.getElementById('aporteHogar');
 
     const categoriaError = document.getElementById('categoriaError');
     const montoError     = document.getElementById('montoError');
@@ -134,6 +177,13 @@
     // Fecha por defecto: hoy (formato YYYY-MM-DD, valor nativo del input date).
     const hoy = new Date();
     fechaEl.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    // _mostrarAporteHogar() — muestra/oculta el toggle según tipo + ámbito.
+    function _mostrarAporteHogar() {
+      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto';
+      aporteHogarGroup.style.display = esHogarGasto ? 'block' : 'none';
+      if (!esHogarGasto) aporteHogarEl.checked = false;
+    }
 
     // cargarCategorias() — llena el select según el tipo (gasto/ingreso).
     async function cargarCategorias() {
@@ -157,8 +207,9 @@
       }
     }
 
-    // Recargar categorías cuando cambia el tipo (gasto ≠ ingreso).
-    tipoEl.addEventListener('change', cargarCategorias);
+    // Recargar categorías y reevaluar toggle cuando cambia tipo o ámbito.
+    tipoEl.addEventListener('change', () => { cargarCategorias(); _mostrarAporteHogar(); });
+    ambitoEl.addEventListener('change', _mostrarAporteHogar);
 
     // Limpiar errores de campo al editar.
     categoriaEl.addEventListener('change', () => ocultar(categoriaError));
@@ -200,17 +251,25 @@
       e.preventDefault();
       if (!validar()) return;
 
+      const monto = parseFloat(montoEl.value);
+      const fecha = fechaEl.value;
+      const nota  = notaEl.value.trim() || null;
+
       setCargando(true);
       try {
-        await insertTransaccion({
-          tipo:         tipoEl.value,
-          ambito:       ambitoEl.value,
-          categoria_id: categoriaEl.value,
-          monto:        parseFloat(montoEl.value),
-          fecha:        fechaEl.value,
-          nota:         notaEl.value.trim() || null,
-        });
-        // Éxito → volver al dashboard (recargará balances y últimas transacciones).
+        if (aporteHogarEl.checked) {
+          // Aporte al hogar: crea gasto personal + ingreso hogar vinculados.
+          await insertAporteHogar(monto, categoriaEl.value, nota, fecha);
+        } else {
+          await insertTransaccion({
+            tipo:         tipoEl.value,
+            ambito:       ambitoEl.value,
+            categoria_id: categoriaEl.value,
+            monto,
+            fecha,
+            nota,
+          });
+        }
         window.location.hash = '#dashboard';
       } catch (err) {
         mostrar(formError, err.message || 'No se pudo guardar la transacción.');
@@ -219,7 +278,8 @@
       }
     });
 
-    // Carga inicial de categorías (tipo = gasto por defecto).
+    // Carga inicial.
     cargarCategorias();
+    _mostrarAporteHogar();
   })();
 </script>
