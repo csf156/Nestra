@@ -530,6 +530,24 @@ async function getPrestamos(estado = null) {
   }
 }
 
+// insertPrestamo(transaccion_id, deudor) — registra un préstamo nuevo.
+// Llamar DESPUÉS de insertar la transacción de gasto asociada.
+// Returns: fila insertada. Lanza Error en fallo.
+async function insertPrestamo(transaccion_id, deudor) {
+  try {
+    const { data, error } = await supabase
+      .from('prestamos')
+      .insert({ transaccion_id, deudor, estado: 'pendiente' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Error en insertPrestamo():', err.message || err);
+    throw err;
+  }
+}
+
 // marcarDevuelto(prestamo_id, transaccion_id) — cierra un préstamo.
 // Orden seguro: marca el préstamo como 'devuelto' PRIMERO; solo si ese
 // update tiene éxito registra el ingreso de devolución. Así un fallo al
