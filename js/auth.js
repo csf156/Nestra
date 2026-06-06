@@ -54,6 +54,9 @@ async function login(email, password) {
     await loadProfile(user.id);
     // await setupRealtimeProfiles(user.id); // TODO: fix realtime
 
+    // Successful login → go to dashboard
+    window.location.hash = '#dashboard';
+
     return user;
   } catch (err) {
     console.error('Unexpected error in login():', err);
@@ -161,12 +164,54 @@ async function setupRealtimeProfiles(userId) {
   }
 }
 
+// handleSessionExpired() — Clear state and bounce to login
+// Returns: undefined
+// Side effects: clears localStorage + memory, closes realtime, redirects to #login
+// Used when the session expires/revokes mid-session (token refresh fails).
+function handleSessionExpired() {
+  localStorage.removeItem('sb-token');
+  window.currentUser = null;
+  window.currentProfile = null;
+
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
+  // Only redirect if not already on a public auth view
+  if (window.location.hash !== '#login') {
+    console.warn('Session expired — redirecting to #login');
+    window.location.hash = '#login';
+  }
+}
+
+// setupAuthStateListener() — React to Supabase auth events
+// Returns: undefined
+// Side effects: subscribes to onAuthStateChange; on SIGNED_OUT / lost session
+//               (e.g. expired token, failed refresh) it auto-redirects to #login.
+function setupAuthStateListener() {
+  if (!supabase || !supabase.auth || typeof supabase.auth.onAuthStateChange !== 'function') {
+    return;
+  }
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Auth state change:', event);
+    // Token expired and refresh failed, user signed out, or account removed
+    if (event === 'SIGNED_OUT' || ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && !session)) {
+      handleSessionExpired();
+    }
+  });
+}
+
 // initAuth() — Initialize authentication on page load
 // Returns: undefined
 // Side effects: checks localStorage, validates with Supabase, rehydrates, sets up realtime
 // Called automatically at end of module
 async function initAuth() {
   try {
+    // Listen for auth events (expiry/sign-out) from this point on
+    setupAuthStateListener();
+
     const token = localStorage.getItem('sb-token');
 
     if (!token) {

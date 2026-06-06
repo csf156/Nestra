@@ -76,10 +76,12 @@ async function loadView(viewName, context = {}) {
     const appContainer = document.getElementById('app');
     if (appContainer) {
       appContainer.innerHTML = `
-        <div class="error-card" style="padding: 2rem; margin: 2rem; border: 1px solid #ef4444; border-radius: 0.5rem; background: #fee2e2; color: #7f1d1d;">
-          <h2 style="margin-top: 0;">Error Loading View</h2>
-          <p>${err.message}</p>
-          <p>Please check the console for more details.</p>
+        <div class="alert error" style="margin: var(--space-xl);">
+          <div class="alert-content">
+            <p class="alert-title">No se pudo cargar la vista</p>
+            <p>${err.message}</p>
+            <p>Revisa la consola para más detalles.</p>
+          </div>
         </div>
       `;
     }
@@ -99,77 +101,66 @@ function setChromeVisible(visible) {
   document.body.classList.toggle('no-chrome', !visible);
 }
 
+// Route table — single source of truth for hash → view + access level.
+// `public: true` means no session required (login/register/recovery).
+// Everything else is protected and bounces to #login without a session.
+const ROUTES = {
+  login: { view: 'login', public: true },
+  register: { view: 'register', public: true },
+  'forgot-password': { view: 'forgot-password', public: true },
+  dashboard: { view: 'dashboard' },
+  historial: { view: 'historial' },
+  transaccion: { view: 'transaccion' },
+  graficos: { view: 'graficos' },
+  metas: { view: 'metas' },
+  decisiones: { view: 'decisiones' },
+  resumen: { view: 'resumen' },
+  prestamos: { view: 'prestamos' },
+  configuracion: { view: 'configuracion' },
+};
+
+const DEFAULT_ROUTE = 'dashboard';
+
 async function handleRouteChange() {
   try {
     // Get current hash, strip # and lowercase
-    let hash = window.location.hash.slice(1).toLowerCase() || 'dashboard';
+    let hash = window.location.hash.slice(1).toLowerCase() || DEFAULT_ROUTE;
 
     console.log(`Route changed to: ${hash}`);
 
-    // Public routes that don't require authentication
-    const publicRoutes = ['login', 'register', 'forgot-password'];
+    // Unknown route → redirect to default (re-enters via hashchange)
+    let route = ROUTES[hash];
+    if (!route) {
+      console.warn(`Unknown route: ${hash}, redirecting to #${DEFAULT_ROUTE}`);
+      window.location.hash = `#${DEFAULT_ROUTE}`;
+      return;
+    }
 
-    // Protected routes
-    const protectedRoutes = ['dashboard', 'profile', 'settings', 'transaccion', 'historial', 'metas', 'config'];
+    const isPublic = route.public === true;
 
-    // Check if route is protected
-    if (protectedRoutes.includes(hash) && !isAuthenticated()) {
+    // Protected route without a session → login
+    if (!isPublic && !isAuthenticated()) {
       console.warn(`Redirect: ${hash} requires authentication`);
       window.location.hash = '#login';
       return;
     }
 
-    // Prevent authenticated users from accessing login/register
-    if (publicRoutes.includes(hash) && isAuthenticated()) {
+    // Authenticated user on a public auth view → dashboard
+    if (isPublic && isAuthenticated()) {
       console.log('User already authenticated, redirecting to dashboard');
-      window.location.hash = '#dashboard';
+      window.location.hash = `#${DEFAULT_ROUTE}`;
       return;
     }
 
     // Hide navbar on public views, show it inside the app
-    setChromeVisible(!publicRoutes.includes(hash));
+    setChromeVisible(!isPublic);
 
-    // Load the appropriate view
-    switch (hash) {
-      case 'login':
-        await loadView('login');
-        break;
-      case 'register':
-        await loadView('register');
-        break;
-      case 'forgot-password':
-        await loadView('forgot-password');
-        break;
-      case 'dashboard':
-        await loadView('dashboard');
-        break;
-      case 'transaccion':
-        await loadView('transaccion');
-        break;
-      case 'historial':
-        await loadView('historial');
-        break;
-      case 'metas':
-        await loadView('metas');
-        break;
-      case 'config':
-        await loadView('config');
-        break;
-      default:
-        console.warn(`Unknown route: ${hash}, defaulting to dashboard`);
-        await loadView('dashboard');
-        break;
-    }
+    // Load the matching view from views/
+    await loadView(route.view);
   } catch (err) {
+    // loadView already rendered an inline error card; don't overwrite it with
+    // the login view (that made every not-yet-built route look like login).
     console.error('Error handling route change:', err.message);
-
-    // Fallback: try to load login view
-    try {
-      setChromeVisible(false);
-      await loadView('login');
-    } catch (fallbackErr) {
-      console.error('Failed to load fallback login view:', fallbackErr.message);
-    }
   }
 }
 
