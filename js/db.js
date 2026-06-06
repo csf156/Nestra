@@ -530,14 +530,15 @@ async function getPrestamos(estado = null) {
   }
 }
 
-// insertPrestamo(transaccion_id, deudor) — registra un préstamo nuevo.
+// insertPrestamo(transaccion_id, deudor, estado?) — registra un préstamo nuevo.
+// estado: 'pendiente' (default) | 'devuelto' (para registrar préstamos ya saldados).
 // Llamar DESPUÉS de insertar la transacción de gasto asociada.
 // Returns: fila insertada. Lanza Error en fallo.
-async function insertPrestamo(transaccion_id, deudor) {
+async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
   try {
     const { data, error } = await supabase
       .from('prestamos')
-      .insert({ transaccion_id, deudor, estado: 'pendiente' })
+      .insert({ transaccion_id, deudor, estado })
       .select()
       .single();
     if (error) throw error;

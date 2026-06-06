@@ -1,66 +1,118 @@
-<div class="container transaccion-container">
-  <div class="header">
-    <h1>Nueva Transacción</h1>
+<div class="container tx-container">
+  <div class="tx-header">
+    <h1 id="transaccionModalTitle">Nueva transacción</h1>
     <p>Registra un ingreso o gasto</p>
   </div>
 
-  <div class="card transaccion-card">
+  <div class="card tx-card">
+
+    <!-- ── Pantalla de éxito (oculta hasta guardar) ─────────────── -->
+    <div id="txExito" class="tx-exito" style="display:none;" aria-live="polite">
+      <div class="tx-exito-icon" aria-hidden="true">✓</div>
+      <p class="tx-exito-msg">Transacción guardada</p>
+      <div id="txAlertaPost" style="display:none; margin-top: var(--space-md);"></div>
+      <button type="button" class="btn btn-primary" id="txExitoContinuar"
+              style="margin-top: var(--space-lg); min-width: 140px;">Continuar</button>
+    </div>
+
+    <!-- ── Formulario ────────────────────────────────────────────── -->
     <form id="transaccionForm" novalidate>
-      <!-- Tipo: gasto / ingreso -->
-      <div class="form-group">
-        <label for="tipo">Tipo</label>
-        <select id="tipo" name="tipo" required>
-          <option value="gasto">Gasto</option>
-          <option value="ingreso">Ingreso</option>
-        </select>
+
+      <!-- Tipo -->
+      <div class="form-group tx-toggle-group">
+        <label>Tipo</label>
+        <div class="tx-toggle" role="group" aria-label="Tipo de transacción">
+          <button type="button" class="tx-toggle-btn tx-toggle-btn--gasto tx-active"
+                  id="btnTipoGasto" aria-pressed="true">
+            <span class="tx-toggle-icon" aria-hidden="true">↑</span> Gasto
+          </button>
+          <button type="button" class="tx-toggle-btn tx-toggle-btn--ingreso"
+                  id="btnTipoIngreso" aria-pressed="false">
+            <span class="tx-toggle-icon" aria-hidden="true">↓</span> Ingreso
+          </button>
+        </div>
+        <input type="hidden" id="tipo" value="gasto">
       </div>
 
-      <!-- Ámbito: personal / hogar -->
-      <div class="form-group">
-        <label for="ambito">Ámbito</label>
-        <select id="ambito" name="ambito" required>
-          <option value="personal">Personal</option>
-          <option value="hogar">Hogar</option>
-        </select>
+      <!-- Ámbito -->
+      <div class="form-group tx-toggle-group">
+        <label>Ámbito</label>
+        <div class="tx-toggle" role="group" aria-label="Ámbito de la transacción">
+          <button type="button" class="tx-toggle-btn tx-active"
+                  id="btnAmbitoPersonal" aria-pressed="true">Personal</button>
+          <button type="button" class="tx-toggle-btn"
+                  id="btnAmbitoHogar" aria-pressed="false">Hogar</button>
+        </div>
+        <input type="hidden" id="ambito" value="personal">
       </div>
 
-      <!-- Categoría (se llena según el tipo) -->
+      <!-- Categoría -->
       <div class="form-group">
         <label for="categoria">Categoría</label>
         <select id="categoria" name="categoria" required>
           <option value="">Cargando categorías...</option>
         </select>
-        <span id="categoriaError" class="form-error" role="alert" style="display: none;"></span>
+        <span id="categoriaError" class="form-error" role="alert" style="display:none;"></span>
       </div>
 
-      <!-- Mini-form: crear categoría al vuelo (visible solo al elegir "+ Crear nueva") -->
-      <div id="nuevaCatGroup" class="form-group nueva-cat-group" style="display: none;" role="group" aria-label="Nueva categoría">
+      <!-- Mini-form: nueva categoría al vuelo -->
+      <div id="nuevaCatGroup" class="form-group nueva-cat-group"
+           style="display:none;" role="group" aria-label="Nueva categoría">
         <label for="nuevaCatNombre">Nombre de la nueva categoría</label>
         <div class="nueva-cat-row">
           <input type="text" id="nuevaCatNombre" name="nuevaCatNombre"
-                 placeholder="Ej: Suscripciones" maxlength="60" autocomplete="off" aria-required="true" />
-          <button type="button" class="btn btn-primary btn-small" id="nuevaCatGuardar">Crear</button>
-          <button type="button" class="btn btn-secondary btn-small" id="nuevaCatCancelar" aria-label="Cancelar nueva categoría">✕</button>
+                 placeholder="Ej: Suscripciones" maxlength="60"
+                 autocomplete="off" aria-required="true" />
+          <button type="button" class="btn btn-primary btn-small"
+                  id="nuevaCatGuardar">Crear</button>
+          <button type="button" class="btn btn-secondary btn-small"
+                  id="nuevaCatCancelar" aria-label="Cancelar nueva categoría">✕</button>
         </div>
-        <span id="nuevaCatError" class="form-error" role="alert" style="display: none;"></span>
+        <span id="nuevaCatError" class="form-error" role="alert" style="display:none;"></span>
       </div>
 
-      <!-- Monto -->
-      <div class="form-group">
-        <label for="monto">Monto (S/)</label>
-        <input type="number" id="monto" name="monto" step="0.01" min="0.01"
-               inputmode="decimal" placeholder="0.00" required />
-        <span id="montoError" class="form-error" role="alert" style="display: none;"></span>
+      <!-- Monto + Fecha -->
+      <div class="tx-row">
+        <div class="form-group">
+          <label for="monto">Monto</label>
+          <div class="tx-monto-wrap">
+            <span class="tx-currency" aria-hidden="true">S/</span>
+            <input type="number" id="monto" name="monto" step="0.01" min="0.01"
+                   inputmode="decimal" placeholder="0.00" required />
+          </div>
+          <span id="montoError" class="form-error" role="alert" style="display:none;"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="fecha">Fecha</label>
+          <input type="date" id="fecha" name="fecha" required />
+        </div>
       </div>
 
-      <!-- Fecha (por defecto hoy) -->
-      <div class="form-group">
-        <label for="fecha">Fecha</label>
-        <input type="date" id="fecha" name="fecha" required />
+      <!-- Préstamo: deudor + estado (condicional) -->
+      <div id="prestamoGroup" class="form-group tx-prestamo-group"
+           style="display:none;" aria-live="polite">
+        <div class="tx-section-label">Datos del préstamo</div>
+        <div class="tx-row">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="deudor">¿A quién le prestas?</label>
+            <input type="text" id="deudor" name="deudor" maxlength="120"
+                   placeholder="Nombre del deudor" autocomplete="off" />
+            <span id="deudorError" class="form-error" role="alert" style="display:none;"></span>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="estadoPrestamo">Estado</label>
+            <select id="estadoPrestamo" name="estadoPrestamo">
+              <option value="pendiente">Pendiente</option>
+              <option value="devuelto">Devuelto</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      <!-- Aporte al hogar (solo visible cuando ámbito=hogar y tipo=gasto) -->
-      <div id="aporteHogarGroup" class="form-group aporte-hogar-group" style="display: none;">
+      <!-- Aporte al hogar (condicional) -->
+      <div id="aporteHogarGroup" class="form-group aporte-hogar-group"
+           style="display:none;" aria-live="polite">
         <label class="checkbox-label">
           <input type="checkbox" id="aporteHogar" name="aporteHogar" />
           <span>Registrar como aporte al hogar</span>
@@ -68,28 +120,23 @@
         <p class="form-hint">Crea dos transacciones vinculadas: tu gasto y el ingreso del hogar.</p>
       </div>
 
-      <!-- Préstamo: deudor (solo visible cuando categoría = "Dinero que prestamos") -->
-      <div id="prestamoGroup" class="form-group" style="display: none;">
-        <label for="deudor">¿A quién le prestas?</label>
-        <input type="text" id="deudor" name="deudor" maxlength="120"
-               placeholder="Nombre del deudor" autocomplete="off" />
-        <span id="deudorError" class="form-error" role="alert" style="display: none;"></span>
-      </div>
-
-      <!-- Nota (opcional) -->
+      <!-- Nota -->
       <div class="form-group">
         <label for="nota">Nota <span class="label-opcional">(opcional)</span></label>
         <textarea id="nota" name="nota" rows="2" placeholder="Descripción libre..."></textarea>
       </div>
 
       <!-- Error general -->
-      <div id="formError" class="alert error" role="alert" aria-live="assertive" style="display: none;"></div>
+      <div id="formError" class="alert error" role="alert"
+           aria-live="assertive" style="display:none;"></div>
 
+      <!-- Acciones -->
       <div class="transaccion-actions">
         <button type="button" class="btn btn-secondary" id="cancelarBtn">Cancelar</button>
         <button type="submit" class="btn btn-primary" id="guardarBtn">
           <span id="guardarText">Guardar</span>
-          <span id="guardarSpinner" class="spinner" role="status" aria-label="Guardando" style="display: none;"></span>
+          <span id="guardarSpinner" class="spinner" role="status"
+                aria-label="Guardando" style="display:none;"></span>
         </button>
       </div>
     </form>
@@ -97,57 +144,145 @@
 </div>
 
 <style>
-  /* Transacción view — layout only; components/tokens carry the styling */
-  .transaccion-container {
+  .tx-container {
     max-width: 560px;
     margin: 0 auto;
     padding: var(--space-lg);
   }
 
-  .transaccion-container .header {
+  .tx-header {
     margin-bottom: var(--space-lg);
   }
-
-  .transaccion-container .header h1 {
-    margin: 0 0 var(--space-sm);
+  .tx-header h1 {
+    margin: 0 0 var(--space-xs);
     font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
     color: var(--text-dark);
   }
-
-  .transaccion-container .header p {
+  .tx-header p {
     margin: 0;
     color: var(--text-secondary);
+    font-size: var(--font-size-sm);
   }
 
-  .transaccion-card:hover {
+  .tx-card:hover {
     transform: none;
     box-shadow: var(--shadow-md);
   }
 
-  .label-opcional {
+  /* ── Pill toggles ────────────────────────────────────────── */
+  .tx-toggle-group label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
     color: var(--text-secondary);
-    font-weight: var(--font-weight-normal);
-    font-size: var(--font-size-xs);
+    margin-bottom: var(--space-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
-
-  .transaccion-actions {
+  .tx-toggle {
     display: flex;
+    gap: 0;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    width: fit-content;
+  }
+  .tx-toggle-btn {
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    background: var(--bg-light);
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    white-space: nowrap;
+  }
+  .tx-toggle-btn + .tx-toggle-btn {
+    border-left: 1px solid var(--border-light);
+  }
+  .tx-toggle-btn.tx-active {
+    background: var(--color-primary);
+    color: #fff;
+  }
+  .tx-toggle-btn--gasto.tx-active {
+    background: var(--color-danger);
+  }
+  .tx-toggle-btn--ingreso.tx-active {
+    background: var(--color-success);
+  }
+  .tx-toggle-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    z-index: 1;
+    position: relative;
+  }
+  .tx-toggle-icon {
+    font-size: 1.1em;
+    line-height: 1;
+  }
+
+  /* ── Monto con prefijo ───────────────────────────────────── */
+  .tx-monto-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .tx-currency {
+    position: absolute;
+    left: var(--space-md);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-base);
+    pointer-events: none;
+    user-select: none;
+  }
+  .tx-monto-wrap input {
+    padding-left: 2.75rem;
+    width: 100%;
+  }
+
+  /* ── Row de 2 columnas ───────────────────────────────────── */
+  .tx-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: var(--space-md);
-    margin-top: var(--space-lg);
+  }
+  @media (max-width: 420px) {
+    .tx-row { grid-template-columns: 1fr; }
   }
 
-  .transaccion-actions .btn {
-    flex: 1;
+  /* ── Sección préstamo ────────────────────────────────────── */
+  .tx-prestamo-group {
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-left: 3px solid var(--color-warning);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    animation: txSlideDown 0.2s ease-out;
+  }
+  .tx-section-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-warning);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-md);
   }
 
-  /* Aporte al hogar toggle */
+  /* ── Aporte hogar ────────────────────────────────────────── */
   .aporte-hogar-group {
     background: var(--bg-light-secondary);
     border: 1px solid var(--border-light);
+    border-left: 3px solid var(--color-primary);
     border-radius: var(--radius-md);
     padding: var(--space-md);
+    animation: txSlideDown 0.2s ease-out;
   }
-
   .checkbox-label {
     display: flex;
     align-items: center;
@@ -156,7 +291,6 @@
     font-weight: var(--font-weight-semibold);
     color: var(--text-dark);
   }
-
   .checkbox-label input[type="checkbox"] {
     width: 18px;
     height: 18px;
@@ -164,21 +298,20 @@
     cursor: pointer;
     flex-shrink: 0;
   }
-
   .form-hint {
     margin: var(--space-xs) 0 0;
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
   }
+  .nueva-cat-group .form-hint { font-size: var(--font-size-xs); }
 
-  /* Categoría al vuelo — mini-form */
+  /* ── Nueva categoría ─────────────────────────────────────── */
   .nueva-cat-group {
     background: var(--bg-light-secondary);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-md);
     padding: var(--space-md);
   }
-
   .nueva-cat-group label {
     display: block;
     font-size: var(--font-size-sm);
@@ -186,88 +319,180 @@
     color: var(--text-dark);
     margin-bottom: var(--space-sm);
   }
-
   .nueva-cat-row {
     display: flex;
     gap: var(--space-sm);
     align-items: center;
   }
-
-  .nueva-cat-row input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* btn-small already defined globally; whitespace tweak only */
+  .nueva-cat-row input { flex: 1; min-width: 0; }
   .nueva-cat-row .btn-small { white-space: nowrap; }
 
-  /* form-hint: scope xs size to mini-form (global uses font-size-sm) */
-  .nueva-cat-group .form-hint { font-size: var(--font-size-xs); }
+  /* ── Pantalla de éxito ───────────────────────────────────── */
+  .tx-exito {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-xl) var(--space-lg);
+    text-align: center;
+    animation: txFadeIn 0.3s ease-out;
+  }
+  .tx-exito-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--color-success);
+    color: #fff;
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-md);
+    animation: txPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tx-exito-msg {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+  }
+
+  /* ── Misc ────────────────────────────────────────────────── */
+  .label-opcional {
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-normal);
+    font-size: var(--font-size-xs);
+  }
+  .transaccion-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+  }
+  .transaccion-actions .btn { flex: 1; }
+
+  /* ── Animaciones ─────────────────────────────────────────── */
+  @keyframes txSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes txFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes txPop {
+    from { opacity: 0; transform: scale(0.5); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 </style>
 
 <script>
   (function () {
-    const form        = document.getElementById('transaccionForm');
-    const tipoEl       = document.getElementById('tipo');
-    const ambitoEl     = document.getElementById('ambito');
-    const categoriaEl  = document.getElementById('categoria');
-    const montoEl      = document.getElementById('monto');
-    const fechaEl      = document.getElementById('fecha');
-    const notaEl       = document.getElementById('nota');
+    const form           = document.getElementById('transaccionForm');
+    const tipoEl         = document.getElementById('tipo');
+    const ambitoEl       = document.getElementById('ambito');
+    const categoriaEl    = document.getElementById('categoria');
+    const montoEl        = document.getElementById('monto');
+    const fechaEl        = document.getElementById('fecha');
+    const notaEl         = document.getElementById('nota');
+
+    const btnTipoGasto    = document.getElementById('btnTipoGasto');
+    const btnTipoIngreso  = document.getElementById('btnTipoIngreso');
+    const btnAmbitoPersonal = document.getElementById('btnAmbitoPersonal');
+    const btnAmbitoHogar    = document.getElementById('btnAmbitoHogar');
 
     const aporteHogarGroup = document.getElementById('aporteHogarGroup');
     const aporteHogarEl    = document.getElementById('aporteHogar');
 
-    const nuevaCatGroup   = document.getElementById('nuevaCatGroup');
-    const nuevaCatNombre  = document.getElementById('nuevaCatNombre');
-    const nuevaCatGuardar = document.getElementById('nuevaCatGuardar');
-    const nuevaCatCancelar = document.getElementById('nuevaCatCancelar');
-    const nuevaCatError   = document.getElementById('nuevaCatError');
+    const prestamoGroup    = document.getElementById('prestamoGroup');
+    const deudorEl         = document.getElementById('deudor');
+    const estadoPrestamoEl = document.getElementById('estadoPrestamo');
+    const deudorError      = document.getElementById('deudorError');
 
-    const prestamoGroup = document.getElementById('prestamoGroup');
-    const deudorEl      = document.getElementById('deudor');
-    const deudorError   = document.getElementById('deudorError');
+    const nuevaCatGroup    = document.getElementById('nuevaCatGroup');
+    const nuevaCatNombre   = document.getElementById('nuevaCatNombre');
+    const nuevaCatGuardar  = document.getElementById('nuevaCatGuardar');
+    const nuevaCatCancelar = document.getElementById('nuevaCatCancelar');
+    const nuevaCatError    = document.getElementById('nuevaCatError');
 
     const categoriaError = document.getElementById('categoriaError');
     const montoError     = document.getElementById('montoError');
     const formError      = document.getElementById('formError');
-
     const guardarBtn     = document.getElementById('guardarBtn');
     const guardarText    = document.getElementById('guardarText');
     const guardarSpinner = document.getElementById('guardarSpinner');
     const cancelarBtn    = document.getElementById('cancelarBtn');
 
-    // Fecha por defecto: hoy (formato YYYY-MM-DD, valor nativo del input date).
-    const hoy = new Date();
-    fechaEl.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    const txExito          = document.getElementById('txExito');
+    const txAlertaPost     = document.getElementById('txAlertaPost');
+    const txExitoContinuar = document.getElementById('txExitoContinuar');
 
     const CAT_PRESTAMO = 'Dinero que prestamos';
 
-    // _esPrestamo() — true si la opción seleccionada es la categoría de préstamo.
-    function _esPrestamo() {
-      const opt = categoriaEl.selectedOptions[0];
-      return opt && opt.text === CAT_PRESTAMO;
+    // ── Fecha por defecto: hoy ────────────────────────────────
+    const hoy = new Date();
+    fechaEl.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    // ── Helpers ───────────────────────────────────────────────
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function mostrar(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+    function ocultar(el)      { el.style.display = 'none'; el.textContent = ''; }
+
+    function _salir() {
+      if (window._modalMode && typeof cerrarModal === 'function') {
+        cerrarModal();
+      } else {
+        window.location.hash = '#dashboard';
+      }
     }
 
-    // _mostrarPrestamo() / _ocultarPrestamo() — campo deudor.
-    function _mostrarPrestamo() {
-      prestamoGroup.style.display = 'block';
+    // ── Pill toggles ──────────────────────────────────────────
+    function _setTipo(val) {
+      tipoEl.value = val;
+      btnTipoGasto.classList.toggle('tx-active', val === 'gasto');
+      btnTipoGasto.setAttribute('aria-pressed', String(val === 'gasto'));
+      btnTipoIngreso.classList.toggle('tx-active', val === 'ingreso');
+      btnTipoIngreso.setAttribute('aria-pressed', String(val === 'ingreso'));
+      cargarCategorias();
+      _mostrarAporteHogar();
     }
-    function _ocultarPrestamo() {
-      prestamoGroup.style.display = 'none';
-      deudorEl.value = '';
-      ocultar(deudorError);
+    function _setAmbito(val) {
+      ambitoEl.value = val;
+      btnAmbitoPersonal.classList.toggle('tx-active', val === 'personal');
+      btnAmbitoPersonal.setAttribute('aria-pressed', String(val === 'personal'));
+      btnAmbitoHogar.classList.toggle('tx-active', val === 'hogar');
+      btnAmbitoHogar.setAttribute('aria-pressed', String(val === 'hogar'));
+      _mostrarAporteHogar();
     }
 
-    // _mostrarAporteHogar() — muestra/oculta el toggle según tipo + ámbito.
+    btnTipoGasto.addEventListener('click',   () => _setTipo('gasto'));
+    btnTipoIngreso.addEventListener('click',  () => _setTipo('ingreso'));
+    btnAmbitoPersonal.addEventListener('click', () => _setAmbito('personal'));
+    btnAmbitoHogar.addEventListener('click',    () => _setAmbito('hogar'));
+
+    // ── Aporte al hogar ───────────────────────────────────────
     function _mostrarAporteHogar() {
       const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto';
       aporteHogarGroup.style.display = esHogarGasto ? 'block' : 'none';
       if (!esHogarGasto) aporteHogarEl.checked = false;
     }
 
-    // cargarCategorias(autoSelectId?) — llena el select según el tipo.
-    // Si se pasa autoSelectId, selecciona esa opción tras cargar.
+    // ── Préstamo ──────────────────────────────────────────────
+    function _esPrestamo() {
+      const opt = categoriaEl.selectedOptions[0];
+      return opt && opt.text === CAT_PRESTAMO;
+    }
+    function _mostrarPrestamo()  { prestamoGroup.style.display = 'block'; }
+    function _ocultarPrestamo()  {
+      prestamoGroup.style.display = 'none';
+      deudorEl.value = '';
+      estadoPrestamoEl.value = 'pendiente';
+      ocultar(deudorError);
+    }
+
+    // ── Categorías ────────────────────────────────────────────
     async function cargarCategorias(autoSelectId) {
       const tipo = tipoEl.value;
       categoriaEl.disabled = true;
@@ -282,9 +507,10 @@
         }
         categoriaEl.innerHTML =
           '<option value="">Selecciona una categoría</option>' +
-          cats.map((c) => `<option value="${c.id}">${c.nombre}</option>`).join('') +
-          '<option value="__nueva__">+ Crear nueva categoría...</option>';
+          cats.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('') +
+          '<option value="__nueva__">+ Nueva categoría</option>';
         if (autoSelectId) categoriaEl.value = autoSelectId;
+        if (_esPrestamo()) _mostrarPrestamo();
       } catch (err) {
         console.error('Error cargando categorías:', err);
         categoriaEl.innerHTML = '<option value="">Error al cargar</option>';
@@ -293,7 +519,19 @@
       }
     }
 
-    // _mostrarNuevaCat() / _ocultarNuevaCat() — controla visibilidad del mini-form.
+    categoriaEl.addEventListener('change', () => {
+      ocultar(categoriaError);
+      if (categoriaEl.value === '__nueva__') {
+        categoriaEl.value = '';
+        _ocultarPrestamo();
+        _mostrarNuevaCat();
+      } else {
+        _ocultarNuevaCat();
+        if (_esPrestamo()) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
+      }
+    });
+
+    // ── Nueva categoría al vuelo ──────────────────────────────
     function _mostrarNuevaCat() {
       nuevaCatGroup.style.display = 'block';
       nuevaCatNombre.value = '';
@@ -308,20 +546,6 @@
       ocultar(nuevaCatError);
     }
 
-    // Detectar selección de "+ Crear nueva categoría..." o categoría de préstamo.
-    categoriaEl.addEventListener('change', () => {
-      ocultar(categoriaError);
-      if (categoriaEl.value === '__nueva__') {
-        categoriaEl.value = '';
-        _ocultarPrestamo();
-        _mostrarNuevaCat();
-      } else {
-        _ocultarNuevaCat();
-        if (_esPrestamo()) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
-      }
-    });
-
-    // Crear categoría al vuelo.
     nuevaCatGuardar.addEventListener('click', async () => {
       const nombre = nuevaCatNombre.value.trim();
       if (!nombre) {
@@ -335,8 +559,6 @@
       try {
         const cat = await insertCategoria({ nombre, tipo: tipoEl.value });
         await cargarCategorias(cat.id);
-        // Si la recarga falló silenciosamente (getCategorias devolvió []),
-        // la categoría existe en DB pero no está en el select. Avisar.
         if (categoriaEl.value !== cat.id) {
           mostrar(nuevaCatError, 'Categoría creada, pero no se pudo recargar la lista. Recarga la página.');
           nuevaCatGuardar.disabled = false;
@@ -349,27 +571,17 @@
       }
     });
 
-    // Enter en el input de nombre activa "Crear".
     nuevaCatNombre.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); nuevaCatGuardar.click(); }
     });
-
     nuevaCatCancelar.addEventListener('click', () => {
       _ocultarNuevaCat();
       categoriaEl.value = '';
     });
 
-    // Recargar categorías y reevaluar toggle cuando cambia tipo o ámbito.
-    tipoEl.addEventListener('change', () => { cargarCategorias(); _mostrarAporteHogar(); });
-    ambitoEl.addEventListener('change', _mostrarAporteHogar);
-
-    // Limpiar error de monto al editar.
     montoEl.addEventListener('input', () => ocultar(montoError));
 
-    function mostrar(el, msg) { el.textContent = msg; el.style.display = 'block'; }
-    function ocultar(el) { el.style.display = 'none'; el.textContent = ''; }
-
-    // validar() — validación inline. Retorna true si el formulario es válido.
+    // ── Validación ────────────────────────────────────────────
     function validar() {
       let ok = true;
       ocultar(categoriaError);
@@ -404,45 +616,70 @@
       guardarText.style.display    = cargando ? 'none' : 'inline';
     }
 
-    function _salir() {
-      if (window._modalMode && typeof cerrarModal === 'function') {
-        cerrarModal();
+    // ── Pantalla de éxito ─────────────────────────────────────
+    async function mostrarExito(categoriaId) {
+      form.style.display = 'none';
+      txExito.style.display = 'flex';
+
+      // Evaluar alerta de categoría de forma no bloqueante.
+      const { mes, anio } = mesActual();
+      let alerta = null;
+      try {
+        alerta = await evaluarAlertaCategoria(categoriaId, mes, anio);
+      } catch (_) {}
+
+      if (alerta) {
+        txAlertaPost.innerHTML = `
+          <div class="alert-item alert-item--${esc(alerta.nivel)}" role="status">
+            <span class="alert-icon" aria-hidden="true">${esc(alerta.icono)}</span>
+            <span>${esc(alerta.mensaje)}</span>
+          </div>`;
+        txAlertaPost.style.display = 'block';
+        // Con alerta: espera que el usuario haga click.
       } else {
-        window.location.hash = '#dashboard';
+        // Sin alerta: navega automáticamente tras 1.8s.
+        setTimeout(() => {
+          if (window._modalMode) window._modalRefresh = true;
+          _salir();
+        }, 1800);
       }
     }
 
+    txExitoContinuar.addEventListener('click', () => {
+      if (window._modalMode) window._modalRefresh = true;
+      _salir();
+    });
+
     cancelarBtn.addEventListener('click', _salir);
 
+    // ── Submit ────────────────────────────────────────────────
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       if (!validar()) return;
 
-      const monto = parseFloat(montoEl.value);
-      const fecha = fechaEl.value;
-      const nota  = notaEl.value.trim() || null;
+      const monto           = parseFloat(montoEl.value);
+      const fecha           = fechaEl.value;
+      const nota            = notaEl.value.trim() || null;
+      const savedCatId      = categoriaEl.value;
 
       setCargando(true);
       try {
         if (aporteHogarEl.checked) {
-          // Aporte al hogar: crea gasto personal + ingreso hogar vinculados.
-          await insertAporteHogar(monto, categoriaEl.value, nota, fecha);
+          await insertAporteHogar(monto, savedCatId, nota, fecha);
         } else {
           const tx = await insertTransaccion({
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
-            categoria_id: categoriaEl.value,
+            categoria_id: savedCatId,
             monto,
             fecha,
             nota,
           });
-          // Préstamo: registrar deudor vinculado a la transacción recién creada.
           if (prestamoGroup.style.display !== 'none') {
-            await insertPrestamo(tx.id, deudorEl.value.trim());
+            await insertPrestamo(tx.id, deudorEl.value.trim(), estadoPrestamoEl.value);
           }
         }
-        if (window._modalMode) window._modalRefresh = true;
-        _salir();
+        await mostrarExito(savedCatId);
       } catch (err) {
         mostrar(formError, err.message || 'No se pudo guardar la transacción.');
         formError.style.display = 'flex';
@@ -450,7 +687,7 @@
       }
     });
 
-    // Carga inicial.
+    // ── Carga inicial ─────────────────────────────────────────
     cargarCategorias();
     _mostrarAporteHogar();
   })();
