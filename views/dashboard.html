@@ -14,21 +14,21 @@
           <label>Ingresos</label>
           <p class="balance-value">
             <span id="householdIncome">$0.00</span>
-            <span id="householdIncomeSpinner" class="spinner" style="display: none;"></span>
+            <span id="householdIncomeSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
         <div class="balance-item">
           <label>Gastos</label>
           <p class="balance-value">
             <span id="householdExpenses">$0.00</span>
-            <span id="householdExpensesSpinner" class="spinner" style="display: none;"></span>
+            <span id="householdExpensesSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
         <div class="balance-item">
           <label>Balance</label>
-          <p class="balance-value balance-positive">
-            <span id="householdBalance">$0.00</span>
-            <span id="householdBalanceSpinner" class="spinner" style="display: none;"></span>
+          <p class="balance-value" id="householdBalance" data-balance>
+            <span class="balance-amount">$0.00</span>
+            <span id="householdBalanceSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
       </div>
@@ -42,21 +42,21 @@
           <label>Ingresos</label>
           <p class="balance-value">
             <span id="personalIncome">$0.00</span>
-            <span id="personalIncomeSpinner" class="spinner" style="display: none;"></span>
+            <span id="personalIncomeSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
         <div class="balance-item">
           <label>Gastos</label>
           <p class="balance-value">
             <span id="personalExpenses">$0.00</span>
-            <span id="personalExpensesSpinner" class="spinner" style="display: none;"></span>
+            <span id="personalExpensesSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
         <div class="balance-item">
           <label>Balance</label>
-          <p class="balance-value balance-positive">
-            <span id="personalBalance">$0.00</span>
-            <span id="personalBalanceSpinner" class="spinner" style="display: none;"></span>
+          <p class="balance-value" id="personalBalance" data-balance>
+            <span class="balance-amount">$0.00</span>
+            <span id="personalBalanceSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
           </p>
         </div>
       </div>
@@ -81,8 +81,8 @@
         </thead>
         <tbody id="transactionsBody">
           <tr>
-            <td colspan="4" class="text-center">
-              <span class="spinner"></span>
+            <td colspan="4" class="text-center" aria-live="polite">
+              <span class="spinner" aria-hidden="true"></span>
               <p>Cargando transacciones...</p>
             </td>
           </tr>
@@ -94,9 +94,9 @@
   <!-- Goals in Progress -->
   <div class="card">
     <h2>Metas en Progreso</h2>
-    <div id="metasContainer">
+    <div id="metasContainer" aria-live="polite">
       <div class="text-center">
-        <span class="spinner"></span>
+        <span class="spinner" aria-hidden="true"></span>
         <p>Cargando metas...</p>
       </div>
     </div>
@@ -107,33 +107,34 @@
 </div>
 
 <style>
+  /* Dashboard view — layout only; colors/components come from tokens */
   .dashboard-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--space-lg);
   }
 
   .header {
-    margin-bottom: 30px;
+    margin-bottom: var(--space-xl);
   }
 
   .header h1 {
-    margin: 0 0 10px 0;
-    font-size: 32px;
-    color: #333;
+    margin: 0 0 var(--space-sm);
+    font-size: var(--font-size-2xl);
+    color: var(--text-dark);
   }
 
   .header p {
     margin: 0;
-    color: #666;
-    font-size: 16px;
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
   }
 
   .cards-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
   }
 
   @media (min-width: 768px) {
@@ -142,25 +143,24 @@
     }
   }
 
-  .card {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: 20px;
+  /* Dashboard cards: no hover lift (they're informational, not clickable) */
+  .dashboard-container .card:hover {
+    transform: none;
+    box-shadow: var(--shadow-md);
   }
 
-  .card h2 {
-    margin: 0 0 20px 0;
-    font-size: 18px;
-    color: #333;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+  .dashboard-container .card h2 {
+    margin: 0 0 var(--space-md);
+    font-size: var(--font-size-lg);
+    color: var(--text-dark);
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: var(--space-sm);
   }
 
   .balance-row {
     display: flex;
     justify-content: space-between;
-    gap: 15px;
+    gap: var(--space-md);
   }
 
   .balance-item {
@@ -170,149 +170,62 @@
 
   .balance-item label {
     display: block;
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 8px;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
     text-transform: uppercase;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.5px;
   }
 
   .balance-value {
     margin: 0;
-    font-size: 20px;
-    font-weight: bold;
-    color: #333;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
-  .balance-positive {
-    color: #28a745;
+  /* Balance sign — not color-only: prepend an arrow glyph (WCAG 1.4.1) */
+  .balance-value--positive {
+    color: var(--color-success);
   }
 
-  .btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background-color 0.2s;
+  .balance-value--negative {
+    color: var(--color-danger);
   }
 
-  .btn-primary {
-    background-color: #007bff;
-    color: white;
+  .balance-value--positive .balance-amount::before {
+    content: "▲ ";
+    font-size: 0.7em;
   }
 
-  .btn-primary:hover:not(:disabled) {
-    background-color: #0056b3;
+  .balance-value--negative .balance-amount::before {
+    content: "▼ ";
+    font-size: 0.7em;
   }
 
-  .btn-primary:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-    opacity: 0.65;
+  /* Spinners scoped smaller than the global 40px default */
+  .dashboard-container .spinner {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
   }
 
-  .btn-block {
-    width: 100%;
-    display: block;
-    margin-bottom: 20px;
-  }
-
-  .spinner {
-    display: inline-block;
+  .balance-value .spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(0, 0, 0, 0.1);
-    border-top-color: #007bff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .table-responsive {
-    overflow-x: auto;
   }
 
   .transactions-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-  }
-
-  .transactions-table thead {
-    background-color: #f8f9fa;
-  }
-
-  .transactions-table th {
-    padding: 12px;
-    text-align: left;
-    font-weight: 600;
-    color: #333;
-    font-size: 13px;
-    border-bottom: 1px solid #ddd;
-  }
-
-  .transactions-table td {
-    padding: 12px;
-    border-bottom: 1px solid #eee;
-    font-size: 14px;
-  }
-
-  .transactions-table tbody tr:hover {
-    background-color: #f8f9fa;
-  }
-
-  .text-center {
-    text-align: center;
-    color: #666;
-  }
-
-  .text-center p {
-    margin: 10px 0 0 0;
+    margin-top: var(--space-sm);
   }
 
   .alerts-panel {
-    margin-top: 20px;
-  }
-
-  .alert {
-    padding: 12px;
-    border-radius: 4px;
-    margin-bottom: 10px;
-    font-size: 14px;
-  }
-
-  .alert-info {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-  }
-
-  .alert-warning {
-    background-color: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeaa7;
-  }
-
-  .alert-error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-  }
-
-  .alert-success {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+    margin-top: var(--space-lg);
   }
 </style>
 
@@ -331,9 +244,32 @@
       console.error('Error loading profile:', error);
     }
 
+    // setBalance(el, amount) — render a balance value with sign-aware styling.
+    // Adds ▲/▼ glyph + color so meaning isn't conveyed by color alone (WCAG 1.4.1).
+    // Phase 2 data loaders should call this instead of writing textContent directly.
+    window.setBalance = function (elId, amount) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const amountEl = el.querySelector('.balance-amount') || el;
+      const formatted = (typeof formatCurrency === 'function')
+        ? formatCurrency(amount)
+        : `$${Number(amount).toFixed(2)}`;
+      amountEl.textContent = formatted;
+      el.classList.remove('balance-value--positive', 'balance-value--negative');
+      if (amount > 0) {
+        el.classList.add('balance-value--positive');
+        el.setAttribute('aria-label', `Balance positivo: ${formatted}`);
+      } else if (amount < 0) {
+        el.classList.add('balance-value--negative');
+        el.setAttribute('aria-label', `Balance negativo: ${formatted}`);
+      } else {
+        el.removeAttribute('aria-label');
+      }
+    };
+
     // Aquí irá la lógica de carga de datos en Fase 2
-    // - Cargar balance del hogar
-    // - Cargar tu balance
+    // - Cargar balance del hogar  -> setBalance('householdBalance', monto)
+    // - Cargar tu balance         -> setBalance('personalBalance', monto)
     // - Cargar últimas transacciones
     // - Cargar metas en progreso
     // - Mostrar alertas dinámicas

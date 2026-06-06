@@ -1,70 +1,66 @@
-<div class="container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px;">
-  <div class="card" style="background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); padding: 40px; max-width: 400px; width: 100%;">
-    <h1 style="margin: 0 0 10px 0; font-size: 28px; color: #333;">Nestra</h1>
-    <p style="margin: 0 0 30px 0; color: #666; font-size: 14px;">Inicia sesión en tu cuenta</p>
+<div class="login-wrapper">
+  <div class="card login-card">
+    <h1 class="sr-only">Iniciar sesión en Nestra</h1>
+    <img src="assets/nestra_logo.png?v=2" alt="Nestra — Finanzas en pareja" class="login-logo brand-logo--light" />
+    <img src="assets/nestra_logo_dark.png?v=2" alt="Nestra — Finanzas en pareja" class="login-logo brand-logo--dark" />
+    <p class="card-subtitle login-subtitle">Inicia sesión en tu cuenta</p>
 
     <form id="loginForm">
-      <div class="form-group" style="margin-bottom: 20px;">
-        <label for="email" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Email</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          required
-          placeholder="tu@email.com"
-          style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;"
-        />
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required placeholder="tu@email.com" autocomplete="email" />
       </div>
 
-      <div class="form-group" style="margin-bottom: 20px;">
-        <label for="password" style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Contraseña</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          required
-          placeholder="••••••••"
-          style="width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;"
-        />
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" required placeholder="••••••••" autocomplete="current-password" />
       </div>
 
-      <div id="loginError" class="form-error" style="display: none; background-color: #f8d7da; color: #721c24; padding: 12px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; border: 1px solid #f5c6cb;"></div>
+      <div id="loginError" class="alert error login-error" role="alert" aria-live="assertive" style="display: none;"></div>
 
-      <button type="submit" class="btn btn-primary btn-block" style="width: 100%; padding: 10px 20px; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; background-color: #007bff; color: white; transition: background-color 0.2s;">
+      <button type="submit" class="btn btn-primary btn-block">
         <span id="loginButtonText">Ingresar</span>
-        <span id="loginSpinner" class="spinner" style="display: none; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; margin-left: 8px;"></span>
+        <span id="loginSpinner" class="spinner" role="status" aria-label="Iniciando sesión" style="display: none;"></span>
       </button>
     </form>
   </div>
 </div>
 
 <style>
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+  /* Login view — layout only (components/tokens carry the styling) */
+  .login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: var(--space-lg);
   }
 
-  #loginError:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  .login-card {
+    max-width: 400px;
+    width: 100%;
   }
 
-  button[type="submit"]:hover:not(:disabled) {
-    background-color: #0056b3;
+  .login-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-md);
   }
 
-  button[type="submit"]:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-    opacity: 0.65;
+  .login-logo {
+    display: block;
+    width: 180px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto var(--space-sm);
   }
 
-  input:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  .login-subtitle {
+    text-align: center;
+    margin-bottom: var(--space-lg);
+  }
+
+  .login-error {
+    margin-bottom: var(--space-md);
   }
 </style>
 
@@ -87,6 +83,7 @@
     loginSpinner.style.display = 'inline-block';
     loginButtonText.style.display = 'none';
     loginButton.disabled = true;
+    loginButton.setAttribute('aria-busy', 'true');
 
     try {
       const user = await login(email, password);
@@ -97,12 +94,13 @@
     } catch (error) {
       // Show error message
       loginError.textContent = error.message || 'Error al ingresar. Intenta de nuevo.';
-      loginError.style.display = 'block';
+      loginError.style.display = 'flex';
 
       // Restore button state
       loginSpinner.style.display = 'none';
       loginButtonText.style.display = 'inline';
       loginButton.disabled = false;
+      loginButton.removeAttribute('aria-busy');
     }
   });
 </script>

@@ -1,0 +1,305 @@
+/* ─────────────────────────────────────────────────────────────── */
+/* Nestra — layout.css: Body Flex, Nav Fixed, Main Responsive       */
+/* ─────────────────────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Body Layout — Flex Container */
+/* ─────────────────────────────────────────────────────────────── */
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Main Content — Mobile First */
+/* ─────────────────────────────────────────────────────────────── */
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 60px;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Navigation — Mobile First (Fixed Bottom) */
+/* ─────────────────────────────────────────────────────────────── */
+
+nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: var(--bg-light);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 var(--space-md);
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+
+/* Theme-aware brand logo — show light wordmark on light bg, light-text on dark */
+.brand-logo--dark {
+  display: none;
+}
+
+html.dark .brand-logo--light {
+  display: none;
+}
+
+html.dark .brand-logo--dark {
+  display: block;
+}
+
+html.light .brand-logo--light {
+  display: block;
+}
+
+html.light .brand-logo--dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .brand-logo--light {
+    display: none;
+  }
+
+  html:not(.light) .brand-logo--dark {
+    display: block;
+  }
+}
+
+/* Brand — hidden on mobile bottom bar (no vertical room) */
+.navbar-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+
+.navbar-brand {
+  display: none;
+}
+
+.navbar-logo {
+  display: block;
+  height: auto;
+}
+
+/* Nav Links Container — Mobile Flex Row */
+nav ul {
+  display: flex;
+  flex-direction: row;
+  list-style: none;
+  width: 100%;
+  height: 100%;
+  gap: var(--space-md);
+}
+
+nav li {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  width: 100%;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: color 0.2s;
+}
+
+nav a:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+nav a.active {
+  color: var(--color-primary);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Desktop Breakpoint — 768px+ */
+/* ─────────────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  /* Body — Desktop Flex Row */
+  body {
+    flex-direction: row;
+  }
+
+  /* Navigation — Fixed Left Sidebar */
+  nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    right: auto;
+    width: 200px;
+    height: 100vh;
+    border-top: none;
+    border-right: 1px solid var(--border-light);
+    flex-direction: column;
+    padding: var(--space-lg) var(--space-md);
+    align-items: flex-start;
+    justify-content: flex-start;
+    box-shadow: none;
+  }
+
+  /* Container — Desktop Flex Column (brand on top, links below) */
+  .navbar-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .navbar-brand {
+    display: block;
+    padding: 0 var(--space-md) var(--space-lg);
+  }
+
+  .navbar-logo {
+    width: 100%;
+    max-width: 150px;
+  }
+
+  /* Nav Links Container — Desktop Flex Column */
+  nav ul {
+    flex-direction: column;
+    width: 100%;
+    height: auto;
+    gap: 0;
+  }
+
+  nav li {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  nav a {
+    width: 100%;
+    height: auto;
+    padding: var(--space-md);
+    font-size: var(--font-size-base);
+    border-bottom: none;
+    border-left: 3px solid transparent;
+    transition: border-left 0.2s, color 0.2s;
+  }
+
+  nav a:hover {
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
+  }
+
+  nav a.active {
+    color: var(--color-primary);
+    border-left: 3px solid var(--color-primary);
+    border-bottom: none;
+  }
+
+  /* Main Content — Desktop Layout */
+  main {
+    flex: 1;
+    margin-left: 200px;
+    margin-bottom: 0;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* No-Chrome — Public Views (login/register) Hide Nav */
+/* ─────────────────────────────────────────────────────────────── */
+
+body.no-chrome nav {
+  display: none;
+}
+
+body.no-chrome main {
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Grid Utility — 2-Column Layout */
+/* ─────────────────────────────────────────────────────────────── */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Sections & Content Containers */
+/* ─────────────────────────────────────────────────────────────── */
+
+section {
+  padding: var(--space-xl) var(--space-md);
+}
+
+.section-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-md);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Card Layout */
+/* ─────────────────────────────────────────────────────────────── */
+
+.card {
+  background-color: var(--bg-light-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Scrollbar Styling */
+/* ─────────────────────────────────────────────────────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-light) transparent;
+}
+
+/* Chrome, Safari, Edge */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}

@@ -92,6 +92,13 @@ async function loadView(viewName, context = {}) {
 // Returns: undefined
 // Side effects: reads window.location.hash, checks isAuthenticated(),
 //               redirects to #login if needed, calls loadView()
+function setChromeVisible(visible) {
+  // Show/hide the persistent navbar. The nav lives in index.html (static),
+  // so it must be hidden on public views (login/register) and shown once
+  // inside the app. Toggling a body class keeps the CSS in one place.
+  document.body.classList.toggle('no-chrome', !visible);
+}
+
 async function handleRouteChange() {
   try {
     // Get current hash, strip # and lowercase
@@ -118,6 +125,9 @@ async function handleRouteChange() {
       window.location.hash = '#dashboard';
       return;
     }
+
+    // Hide navbar on public views, show it inside the app
+    setChromeVisible(!publicRoutes.includes(hash));
 
     // Load the appropriate view
     switch (hash) {
@@ -155,6 +165,7 @@ async function handleRouteChange() {
 
     // Fallback: try to load login view
     try {
+      setChromeVisible(false);
       await loadView('login');
     } catch (fallbackErr) {
       console.error('Failed to load fallback login view:', fallbackErr.message);
