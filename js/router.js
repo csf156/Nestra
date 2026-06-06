@@ -157,6 +157,11 @@ async function handleRouteChange() {
 
     // Load the matching view from views/
     await loadView(route.view);
+
+    // Actualizar chip de usuario en vistas protegidas (sesión activa)
+    if (!isPublic && typeof updateUserChip === 'function') {
+      updateUserChip();
+    }
   } catch (err) {
     // loadView already rendered an inline error card; don't overwrite it with
     // the login view (that made every not-yet-built route look like login).

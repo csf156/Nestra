@@ -20,6 +20,17 @@
                 <img src="assets/nestra_logo.png?v=2" alt="Nestra" class="navbar-logo brand-logo--light" />
                 <img src="assets/nestra_logo_dark.png?v=2" alt="Nestra" class="navbar-logo brand-logo--dark" />
             </div>
+
+            <!-- Chip de usuario — solo desktop con sesión activa -->
+            <div class="user-chip" id="userChip">
+                <div class="user-avatar" id="userAvatar">?</div>
+                <div class="user-info">
+                    <span class="user-name" id="userChipName"></span>
+                    <button class="logout-btn" data-logout-trigger type="button">
+                        <span aria-hidden="true">🔓</span> Cerrar sesión
+                    </button>
+                </div>
+            </div>
             <ul class="navbar-links">
                 <li>
                     <a href="#dashboard" class="nav-link">
@@ -69,5 +80,111 @@
     <script src="js/auth.js"></script>
     <script src="js/format.js"></script>
     <script src="js/router.js"></script>
+
+    <!-- Modal de confirmación de logout -->
+    <div class="modal-overlay" id="logoutModal" role="dialog" aria-modal="true"
+         aria-labelledby="logoutModalTitle">
+        <div class="logout-modal-content" id="logoutModalDialog">
+            <p class="logout-modal-icon" aria-hidden="true">⚠️</p>
+            <h2 class="logout-modal-title" id="logoutModalTitle">¿Cerrar sesión?</h2>
+            <p class="logout-modal-body">Serás redirigido al inicio de sesión.</p>
+            <p class="logout-modal-error" id="logoutModalError" role="alert" aria-live="assertive" style="display:none;"></p>
+            <div class="logout-modal-actions">
+                <button class="btn btn-secondary" id="logoutCancelBtn">Cancelar</button>
+                <button class="btn btn-danger" id="logoutConfirmBtn">
+                    <span id="logoutConfirmText">Salir</span>
+                    <span id="logoutConfirmSpinner" class="spinner" role="status" aria-label="Cerrando sesión" style="display:none;"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lógica de chip de usuario y logout -->
+    <script>
+      // updateUserChip() — rellena el chip del sidebar con datos del usuario
+      // Llamada desde: initAuth() al restaurar sesión, router al cargar vistas protegidas
+      function updateUserChip() {
+        const profile = window.currentProfile;
+        const user = window.currentUser;
+        if (!user && !profile) return;
+        const nombre = ((profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '') || '').trim();
+        // Array.from() maneja correctamente caracteres no-ASCII (ñ, é, á...)
+        const initial = nombre ? Array.from(nombre)[0].toUpperCase() : '?';
+        const avatarEl = document.getElementById('userAvatar');
+        const nameEl   = document.getElementById('userChipName');
+        if (avatarEl) avatarEl.textContent = initial;
+        if (nameEl)   nameEl.textContent   = nombre || '—';
+      }
+
+      // ── Modal helpers ─────────────────────────────────────────────
+      function showLogoutModal() {
+        const modal = document.getElementById('logoutModal');
+        document.getElementById('logoutModalError').style.display = 'none';
+        modal.classList.add('active');
+        // Foco al botón seguro por defecto
+        setTimeout(function () { document.getElementById('logoutCancelBtn').focus(); }, 50);
+      }
+
+      function hideLogoutModal() {
+        document.getElementById('logoutModal').classList.remove('active');
+      }
+
+      // Focus trap — Tab / Shift+Tab entre los dos botones del modal
+      document.getElementById('logoutModal').addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { hideLogoutModal(); return; }
+        if (e.key !== 'Tab') return;
+        var cancel  = document.getElementById('logoutCancelBtn');
+        var confirm = document.getElementById('logoutConfirmBtn');
+        if (e.shiftKey && document.activeElement === cancel) {
+          e.preventDefault(); confirm.focus();
+        } else if (!e.shiftKey && document.activeElement === confirm) {
+          e.preventDefault(); cancel.focus();
+        }
+      });
+
+      // Clic fuera del dialog → cerrar
+      document.getElementById('logoutModal').addEventListener('click', function (e) {
+        if (e.target === e.currentTarget) hideLogoutModal();
+      });
+
+      // Delegación: cualquier elemento con data-logout-trigger abre el modal
+      // Cubre sidebar (static) y vistas inyectadas dinámicamente (configuracion)
+      document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-logout-trigger]')) showLogoutModal();
+      });
+
+      // Cancelar
+      document.getElementById('logoutCancelBtn').addEventListener('click', hideLogoutModal);
+
+      // Confirmar logout
+      document.getElementById('logoutConfirmBtn').addEventListener('click', async function () {
+        var confirmBtn = document.getElementById('logoutConfirmBtn');
+        var cancelBtn  = document.getElementById('logoutCancelBtn');
+        var errorEl    = document.getElementById('logoutModalError');
+        var spinner    = document.getElementById('logoutConfirmSpinner');
+        var text       = document.getElementById('logoutConfirmText');
+
+        // Estado de carga
+        confirmBtn.disabled = true;
+        cancelBtn.disabled  = true;
+        confirmBtn.setAttribute('aria-busy', 'true');
+        spinner.style.display = 'inline-block';
+        text.style.display    = 'none';
+        errorEl.style.display = 'none';
+
+        try {
+          await logout(); // redirige a #login — el código siguiente no se ejecuta
+        } catch (err) {
+          // Error al cerrar sesión — mostrar feedback y restaurar UI
+          errorEl.textContent   = 'Error al cerrar sesión. Intenta de nuevo.';
+          errorEl.style.display = 'block';
+          confirmBtn.disabled   = false;
+          cancelBtn.disabled    = false;
+          confirmBtn.removeAttribute('aria-busy');
+          spinner.style.display = 'none';
+          text.style.display    = 'inline';
+        }
+      });
+    </script>
 </body>
 </html>

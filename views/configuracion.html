@@ -1,0 +1,126 @@
+<div class="container configuracion-container">
+  <div class="header">
+    <h1>Configuración</h1>
+  </div>
+
+  <!-- Chip de usuario — visible en móvil (sidebar oculto) -->
+  <div class="card config-card">
+    <div class="config-user-chip">
+      <div class="user-avatar config-avatar" id="configAvatar">?</div>
+      <div class="user-info">
+        <span class="user-name" id="configNombre"></span>
+        <span class="text-muted config-email" id="configEmail"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preferencias -->
+  <div class="card config-card">
+    <div class="card-header">
+      <h2 class="card-title">Preferencias</h2>
+    </div>
+    <div class="empty-state config-empty">
+      <p class="empty-state-description">Más opciones disponibles próximamente.</p>
+    </div>
+  </div>
+
+  <!-- Cuenta -->
+  <div class="card config-card">
+    <div class="card-header">
+      <h2 class="card-title">Cuenta</h2>
+    </div>
+    <button class="btn btn-danger-outline" data-logout-trigger type="button">
+      <span aria-hidden="true">🔓</span> Cerrar sesión
+    </button>
+  </div>
+</div>
+
+<style>
+  .configuracion-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: var(--space-lg);
+  }
+
+  .header {
+    margin-bottom: var(--space-xl);
+  }
+
+  .header h1 {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    color: var(--text-dark);
+  }
+
+  .config-card {
+    margin-bottom: var(--space-lg);
+  }
+
+  .config-card:hover {
+    transform: none;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Chip de usuario en móvil */
+  .config-user-chip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .config-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: var(--font-size-xl);
+  }
+
+  .config-email {
+    font-size: var(--font-size-sm);
+  }
+
+  .config-empty {
+    padding: var(--space-md) 0 0;
+  }
+
+  .config-empty .empty-state-description {
+    margin: 0;
+  }
+
+  /* Botón outline danger */
+  .btn-danger-outline {
+    background: none;
+    border: 1px solid var(--color-danger);
+    color: var(--color-danger);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .btn-danger-outline:hover:not(:disabled) {
+    background-color: var(--color-danger);
+    color: #fff;
+  }
+</style>
+
+<script>
+  (function () {
+    try {
+      const profile = window.currentProfile;
+      const user = window.currentUser;
+
+      // Avatar e inicial
+      const nombre = ((profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '') || '').trim();
+      const initial = nombre ? Array.from(nombre)[0].toUpperCase() : '?';
+      const avatarEl = document.getElementById('configAvatar');
+      if (avatarEl) avatarEl.textContent = initial;
+
+      // Nombre
+      const nombreEl = document.getElementById('configNombre');
+      if (nombreEl) nombreEl.textContent = nombre || '—';
+
+      // Email
+      const emailEl = document.getElementById('configEmail');
+      if (emailEl) emailEl.textContent = (user && user.email) || '';
+    } catch (err) {
+      console.error('Error cargando configuración:', err);
+    }
+  })();
+</script>

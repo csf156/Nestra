@@ -236,6 +236,11 @@ async function initAuth() {
 
     await loadProfile(user.id);
     await setupRealtimeProfiles(user.id);
+
+    // Actualizar chip de usuario en sidebar (sesión restaurada al recargar)
+    if (typeof updateUserChip === 'function') {
+      updateUserChip();
+    }
   } catch (err) {
     console.error('Unexpected error in initAuth():', err);
     window.currentUser = null;
