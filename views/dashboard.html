@@ -281,34 +281,39 @@
     gap: var(--space-sm); margin-top: var(--space-sm);
   }
   .dash-meta-pct { font-size: var(--font-size-xs); color: var(--text-secondary); font-weight: var(--font-weight-semibold); }
-  .dash-aportar-btn {
-    background: none; border: 1px solid var(--color-primary);
-    color: var(--color-primary); border-radius: var(--radius-sm);
-    padding: 2px var(--space-sm); font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold); cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+  /* El progreso se actualiza solo (sin aporte manual). */
+  .dash-metas-auto {
+    font-size: var(--font-size-xs); color: var(--text-secondary);
+    margin: var(--space-sm) 0 0; font-style: italic;
   }
-  .dash-aportar-btn:hover { background: var(--color-primary); color: #fff; }
-  /* Mini-form de aporte inline */
-  .dash-aportar-form {
-    display: none; margin-top: var(--space-sm);
-    gap: var(--space-sm); align-items: center;
+
+  /* Fondo de emergencia — bloque predominante, sin barra de progreso */
+  .dash-fondo {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-success));
+    color: #fff;
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+    box-shadow: var(--shadow-md);
   }
-  .dash-aportar-form.activo { display: flex; flex-wrap: wrap; }
-  .dash-aportar-form input {
-    flex: 1; min-width: 100px;
-    padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm); background: var(--bg-light); color: var(--text-dark);
+  .dash-fondo-label {
+    display: flex; align-items: center; gap: var(--space-xs);
+    font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    opacity: 0.95;
   }
-  .dash-aportar-form .btn-mini {
-    padding: var(--space-xs) var(--space-sm); font-size: var(--font-size-xs);
-    border-radius: var(--radius-sm); border: none; cursor: pointer;
-    font-weight: var(--font-weight-semibold); white-space: nowrap;
+  .dash-fondo-monto {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.1;
+    margin-top: var(--space-xs);
+    font-variant-numeric: tabular-nums;
   }
-  .btn-mini--ok { background: var(--color-primary); color: #fff; }
-  .btn-mini--x  { background: var(--bg-light-secondary); color: var(--text-secondary); border: 1px solid var(--border-light); }
-  .dash-aportar-err { width: 100%; color: var(--color-danger); font-size: var(--font-size-xs); }
+  @media (min-width: 600px) {
+    .dash-fondo-monto { font-size: 2.25rem; }
+  }
+  .dash-fondo-var { margin-top: var(--space-xs); font-size: var(--font-size-sm); opacity: 0.95; }
+  .fondo-var-up { font-weight: var(--font-weight-semibold); }
 
   .dash-empty { color: var(--text-secondary); text-align: center; padding: var(--space-md) 0; font-size: var(--font-size-sm); }
 
@@ -467,21 +472,41 @@
       }).join('');
     }
 
-    // ── Render: metas (máx 3) ─────────────────────────────────
-    function renderMetas(metas) {
+    // ── Render: metas ─────────────────────────────────────────
+    // El fondo de emergencia (es_fondo_emergencia) se muestra predominante,
+    // sin barra (no tiene objetivo): solo el monto acumulado y su variación
+    // porcentual del mes. Las metas normales (máx 3 en curso) llevan barra.
+    // El progreso se actualiza solo (aportes/ahorros) — sin aporte manual.
+    async function renderMetas(metas) {
       const body = $('dashMetasBody');
       body.setAttribute('aria-busy', 'false');
-      const activas = (metas || []).filter((m) => m.estado === 'en_curso').slice(0, 3);
-      if (!activas.length) {
+      const todas = metas || [];
+      const fondos = todas.filter((m) => m.es_fondo_emergencia);
+      const normales = todas
+        .filter((m) => !m.es_fondo_emergencia && m.estado === 'en_curso')
+        .slice(0, 3);
+
+      if (!fondos.length && !normales.length) {
         body.innerHTML = '<p class="dash-empty">No tienes metas activas.</p>';
         return;
       }
-      body.innerHTML = activas.map((m) => {
+
+      const fondosHtml = fondos.map((f) => {
+        const total = Number(f.monto_actual) || 0;
+        const ambito = f.ambito === 'hogar' ? 'Hogar' : 'Personal';
+        return `<div class="dash-fondo">
+          <div class="dash-fondo-label"><span aria-hidden="true">🛡️</span> Fondo de emergencia · ${esc(ambito)}</div>
+          <div class="dash-fondo-monto">${esc(formatMonto(total))}</div>
+          <div class="dash-fondo-var" id="fondoVar-${esc(f.id)}">Calculando variación…</div>
+        </div>`;
+      }).join('');
+
+      const normalesHtml = normales.map((m) => {
         const obj = Number(m.monto_objetivo) || 0;
         const act = Number(m.monto_actual) || 0;
         const pct = obj > 0 ? Math.min(100, Math.round((act / obj) * 100)) : 0;
         const lograda = pct >= 100 ? ' dash-meta-bar-fill--lograda' : '';
-        return `<div class="dash-meta" data-meta-id="${esc(m.id)}" data-meta-actual="${act}">
+        return `<div class="dash-meta">
           <div class="dash-meta-head">
             <span class="dash-meta-nombre">${esc(m.nombre)}</span>
             <span class="dash-meta-cifras">${esc(formatMonto(act))} / ${esc(formatMonto(obj))}</span>
@@ -491,59 +516,33 @@
           </div>
           <div class="dash-meta-foot">
             <span class="dash-meta-pct">${pct}% completado</span>
-            <button type="button" class="dash-aportar-btn" data-aportar>+ Aportar</button>
-          </div>
-          <div class="dash-aportar-form" data-aportar-form>
-            <input type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Monto S/" aria-label="Monto a aportar" />
-            <button type="button" class="btn-mini btn-mini--ok" data-aportar-ok>Aportar</button>
-            <button type="button" class="btn-mini btn-mini--x" data-aportar-cancel aria-label="Cancelar">✕</button>
-            <span class="dash-aportar-err" role="alert"></span>
           </div>
         </div>`;
       }).join('');
-      _wireAportes();
-    }
 
-    // Aportar a una meta: revela mini-form, suma a monto_actual via updateMeta.
-    function _wireAportes() {
-      $('dashMetasBody').querySelectorAll('.dash-meta').forEach((card) => {
-        const btn    = card.querySelector('[data-aportar]');
-        const form   = card.querySelector('[data-aportar-form]');
-        const input  = card.querySelector('input');
-        const okBtn  = card.querySelector('[data-aportar-ok]');
-        const xBtn   = card.querySelector('[data-aportar-cancel]');
-        const errEl  = card.querySelector('.dash-aportar-err');
+      body.innerHTML = fondosHtml + normalesHtml +
+        (normales.length ? '<p class="dash-metas-auto">El progreso se actualiza solo con tus ahorros y aportes.</p>' : '');
 
-        btn.addEventListener('click', () => {
-          form.classList.add('activo');
-          btn.style.display = 'none';
-          errEl.textContent = '';
-          input.value = '';
-          input.focus();
-        });
-        function cerrar() {
-          form.classList.remove('activo');
-          btn.style.display = '';
-          errEl.textContent = '';
-        }
-        xBtn.addEventListener('click', cerrar);
-        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); } });
-
-        okBtn.addEventListener('click', async () => {
-          const monto = parseFloat(input.value);
-          if (isNaN(monto) || monto <= 0) { errEl.textContent = 'Monto inválido.'; return; }
-          okBtn.disabled = true; xBtn.disabled = true; errEl.textContent = '';
-          try {
-            const id = card.getAttribute('data-meta-id');
-            const actual = Number(card.getAttribute('data-meta-actual')) || 0;
-            await updateMeta(id, { monto_actual: actual + monto });
-            renderMetas(await getMetas()); // recargar solo la sección
-          } catch (err) {
-            console.error('Error al aportar:', err);
-            errEl.textContent = err.message || 'No se pudo aportar.';
-            okBtn.disabled = false; xBtn.disabled = false;
+      // Variación mensual de cada fondo (async, no bloquea el render).
+      const { mes, anio } = mesActual();
+      fondos.forEach(async (f) => {
+        const el = document.getElementById('fondoVar-' + f.id);
+        if (!el) return;
+        try {
+          const total = Number(f.monto_actual) || 0;
+          const aporteMes = await getAporteMetaMes(f.id, mes, anio);
+          const previo = total - aporteMes;
+          if (aporteMes <= 0) {
+            el.textContent = 'Sin movimientos este mes';
+          } else if (previo <= 0) {
+            el.innerHTML = '<span class="fondo-var-up">▲ Nuevo este mes</span>';
+          } else {
+            const pct = Math.round((aporteMes / previo) * 100);
+            el.innerHTML = `<span class="fondo-var-up">▲ +${pct}% este mes</span> (+${esc(formatMonto(aporteMes))})`;
           }
-        });
+        } catch (err) {
+          el.textContent = '';
+        }
       });
     }
 

@@ -111,10 +111,31 @@ async function insertTransaccion(datos) {
       .select()
       .single();
     if (error) throw error;
+
+    // Si es un gasto en categoría "Ahorro", repartir entre las metas personales
+    // vía RPC atómico. Best-effort: la transacción ya existe (balance correcto);
+    // un fallo del reparto NO debe revertirla ni propagarse.
+    if (data.tipo === 'gasto') {
+      await _distribuirSiAhorro(data);
+    }
     return data;
   } catch (err) {
     console.error('Error en insertTransaccion():', err.message || err);
     throw err;
+  }
+}
+
+// _distribuirSiAhorro(tx) — si la transacción es un gasto en categoría "Ahorro",
+// invoca el RPC distribuir_ahorro. No lanza (best-effort).
+async function _distribuirSiAhorro(tx) {
+  try {
+    const cats = await getCategorias('gasto');
+    const cat = cats.find((c) => c.id === tx.categoria_id);
+    if (!cat || cat.nombre !== 'Ahorro') return;
+    const { error } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: tx.id });
+    if (error) throw error;
+  } catch (err) {
+    console.error('Aviso: no se pudo repartir el ahorro entre metas:', err.message || err);
   }
 }
 
@@ -212,6 +233,16 @@ async function insertAporteHogar(monto, categoria_id, nota, fecha) {
       .insert(filas)
       .select();
     if (error) throw error;
+
+    // Repartir el aporte entre las metas del hogar vía RPC atómico. Best-effort:
+    // el aporte y su aporte_id ya existen (balances correctos); un fallo del
+    // reparto NO debe revertir las transacciones ni propagarse.
+    try {
+      const { error: errRpc } = await supabase.rpc('distribuir_aporte_hogar', { p_aporte_id: aporteId });
+      if (errRpc) throw errRpc;
+    } catch (errRpc) {
+      console.error('Aviso: no se pudo repartir el aporte entre metas del hogar:', errRpc.message || errRpc);
+    }
     return data;
   } catch (err) {
     console.error('Error en insertAporteHogar():', err.message || err);
@@ -426,15 +457,17 @@ async function updateProfile(datos) {
 // METAS
 // ═══════════════════════════════════════════════════════════════════
 
-// getMetas(ambito) — metas visibles (RLS: hogar + propias personales).
-// ambito opcional: 'personal' | 'hogar'.
+// getMetas(ambito) — metas visibles con progreso derivado (RLS: hogar + propias).
+// Lee la vista metas_con_progreso: monto_actual = SUMA de aportes_meta (no manual).
+// Incluye importancia y es_fondo_emergencia. Los fondos (fecha_limite NULL) van al
+// final del orden (nullsFirst: false). ambito opcional: 'personal' | 'hogar'.
 // Returns: array o [].
 async function getMetas(ambito = null) {
   try {
     let query = supabase
-      .from('metas')
+      .from('metas_con_progreso')
       .select('*')
-      .order('fecha_limite', { ascending: true });
+      .order('fecha_limite', { ascending: true, nullsFirst: false });
     if (ambito) query = query.eq('ambito', ambito);
 
     const { data, error } = await query;
@@ -443,6 +476,43 @@ async function getMetas(ambito = null) {
   } catch (err) {
     console.error('Error en getMetas():', err.message || err);
     return [];
+  }
+}
+
+// getAportesDeMeta(meta_id) — aportes recibidos por una meta, con su transacción
+// de origen embebida (auditoría / desglose). Returns: array o [].
+async function getAportesDeMeta(meta_id) {
+  try {
+    const { data, error } = await supabase
+      .from('aportes_meta')
+      .select('*, transacciones(fecha, monto, nota)')
+      .eq('meta_id', meta_id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error en getAportesDeMeta():', err.message || err);
+    return [];
+  }
+}
+
+// getAporteMetaMes(meta_id, mes, anio) — suma de aportes a una meta en el mes dado.
+// Usado para la variación porcentual mensual del fondo de emergencia.
+// Returns: número (0 en error o sin aportes).
+async function getAporteMetaMes(meta_id, mes, anio) {
+  try {
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const { data, error } = await supabase
+      .from('aportes_meta')
+      .select('monto, created_at')
+      .eq('meta_id', meta_id)
+      .gte('created_at', desde)
+      .lte('created_at', `${hasta}T23:59:59.999`);
+    if (error) throw error;
+    return (data || []).reduce((acc, a) => acc + Number(a.monto), 0);
+  } catch (err) {
+    console.error('Error en getAporteMetaMes():', err.message || err);
+    return 0;
   }
 }
 
