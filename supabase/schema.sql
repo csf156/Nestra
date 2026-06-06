@@ -146,6 +146,14 @@ create index idx_transacciones_fecha        on public.transacciones (fecha);
 create index idx_transacciones_aporte_id    on public.transacciones (aporte_id);
 create index idx_prestamos_transaccion_id   on public.prestamos (transaccion_id);
 create index idx_metas_user_id              on public.metas (user_id);
+-- Un solo fondo de emergencia por ámbito: índices únicos parciales.
+-- Personal: uno por usuario. Hogar: uno único global (expresión constante).
+create unique index idx_metas_fondo_personal_unico
+  on public.metas (user_id)
+  where es_fondo_emergencia and ambito = 'personal';
+create unique index idx_metas_fondo_hogar_unico
+  on public.metas ((true))
+  where es_fondo_emergencia and ambito = 'hogar';
 create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
 create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
 create index idx_desafios_user_id           on public.desafios (user_id);
@@ -308,6 +316,26 @@ create policy "metas_delete"
   to authenticated
   using ((ambito = 'hogar' or (select auth.uid()) = user_id) and es_fondo_emergencia = false);
 
+-- Protección extra del fondo: metas_delete prohíbe borrarlo, pero un cliente
+-- podría poner es_fondo_emergencia=false vía update y luego borrarlo. Este
+-- trigger BEFORE UPDATE impide degradar un fondo (true→false).
+create or replace function public.metas_proteger_fondo()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.es_fondo_emergencia = true and new.es_fondo_emergencia = false then
+    raise exception 'No se puede degradar el fondo de emergencia (es permanente)';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger metas_proteger_fondo
+  before update on public.metas
+  for each row
+  execute function public.metas_proteger_fondo();
+
 -- 2.5.1 aportes_meta --------------------------------------------------
 -- Hereda el acceso de su meta vinculada (mismo patrón EXISTS que
 -- prestamos): meta de hogar la ven ambos; meta personal solo su dueño.
@@ -384,10 +412,19 @@ begin
   );
 
   -- Fondo de emergencia personal: meta permanente, sin objetivo/fecha.
-  insert into public.metas
-    (nombre, tipo, ambito, user_id, es_fondo_emergencia, importancia, estado)
-  values
-    ('Fondo de emergencia', 'ahorro', 'personal', new.id, true, 2, 'en_curso');
+  -- Aislado en su propio sub-bloque: si la creación del fondo falla, NO
+  -- debe abortar la creación del usuario/perfil (solo se avisa). El índice
+  -- único parcial permite el on conflict do nothing ante un doble disparo.
+  begin
+    insert into public.metas
+      (nombre, tipo, ambito, user_id, es_fondo_emergencia, importancia, estado)
+    values
+      ('Fondo de emergencia', 'ahorro', 'personal', new.id, true, 2, 'en_curso')
+    on conflict do nothing;
+  exception
+    when others then
+      raise warning 'No se pudo crear el fondo de emergencia para %: %', new.id, sqlerrm;
+  end;
 
   return new;
 end;

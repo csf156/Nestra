@@ -161,6 +161,27 @@ drop policy if exists "metas_delete" on public.metas;
 create policy "metas_delete" on public.metas for delete to authenticated
   using ((ambito = 'hogar' or (select auth.uid()) = user_id) and es_fondo_emergencia = false);
 
+-- Cerrar el bypass update-then-delete: metas_delete prohíbe borrar el fondo,
+-- pero un cliente podría poner es_fondo_emergencia=false vía update y luego
+-- borrarlo. Este trigger BEFORE UPDATE impide degradar un fondo (true→false).
+create or replace function public.metas_proteger_fondo()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.es_fondo_emergencia = true and new.es_fondo_emergencia = false then
+    raise exception 'No se puede degradar el fondo de emergencia (es permanente)';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists metas_proteger_fondo on public.metas;
+create trigger metas_proteger_fondo
+  before update on public.metas
+  for each row
+  execute function public.metas_proteger_fondo();
+
 
 -- =====================================================================
 -- 1.6 FONDOS DE EMERGENCIA
@@ -178,6 +199,18 @@ update public.metas
        horizonte           = null
  where nombre = 'Fondo de emergencia'
    and ambito = 'hogar';
+
+-- Garantizar UN solo fondo por ámbito ANTES del backfill: índices únicos
+-- parciales. Personal: uno por usuario. Hogar: uno único global (expresión
+-- constante). Así el guard + el índice impiden fondos duplicados y permiten
+-- el on conflict do nothing de handle_new_user().
+create unique index if not exists idx_metas_fondo_personal_unico
+  on public.metas (user_id)
+  where es_fondo_emergencia and ambito = 'personal';
+
+create unique index if not exists idx_metas_fondo_hogar_unico
+  on public.metas ((true))
+  where es_fondo_emergencia and ambito = 'hogar';
 
 -- PERSONAL (usuarios existentes): crear el fondo a quien no lo tenga.
 insert into public.metas
@@ -207,10 +240,19 @@ begin
   );
 
   -- Fondo de emergencia personal: meta permanente, sin objetivo/fecha.
-  insert into public.metas
-    (nombre, tipo, ambito, user_id, es_fondo_emergencia, importancia, estado)
-  values
-    ('Fondo de emergencia', 'ahorro', 'personal', new.id, true, 2, 'en_curso');
+  -- Aislado en su propio sub-bloque: si la creación del fondo falla, NO
+  -- debe abortar la creación del usuario/perfil (solo se avisa). El índice
+  -- único parcial permite el on conflict do nothing ante un doble disparo.
+  begin
+    insert into public.metas
+      (nombre, tipo, ambito, user_id, es_fondo_emergencia, importancia, estado)
+    values
+      ('Fondo de emergencia', 'ahorro', 'personal', new.id, true, 2, 'en_curso')
+    on conflict do nothing;
+  exception
+    when others then
+      raise warning 'No se pudo crear el fondo de emergencia para %: %', new.id, sqlerrm;
+  end;
 
   return new;
 end;
@@ -256,7 +298,7 @@ declare
   v_fondo_id     uuid;
   v_suma_pesos   numeric := 0;
   v_repartido    numeric(10,2) := 0;
-  v_aporte_fondo numeric(10,2) := 0;
+  v_aporte_fondo numeric(10,2);
   r              record;
   v_avance       numeric;
   v_f_horizonte  numeric;
@@ -277,7 +319,7 @@ begin
 
   v_total := v_tx.monto;
 
-  -- 3. Fondo personal del usuario (siempre existe).
+  -- 2. Fondo personal del usuario (siempre existe).
   select id into v_fondo_id
   from public.metas
   where es_fondo_emergencia = true
@@ -288,7 +330,7 @@ begin
     raise exception 'El usuario no tiene fondo de emergencia personal';
   end if;
 
-  -- 2. Calcular pesos de las metas normales candidatas (suma de pesos).
+  -- 3. Calcular pesos de las metas normales candidatas (suma de pesos).
   for r in
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
@@ -321,7 +363,7 @@ begin
     return;
   end if;
 
-  -- 5/6. Repartir entre las metas normales (topeadas), guardando peso.
+  -- 4. Repartir entre las metas normales (topeadas), guardando peso.
   for r in
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
@@ -348,7 +390,6 @@ begin
 
     -- Topear en el restante; el exceso topeado irá al fondo.
     if v_asignado > v_restante then
-      v_aporte_fondo := v_aporte_fondo + (v_asignado - v_restante);
       v_asignado := v_restante;
     end if;
 
@@ -357,7 +398,7 @@ begin
       values (r.id, v_tx.id, v_asignado, v_peso);
       v_repartido := v_repartido + v_asignado;
 
-      -- 7. Marcar como lograda si alcanza el objetivo.
+      -- Marcar como lograda si alcanza el objetivo.
       if (r.progreso + v_asignado) >= r.monto_objetivo then
         update public.metas set estado = 'lograda' where id = r.id;
       end if;
@@ -406,7 +447,7 @@ declare
   v_fondo_id     uuid;
   v_suma_pesos   numeric := 0;
   v_repartido    numeric(10,2) := 0;
-  v_aporte_fondo numeric(10,2) := 0;
+  v_aporte_fondo numeric(10,2);
   r              record;
   v_avance       numeric;
   v_f_horizonte  numeric;
@@ -507,7 +548,6 @@ begin
     v_asignado := round(v_total * (v_peso / v_suma_pesos), 2);
 
     if v_asignado > v_restante then
-      v_aporte_fondo := v_aporte_fondo + (v_asignado - v_restante);
       v_asignado := v_restante;
     end if;
 
