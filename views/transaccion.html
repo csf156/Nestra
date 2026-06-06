@@ -404,7 +404,15 @@
       guardarText.style.display    = cargando ? 'none' : 'inline';
     }
 
-    cancelarBtn.addEventListener('click', () => { window.location.hash = '#dashboard'; });
+    function _salir() {
+      if (window._modalMode && typeof cerrarModal === 'function') {
+        cerrarModal();
+      } else {
+        window.location.hash = '#dashboard';
+      }
+    }
+
+    cancelarBtn.addEventListener('click', _salir);
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -433,7 +441,8 @@
             await insertPrestamo(tx.id, deudorEl.value.trim());
           }
         }
-        window.location.hash = '#dashboard';
+        if (window._modalMode) window._modalRefresh = true;
+        _salir();
       } catch (err) {
         mostrar(formError, err.message || 'No se pudo guardar la transacción.');
         formError.style.display = 'flex';

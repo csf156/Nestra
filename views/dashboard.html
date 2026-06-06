@@ -295,7 +295,13 @@
 
     // ── Botón "Agregar Transacción" ─────────────────────────────
     const addBtn = document.getElementById('addTransactionBtn');
-    if (addBtn) addBtn.addEventListener('click', () => { window.location.hash = '#transaccion'; });
+    if (addBtn) addBtn.addEventListener('click', () => {
+      if (typeof abrirModalTransaccion === 'function') {
+        abrirModalTransaccion();
+      } else {
+        window.location.hash = '#transaccion';
+      }
+    });
 
     // setBalance(elId, amount) — balance con signo accesible (▲/▼ + color).
     // El glifo evita transmitir el significado solo por color (WCAG 1.4.1).
