@@ -201,15 +201,18 @@ update public.metas
    and ambito = 'hogar';
 
 -- Garantizar UN solo fondo por ámbito ANTES del backfill: índices únicos
--- parciales. Personal: uno por usuario. Hogar: uno único global (expresión
--- constante). Así el guard + el índice impiden fondos duplicados y permiten
--- el on conflict do nothing de handle_new_user().
+-- parciales. Personal: uno por usuario. Hogar: uno único global. Así el
+-- guard + el índice impiden fondos duplicados y permiten el on conflict
+-- do nothing de handle_new_user().
 create unique index if not exists idx_metas_fondo_personal_unico
   on public.metas (user_id)
   where es_fondo_emergencia and ambito = 'personal';
 
+-- Hogar: el predicado ya fija ambito='hogar', así que indexar la columna
+-- `ambito` (mismo valor en todas las filas que matchean) fuerza una sola
+-- fila. PostgreSQL no permite indexar una expresión constante como ((true)).
 create unique index if not exists idx_metas_fondo_hogar_unico
-  on public.metas ((true))
+  on public.metas (ambito)
   where es_fondo_emergencia and ambito = 'hogar';
 
 -- PERSONAL (usuarios existentes): crear el fondo a quien no lo tenga.

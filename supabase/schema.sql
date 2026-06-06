@@ -147,12 +147,13 @@ create index idx_transacciones_aporte_id    on public.transacciones (aporte_id);
 create index idx_prestamos_transaccion_id   on public.prestamos (transaccion_id);
 create index idx_metas_user_id              on public.metas (user_id);
 -- Un solo fondo de emergencia por ámbito: índices únicos parciales.
--- Personal: uno por usuario. Hogar: uno único global (expresión constante).
+-- Personal: uno por usuario. Hogar: uno único global (se indexa `ambito`,
+-- valor constante bajo el predicado; PostgreSQL no permite indexar ((true))).
 create unique index idx_metas_fondo_personal_unico
   on public.metas (user_id)
   where es_fondo_emergencia and ambito = 'personal';
 create unique index idx_metas_fondo_hogar_unico
-  on public.metas ((true))
+  on public.metas (ambito)
   where es_fondo_emergencia and ambito = 'hogar';
 create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
 create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
