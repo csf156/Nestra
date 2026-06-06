@@ -3,12 +3,13 @@
 /* ─────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Colores — tema claro (default) */
-  --color-primary: #3b82f6;      /* azul */
-  --color-secondary: #10b981;    /* verde */
-  --color-danger: #ef4444;       /* rojo */
-  --color-warning: #f59e0b;      /* ámbar */
-  --color-success: #10b981;      /* verde */
+  /* Colores — tema claro (default)
+     Paleta fintech: esmeralda primario, grises neutros                */
+  --color-primary: #059669;      /* esmeralda-600 — acciones, links   */
+  --color-secondary: #6b7280;    /* gris-500 — accento neutro          */
+  --color-danger: #ef4444;       /* rojo-500                           */
+  --color-warning: #f59e0b;      /* ámbar-500                          */
+  --color-success: #10b981;      /* esmeralda-500 — valores positivos  */
 
   --bg-light: #ffffff;
   --bg-light-secondary: #f9fafb;
@@ -55,8 +56,11 @@ html.dark {
   --text-dark: #f9fafb;
   --text-secondary: #d1d5db;
   --border-light: #374151;
-  --color-primary: #60a5fa;      /* azul más claro */
-  --color-secondary: #34d399;    /* verde más claro */
+  --color-primary: #34d399;      /* esmeralda-400 — contraste en fondo oscuro */
+  --color-secondary: #9ca3af;    /* gris-400                                   */
+  --color-success: #34d399;      /* esmeralda-400                              */
+  --color-danger: #f87171;       /* rojo-400 — más claro para contraste WCAG   */
+  --color-warning: #fbbf24;      /* ámbar-400                                  */
 }
 
 /* Respetar preferencia OS */
@@ -67,8 +71,11 @@ html.dark {
     --text-dark: #f9fafb;
     --text-secondary: #d1d5db;
     --border-light: #374151;
-    --color-primary: #60a5fa;
-    --color-secondary: #34d399;
+    --color-primary: #34d399;
+    --color-secondary: #9ca3af;
+    --color-success: #34d399;
+    --color-danger: #f87171;
+    --color-warning: #fbbf24;
   }
 }
 
@@ -189,4 +196,70 @@ input, textarea, select {
 
 .text-sm {
   font-size: var(--font-size-sm);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Semantic Color Utilities                                         */
+/* ─────────────────────────────────────────────────────────────── */
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Badge Utilities                                                  */
+/* ─────────────────────────────────────────────────────────────── */
+
+.badge-warning,
+.badge-danger {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Dark mode badge overrides — manual .dark class */
+html.dark .badge-warning {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+html.dark .badge-danger {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+/* Dark mode badge overrides — OS preference */
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .badge-warning {
+    background-color: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+  }
+
+  html:not(.light) .badge-danger {
+    background-color: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+  }
 }

@@ -110,14 +110,26 @@ nav li {
 
 nav a {
   display: flex;
+  flex-direction: column;     /* icon stacked above label on bottom bar */
   align-items: center;
   justify-content: center;
+  gap: 2px;
   height: 60px;
   width: 100%;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   transition: color 0.2s;
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: var(--font-size-xs);
+  line-height: 1;
 }
 
 nav a:hover {
@@ -127,7 +139,8 @@ nav a:hover {
 
 nav a.active {
   color: var(--color-primary);
-  border-bottom: 3px solid var(--color-primary);
+  /* bottom nav: indicator on top edge (visible above content, not buried at screen edge) */
+  border-top: 3px solid var(--color-primary);
 }
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -147,7 +160,7 @@ nav a.active {
     top: 0;
     bottom: 0;
     right: auto;
-    width: 200px;
+    width: 220px;
     height: 100vh;
     border-top: none;
     border-right: 1px solid var(--border-light);
@@ -188,6 +201,8 @@ nav a.active {
   }
 
   nav a {
+    flex-direction: row;    /* sidebar: icon + label in a row */
+    gap: var(--space-sm);
     width: 100%;
     height: auto;
     padding: var(--space-md);
@@ -197,6 +212,10 @@ nav a.active {
     transition: border-left 0.2s, color 0.2s;
   }
 
+  .nav-label {
+    font-size: var(--font-size-base);
+  }
+
   nav a:hover {
     color: var(--color-primary);
     border-left: 3px solid var(--color-primary);
@@ -204,6 +223,7 @@ nav a.active {
 
   nav a.active {
     color: var(--color-primary);
+    border-top: none;          /* reset mobile border-top indicator */
     border-left: 3px solid var(--color-primary);
     border-bottom: none;
   }
@@ -211,7 +231,7 @@ nav a.active {
   /* Main Content — Desktop Layout */
   main {
     flex: 1;
-    margin-left: 200px;
+    margin-left: 220px;
     margin-bottom: 0;
   }
 }
