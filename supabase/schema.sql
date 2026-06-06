@@ -68,19 +68,51 @@ create table public.prestamos (
 -- 1.5 metas -----------------------------------------------------------
 -- Objetivos financieros. user_id NULL = meta del hogar; con valor = meta
 -- personal del dueño.
+-- importancia (1..5) pondera la meta en el reparto automático de ahorro.
+-- es_fondo_emergencia = true marca el fondo permanente (uno personal por
+-- usuario + uno del hogar): no tiene objetivo/fecha/horizonte (NULL),
+-- compite por peso Y absorbe el sobrante, y no se puede borrar.
+-- El CHECK metas_fondo_o_completa_check exige que una meta normal tenga
+-- objetivo>0, fecha límite y horizonte; el fondo puede tenerlos NULL.
+-- NOTA: monto_actual es columna física heredada; el progreso real y
+-- auditable se deriva en la vista metas_con_progreso (suma de aportes_meta).
 create table public.metas (
+  id                   uuid primary key default gen_random_uuid(),
+  nombre               text not null,
+  tipo                 text not null check (tipo in ('ahorro', 'reduccion_gasto', 'aporte_hogar')),
+  horizonte            text check (horizonte in ('corto', 'mediano', 'largo')),
+  ambito               text not null check (ambito in ('personal', 'hogar')),
+  user_id              uuid references auth.users (id) on delete cascade,
+  monto_objetivo       numeric(10,2),
+  monto_actual         numeric(10,2) not null default 0 check (monto_actual >= 0),
+  fecha_inicio         date not null default current_date,
+  fecha_limite         date,
+  estado               text not null default 'en_curso' check (estado in ('en_curso', 'lograda', 'vencida')),
+  nota                 text,
+  importancia          int not null default 3 check (importancia between 1 and 5),
+  es_fondo_emergencia  boolean not null default false,
+  constraint metas_fondo_o_completa_check check (
+    es_fondo_emergencia = true
+    or (
+      monto_objetivo is not null and monto_objetivo > 0
+      and fecha_limite is not null
+      and horizonte   is not null
+    )
+  )
+);
+
+-- 1.5.1 aportes_meta --------------------------------------------------
+-- Fuente de verdad del progreso de cada meta. Cada fila es una porción
+-- de una transacción asignada a una meta (auditable y reversible). Al
+-- borrarse la meta o la transacción, sus aportes se borran en cascada.
+-- peso_aplicado guarda el peso con que se repartió (auditoría).
+create table public.aportes_meta (
   id              uuid primary key default gen_random_uuid(),
-  nombre          text not null,
-  tipo            text not null check (tipo in ('ahorro', 'reduccion_gasto', 'aporte_hogar')),
-  horizonte       text not null check (horizonte in ('corto', 'mediano', 'largo')),
-  ambito          text not null check (ambito in ('personal', 'hogar')),
-  user_id         uuid references auth.users (id) on delete cascade,
-  monto_objetivo  numeric(10,2) not null check (monto_objetivo > 0),
-  monto_actual    numeric(10,2) not null default 0 check (monto_actual >= 0),
-  fecha_inicio    date not null default current_date,
-  fecha_limite    date not null,
-  estado          text not null default 'en_curso' check (estado in ('en_curso', 'lograda', 'vencida')),
-  nota            text
+  meta_id         uuid not null references public.metas (id)         on delete cascade,
+  transaccion_id  uuid not null references public.transacciones (id) on delete cascade,
+  monto           numeric(10,2) not null check (monto > 0),
+  peso_aplicado   numeric,
+  created_at      timestamptz not null default now()
 );
 
 -- 1.6 desafios --------------------------------------------------------
@@ -114,8 +146,45 @@ create index idx_transacciones_fecha        on public.transacciones (fecha);
 create index idx_transacciones_aporte_id    on public.transacciones (aporte_id);
 create index idx_prestamos_transaccion_id   on public.prestamos (transaccion_id);
 create index idx_metas_user_id              on public.metas (user_id);
+create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
+create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
 create index idx_desafios_user_id           on public.desafios (user_id);
 create index idx_desafios_categoria_id      on public.desafios (categoria_id);
+
+
+-- =====================================================================
+-- 1.8 VISTA metas_con_progreso
+-- ---------------------------------------------------------------------
+-- Expone todas las columnas de metas EXCEPTO la columna física
+-- monto_actual, reemplazándola por la suma derivada de aportes_meta. Así
+-- la app lee siempre el progreso real y auditable.
+-- security_invoker = true: aplica el RLS del usuario que consulta.
+-- =====================================================================
+
+create view public.metas_con_progreso
+  with (security_invoker = true)
+as
+  select
+    m.id,
+    m.nombre,
+    m.tipo,
+    m.horizonte,
+    m.ambito,
+    m.user_id,
+    m.monto_objetivo,
+    m.fecha_inicio,
+    m.fecha_limite,
+    m.estado,
+    m.nota,
+    m.importancia,
+    m.es_fondo_emergencia,
+    coalesce(sum(a.monto), 0) as monto_actual
+  from public.metas m
+  left join public.aportes_meta a on a.meta_id = m.id
+  group by
+    m.id, m.nombre, m.tipo, m.horizonte, m.ambito, m.user_id,
+    m.monto_objetivo, m.fecha_inicio, m.fecha_limite, m.estado,
+    m.nota, m.importancia, m.es_fondo_emergencia;
 
 
 -- =====================================================================
@@ -130,6 +199,7 @@ alter table public.categorias    enable row level security;
 alter table public.transacciones enable row level security;
 alter table public.prestamos     enable row level security;
 alter table public.metas         enable row level security;
+alter table public.aportes_meta  enable row level security;
 alter table public.desafios      enable row level security;
 
 -- 2.1 profiles --------------------------------------------------------
@@ -232,10 +302,34 @@ create policy "metas_update"
     or (ambito = 'personal' and (select auth.uid()) = user_id)
   );
 
+-- Borrado: se prohíbe borrar el fondo de emergencia (permanente).
 create policy "metas_delete"
   on public.metas for delete
   to authenticated
-  using (ambito = 'hogar' or (select auth.uid()) = user_id);
+  using ((ambito = 'hogar' or (select auth.uid()) = user_id) and es_fondo_emergencia = false);
+
+-- 2.5.1 aportes_meta --------------------------------------------------
+-- Hereda el acceso de su meta vinculada (mismo patrón EXISTS que
+-- prestamos): meta de hogar la ven ambos; meta personal solo su dueño.
+create policy "aportes_meta_acceso"
+  on public.aportes_meta for all
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.metas m
+      where m.id = aportes_meta.meta_id
+        and (m.ambito = 'hogar' or (select auth.uid()) = m.user_id)
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.metas m
+      where m.id = aportes_meta.meta_id
+        and (m.ambito = 'hogar' or (select auth.uid()) = m.user_id)
+    )
+  );
 
 -- 2.6 desafios --------------------------------------------------------
 -- Misma lógica de atribución que metas.
@@ -288,6 +382,13 @@ begin
     coalesce(new.raw_user_meta_data ->> 'nombre', split_part(new.email, '@', 1)),
     0
   );
+
+  -- Fondo de emergencia personal: meta permanente, sin objetivo/fecha.
+  insert into public.metas
+    (nombre, tipo, ambito, user_id, es_fondo_emergencia, importancia, estado)
+  values
+    ('Fondo de emergencia', 'ahorro', 'personal', new.id, true, 2, 'en_curso');
+
   return new;
 end;
 $$;
@@ -338,8 +439,11 @@ insert into public.categorias (nombre, tipo) values
   ('Otros ingresos',         'ingreso');
 
 -- 4.3 Metas iniciales del hogar (2)
+-- El "Fondo de emergencia" del hogar es el fondo permanente: sin
+-- objetivo/fecha/horizonte (es_fondo_emergencia=true). La meta normal
+-- "Viaje" sí lleva objetivo, fecha y horizonte.
 insert into public.metas
-  (nombre, tipo, horizonte, ambito, user_id, monto_objetivo, fecha_limite, nota)
+  (nombre, tipo, horizonte, ambito, user_id, monto_objetivo, fecha_limite, nota, es_fondo_emergencia, importancia)
 values
-  ('Fondo de emergencia',        'ahorro', 'mediano', 'hogar', null, 2000.00, '2026-12-31', '3 meses de gastos básicos cubiertos'),
-  ('Viaje o experiencia juntos', 'ahorro', 'corto',   'hogar', null,  800.00, '2026-09-30', null);
+  ('Fondo de emergencia',        'ahorro', null,    'hogar', null,    null, null,         '3 meses de gastos básicos cubiertos', true,  2),
+  ('Viaje o experiencia juntos', 'ahorro', 'corto', 'hogar', null,  800.00, '2026-09-30', null,                                   false, 3);
