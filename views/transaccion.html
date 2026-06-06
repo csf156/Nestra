@@ -38,9 +38,9 @@
         <label for="nuevaCatNombre">Nombre de la nueva categoría</label>
         <div class="nueva-cat-row">
           <input type="text" id="nuevaCatNombre" name="nuevaCatNombre"
-                 placeholder="Ej: Suscripciones" maxlength="60" autocomplete="off" />
-          <button type="button" class="btn btn-primary btn-sm" id="nuevaCatGuardar">Crear</button>
-          <button type="button" class="btn btn-secondary btn-sm" id="nuevaCatCancelar">✕</button>
+                 placeholder="Ej: Suscripciones" maxlength="60" autocomplete="off" aria-required="true" />
+          <button type="button" class="btn btn-primary btn-small" id="nuevaCatGuardar">Crear</button>
+          <button type="button" class="btn btn-secondary btn-small" id="nuevaCatCancelar" aria-label="Cancelar nueva categoría">✕</button>
         </div>
         <span id="nuevaCatError" class="form-error" role="alert" style="display: none;"></span>
       </div>
@@ -190,11 +190,11 @@
     min-width: 0;
   }
 
-  .btn-sm {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--font-size-sm);
-    white-space: nowrap;
-  }
+  /* btn-small already defined globally; whitespace tweak only */
+  .nueva-cat-row .btn-small { white-space: nowrap; }
+
+  /* form-hint: scope xs size to mini-form (global uses font-size-sm) */
+  .nueva-cat-group .form-hint { font-size: var(--font-size-xs); }
 </style>
 
 <script>
@@ -302,6 +302,13 @@
       try {
         const cat = await insertCategoria({ nombre, tipo: tipoEl.value });
         await cargarCategorias(cat.id);
+        // Si la recarga falló silenciosamente (getCategorias devolvió []),
+        // la categoría existe en DB pero no está en el select. Avisar.
+        if (categoriaEl.value !== cat.id) {
+          mostrar(nuevaCatError, 'Categoría creada, pero no se pudo recargar la lista. Recarga la página.');
+          nuevaCatGuardar.disabled = false;
+          nuevaCatCancelar.disabled = false;
+        }
       } catch (err) {
         mostrar(nuevaCatError, err.message || 'No se pudo crear la categoría.');
         nuevaCatGuardar.disabled = false;
@@ -337,7 +344,10 @@
       ocultar(formError);
 
       if (!categoriaEl.value) {
-        mostrar(categoriaError, 'Selecciona una categoría.');
+        const msg = nuevaCatGroup.style.display !== 'none'
+          ? 'Completa o cancela la nueva categoría primero.'
+          : 'Selecciona una categoría.';
+        mostrar(categoriaError, msg);
         ok = false;
       }
       const monto = parseFloat(montoEl.value);
