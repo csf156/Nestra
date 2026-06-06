@@ -1,301 +1,554 @@
-<div class="container dashboard-container">
-  <div class="header">
-    <h1>Dashboard</h1>
-    <p id="userGreeting">Bienvenido</p>
+<div class="dash">
+
+  <!-- ── SECCIÓN 1 — Saludo ───────────────────────────────────── -->
+  <header class="dash-hero">
+    <div class="dash-hero-text">
+      <p class="dash-eyebrow" id="dashMesActual">—</p>
+      <h1 class="dash-saludo" id="dashSaludo">Hola</h1>
+    </div>
+  </header>
+
+  <!-- Error global de conexión -->
+  <div id="dashConnError" class="alert error" role="alert" aria-live="assertive" style="display:none;">
+    No se pudo conectar con el servidor. Revisa tu conexión y recarga la página.
   </div>
 
-  <!-- Balance Cards Grid -->
-  <div class="cards-grid">
-    <!-- Card 1: Balance del Hogar -->
-    <div class="card">
-      <h2>Balance del Hogar</h2>
-      <div class="balance-row">
-        <div class="balance-item">
-          <label>Ingresos</label>
-          <p class="balance-value">
-            <span id="householdIncome">$0.00</span>
-            <span id="householdIncomeSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
-        </div>
-        <div class="balance-item">
-          <label>Gastos</label>
-          <p class="balance-value">
-            <span id="householdExpenses">$0.00</span>
-            <span id="householdExpensesSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
-        </div>
-        <div class="balance-item">
-          <label>Balance</label>
-          <p class="balance-value" id="householdBalance" data-balance>
-            <span class="balance-amount">$0.00</span>
-            <span id="householdBalanceSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
+  <!-- ── SECCIONES 2 y 3 — Balances ───────────────────────────── -->
+  <div class="dash-balances">
+
+    <!-- Balance del hogar -->
+    <section class="card dash-balance-card" aria-labelledby="hogarTitle">
+      <h2 class="dash-card-title" id="hogarTitle">
+        <span aria-hidden="true">🏠</span> Hogar
+        <span class="dash-card-periodo" id="hogarPeriodo"></span>
+      </h2>
+      <div id="hogarBody" class="dash-balance-body" aria-busy="true">
+        <div class="dash-skeleton-rows" aria-hidden="true">
+          <span class="sk"></span><span class="sk"></span><span class="sk"></span>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Card 2: Tu Balance -->
-    <div class="card">
-      <h2>Tu Balance</h2>
-      <div class="balance-row">
-        <div class="balance-item">
-          <label>Ingresos</label>
-          <p class="balance-value">
-            <span id="personalIncome">$0.00</span>
-            <span id="personalIncomeSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
-        </div>
-        <div class="balance-item">
-          <label>Gastos</label>
-          <p class="balance-value">
-            <span id="personalExpenses">$0.00</span>
-            <span id="personalExpensesSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
-        </div>
-        <div class="balance-item">
-          <label>Balance</label>
-          <p class="balance-value" id="personalBalance" data-balance>
-            <span class="balance-amount">$0.00</span>
-            <span id="personalBalanceSpinner" class="spinner" style="display: none;" aria-hidden="true"></span>
-          </p>
+    <!-- Balance personal -->
+    <section class="card dash-balance-card" aria-labelledby="personalTitle">
+      <h2 class="dash-card-title" id="personalTitle">
+        <span aria-hidden="true">👤</span> Tu balance
+        <span class="dash-card-periodo" id="personalPeriodo"></span>
+      </h2>
+      <div id="personalBody" class="dash-balance-body" aria-busy="true">
+        <div class="dash-skeleton-rows" aria-hidden="true">
+          <span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 
-  <!-- Add Transaction Button -->
-  <button class="btn btn-primary btn-block" id="addTransactionBtn">+ Agregar Transacción</button>
+  <!-- ── SECCIÓN 4 — Alertas ──────────────────────────────────── -->
+  <section id="dashAlertas" class="dash-alertas" aria-live="polite" aria-label="Alertas activas"></section>
 
-  <!-- Latest Transactions -->
-  <div class="card">
-    <h2>Últimas Transacciones</h2>
-    <div class="table-responsive">
-      <table class="transactions-table">
-        <thead>
-          <tr>
-            <th>Fecha</th>
-            <th>Descripción</th>
-            <th>Categoría</th>
-            <th>Monto</th>
-          </tr>
-        </thead>
-        <tbody id="transactionsBody">
-          <tr>
-            <td colspan="4" class="text-center" aria-live="polite">
-              <span class="spinner" aria-hidden="true"></span>
-              <p>Cargando transacciones...</p>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Goals in Progress -->
-  <div class="card">
-    <h2>Metas en Progreso</h2>
-    <div id="metasContainer" aria-live="polite">
-      <div class="text-center">
-        <span class="spinner" aria-hidden="true"></span>
-        <p>Cargando metas...</p>
+  <!-- ── SECCIÓN 5 — Últimas transacciones ────────────────────── -->
+  <section class="card dash-tx-card" aria-labelledby="txTitle">
+    <h2 class="dash-card-title" id="txTitle">Últimas transacciones</h2>
+    <div id="dashTxBody" aria-busy="true" aria-live="polite">
+      <div class="dash-skeleton-list" aria-hidden="true">
+        <span class="sk sk-line"></span><span class="sk sk-line"></span><span class="sk sk-line"></span>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Alerts Panel -->
-  <div id="alertsPanel" class="alerts-panel"></div>
+  <!-- ── SECCIÓN 6 — Metas activas ────────────────────────────── -->
+  <section class="card dash-metas-card" aria-labelledby="metasTitle">
+    <div class="dash-card-head">
+      <h2 class="dash-card-title" id="metasTitle">Metas activas</h2>
+      <a href="#metas" class="dash-link">Ver todas →</a>
+    </div>
+    <div id="dashMetasBody" aria-busy="true" aria-live="polite">
+      <div class="dash-skeleton-list" aria-hidden="true">
+        <span class="sk sk-line"></span><span class="sk sk-line"></span>
+      </div>
+    </div>
+  </section>
+
 </div>
 
+<!-- ── Botón flotante "+" ───────────────────────────────────── -->
+<button type="button" class="dash-fab" id="dashFab" aria-label="Nueva transacción">
+  <span aria-hidden="true">+</span>
+</button>
+
 <style>
-  /* Dashboard view — layout only; colors/components come from tokens */
-  .dashboard-container {
-    max-width: 1200px;
+  .dash {
+    max-width: 720px;
     margin: 0 auto;
-    padding: var(--space-lg);
+    padding: var(--space-md);
+    padding-bottom: calc(var(--space-xl) + 72px); /* espacio para el FAB */
+  }
+  @media (min-width: 600px) {
+    .dash { padding: var(--space-lg); padding-bottom: calc(var(--space-xl) + 72px); }
   }
 
-  .header {
-    margin-bottom: var(--space-xl);
-  }
-
-  .header h1 {
-    margin: 0 0 var(--space-sm);
-    font-size: var(--font-size-2xl);
-    color: var(--text-dark);
-  }
-
-  .header p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: var(--font-size-base);
-  }
-
-  .cards-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-lg);
-    margin-bottom: var(--space-lg);
-  }
-
-  @media (min-width: 768px) {
-    .cards-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  /* Dashboard cards: no hover lift (they're informational, not clickable) */
-  .dashboard-container .card:hover {
-    transform: none;
-    box-shadow: var(--shadow-md);
-  }
-
-  .dashboard-container .card h2 {
-    margin: 0 0 var(--space-md);
-    font-size: var(--font-size-lg);
-    color: var(--text-dark);
-    border-bottom: 1px solid var(--border-light);
-    padding-bottom: var(--space-sm);
-  }
-
-  .balance-row {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-md);
-  }
-
-  .balance-item {
-    flex: 1;
-    text-align: center;
-  }
-
-  .balance-item label {
-    display: block;
+  /* ── Saludo ─────────────────────────────────────────────── */
+  .dash-hero { margin-bottom: var(--space-lg); }
+  .dash-eyebrow {
+    margin: 0 0 var(--space-xs);
     font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    margin-bottom: var(--space-sm);
-    text-transform: uppercase;
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
   }
-
-  .balance-value {
+  .dash-saludo {
     margin: 0;
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-bold);
     color: var(--text-dark);
+    line-height: 1.15;
+  }
+
+  /* ── Cards base ─────────────────────────────────────────── */
+  .dash .card { margin-bottom: var(--space-md); }
+  .dash .card:hover { transform: none; box-shadow: var(--shadow-md); }
+
+  .dash-card-title {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: var(--space-sm);
+    margin: 0 0 var(--space-md);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+  }
+  .dash-card-periodo {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    text-transform: capitalize;
+  }
+  .dash-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+  .dash-card-head .dash-card-title { margin: 0; }
+  .dash-link {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .dash-link:hover { text-decoration: underline; }
+
+  /* ── Balances grid ──────────────────────────────────────── */
+  .dash-balances {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+  }
+  @media (min-width: 600px) {
+    .dash-balances { grid-template-columns: 1fr 1fr; }
+    .dash-balances .card { margin-bottom: 0; }
+    .dash-balances { margin-bottom: var(--space-md); }
   }
 
-  /* Balance sign — not color-only: prepend an arrow glyph (WCAG 1.4.1) */
-  .balance-value--positive {
-    color: var(--color-success);
+  /* Filas ingreso/gasto/aporte */
+  .dash-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    font-size: var(--font-size-sm);
   }
+  .dash-line + .dash-line { border-top: 1px solid var(--border-light); }
+  .dash-line-label { color: var(--text-secondary); display: flex; align-items: center; gap: var(--space-xs); }
+  .dash-line-value { font-weight: var(--font-weight-semibold); color: var(--text-dark); font-variant-numeric: tabular-nums; }
 
-  .balance-value--negative {
-    color: var(--color-danger);
-  }
-
-  .balance-value--positive .balance-amount::before {
-    content: "▲ ";
-    font-size: 0.7em;
-  }
-
-  .balance-value--negative .balance-amount::before {
-    content: "▼ ";
-    font-size: 0.7em;
-  }
-
-  /* Spinners scoped smaller than the global 40px default */
-  .dashboard-container .spinner {
-    width: 24px;
-    height: 24px;
-    border-width: 2px;
-  }
-
-  .balance-value .spinner {
-    width: 16px;
-    height: 16px;
-  }
-
-  .transactions-table {
+  /* Balance neto destacado */
+  .dash-neto {
     margin-top: var(--space-sm);
+    padding-top: var(--space-md);
+    border-top: 2px solid var(--border-light);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
   }
-
-  .alerts-panel {
-    margin-top: var(--space-lg);
+  .dash-neto-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
-</style>
+  .dash-neto-value {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Signo no solo por color (WCAG 1.4.1): glifo ▲/▼ */
+  .dash-neto-value--pos { color: var(--color-success); }
+  .dash-neto-value--neg { color: var(--color-danger); }
+  .dash-neto-value--pos::before { content: "▲ "; font-size: 0.7em; }
+  .dash-neto-value--neg::before { content: "▼ "; font-size: 0.7em; }
 
-<style>
-  /* Panel de alertas — variantes por nivel */
+  .dash-line-value--ingreso { color: var(--color-success); }
+  .dash-line-value--gasto   { color: var(--color-danger); }
+  .dash-line--aporte { font-size: var(--font-size-xs); }
+  .dash-line--aporte .dash-line-label { font-style: italic; }
+
+  /* ── Alertas ────────────────────────────────────────────── */
+  .dash-alertas:not(:empty) { margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
   .alert-item {
     display: flex;
     align-items: flex-start;
     gap: var(--space-sm);
     padding: var(--space-md);
     border-radius: var(--radius-md);
-    margin-bottom: var(--space-sm);
     border-left: 4px solid var(--border-light);
     background: var(--bg-light-secondary);
     color: var(--text-dark);
-  }
-  .alert-item--critica { border-left-color: var(--color-danger); }
-  .alert-item--suave   { border-left-color: var(--color-warning); }
-  .alert-item--positiva { border-left-color: var(--color-success); }
-  .alert-item .alert-icon { flex-shrink: 0; }
-
-  /* Metas — barra de progreso */
-  .meta-item { margin-bottom: var(--space-md); }
-  .meta-item:last-child { margin-bottom: 0; }
-  .meta-head {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-xs);
     font-size: var(--font-size-sm);
+    box-shadow: var(--shadow-sm);
   }
-  .meta-nombre { font-weight: var(--font-weight-semibold); color: var(--text-dark); }
-  .meta-cifras { color: var(--text-secondary); white-space: nowrap; }
-  .meta-bar {
-    height: 8px;
-    background: var(--border-light);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-  .meta-bar-fill {
-    height: 100%;
-    background: var(--color-primary);
-    border-radius: var(--radius-sm);
-    transition: width 0.3s;
-  }
-  .meta-bar-fill--lograda { background: var(--color-success); }
+  .alert-item--critica  { border-left-color: var(--color-danger); }
+  .alert-item--suave    { border-left-color: var(--color-warning); }
+  .alert-item--positiva { border-left-color: var(--color-success); }
+  .alert-icon { flex-shrink: 0; font-size: 1.1em; line-height: 1.3; }
 
-  /* Montos en tabla con signo */
-  .monto-ingreso { color: var(--color-success); }
-  .monto-gasto   { color: var(--color-danger); }
-  .text-muted { color: var(--text-secondary); }
+  /* ── Transacciones ──────────────────────────────────────── */
+  .dash-tx {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) 0;
+  }
+  .dash-tx + .dash-tx { border-top: 1px solid var(--border-light); }
+  .dash-tx-main { flex: 1; min-width: 0; }
+  .dash-tx-cat {
+    display: block;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: var(--font-size-sm);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dash-tx-meta {
+    display: flex; align-items: center; gap: var(--space-sm);
+    margin-top: 2px;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+  }
+  .dash-badge {
+    display: inline-block;
+    padding: 1px var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.68rem;
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .dash-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
+  .dash-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
+  .dash-tx-monto {
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dash-tx-monto--ingreso { color: var(--color-success); }
+  .dash-tx-monto--gasto   { color: var(--color-danger); }
+
+  /* ── Metas ──────────────────────────────────────────────── */
+  .dash-meta { padding: var(--space-sm) 0; }
+  .dash-meta + .dash-meta { border-top: 1px solid var(--border-light); }
+  .dash-meta-head {
+    display: flex; justify-content: space-between; gap: var(--space-sm);
+    margin-bottom: var(--space-xs);
+  }
+  .dash-meta-nombre { font-weight: var(--font-weight-semibold); color: var(--text-dark); font-size: var(--font-size-sm); }
+  .dash-meta-cifras { color: var(--text-secondary); font-size: var(--font-size-xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dash-meta-bar {
+    height: 8px; background: var(--border-light);
+    border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .dash-meta-bar-fill {
+    height: 100%; background: var(--color-primary);
+    border-radius: var(--radius-sm); transition: width 0.4s ease-out;
+  }
+  .dash-meta-bar-fill--lograda { background: var(--color-success); }
+  .dash-meta-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-sm); margin-top: var(--space-sm);
+  }
+  .dash-meta-pct { font-size: var(--font-size-xs); color: var(--text-secondary); font-weight: var(--font-weight-semibold); }
+  .dash-aportar-btn {
+    background: none; border: 1px solid var(--color-primary);
+    color: var(--color-primary); border-radius: var(--radius-sm);
+    padding: 2px var(--space-sm); font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold); cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .dash-aportar-btn:hover { background: var(--color-primary); color: #fff; }
+  /* Mini-form de aporte inline */
+  .dash-aportar-form {
+    display: none; margin-top: var(--space-sm);
+    gap: var(--space-sm); align-items: center;
+  }
+  .dash-aportar-form.activo { display: flex; flex-wrap: wrap; }
+  .dash-aportar-form input {
+    flex: 1; min-width: 100px;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm); background: var(--bg-light); color: var(--text-dark);
+  }
+  .dash-aportar-form .btn-mini {
+    padding: var(--space-xs) var(--space-sm); font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm); border: none; cursor: pointer;
+    font-weight: var(--font-weight-semibold); white-space: nowrap;
+  }
+  .btn-mini--ok { background: var(--color-primary); color: #fff; }
+  .btn-mini--x  { background: var(--bg-light-secondary); color: var(--text-secondary); border: 1px solid var(--border-light); }
+  .dash-aportar-err { width: 100%; color: var(--color-danger); font-size: var(--font-size-xs); }
+
+  .dash-empty { color: var(--text-secondary); text-align: center; padding: var(--space-md) 0; font-size: var(--font-size-sm); }
+
+  /* ── FAB ────────────────────────────────────────────────── */
+  .dash-fab {
+    position: fixed;
+    right: var(--space-lg);
+    bottom: var(--space-lg);
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    font-size: 2rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-lg);
+    cursor: pointer;
+    z-index: 900;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .dash-fab:hover  { transform: scale(1.08); }
+  .dash-fab:active { transform: scale(0.96); }
+  .dash-fab:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+  @media (min-width: 600px) {
+    .dash-fab { right: var(--space-xl); bottom: var(--space-xl); width: 60px; height: 60px; }
+  }
+
+  /* ── Skeletons de carga ─────────────────────────────────── */
+  .sk {
+    display: block; height: 14px; border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--border-light) 25%, var(--bg-light-secondary) 50%, var(--border-light) 75%);
+    background-size: 200% 100%;
+    animation: skShimmer 1.3s infinite;
+    margin-bottom: var(--space-sm);
+  }
+  .sk-line { height: 28px; }
+  .dash-skeleton-rows .sk:nth-child(2) { width: 80%; }
+  .dash-skeleton-rows .sk:nth-child(3) { width: 60%; }
+  @keyframes skShimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sk { animation: none; }
+    .dash-meta-bar-fill { transition: none; }
+    .dash-fab { transition: none; }
+  }
 </style>
 
 <script>
-  // IIFE runs immediately on injection (DOMContentLoaded already fired by now).
   (function () {
-    // ── Saludo ──────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function $(id) { return document.getElementById(id); }
+    function netoClass(v) { return v > 0 ? 'dash-neto-value--pos' : (v < 0 ? 'dash-neto-value--neg' : ''); }
+
+    const { mes, anio } = mesActual();
+    const periodo = nombreMes(mes, anio); // "Junio 2026"
+
+    // ── SECCIÓN 1 — Saludo ────────────────────────────────────
     try {
-      const user = getCurrentUser();
       const profile = getCurrentProfile();
-      const greeting = document.getElementById('userGreeting');
-      const nombre = (profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '');
-      if (nombre) greeting.textContent = `Bienvenido, ${nombre}`;
-    } catch (error) {
-      console.error('Error loading profile:', error);
+      const user = getCurrentUser();
+      const nombre = (profile && profile.nombre)
+        || (user && user.email ? user.email.split('@')[0] : '');
+      $('dashSaludo').textContent = nombre ? `Hola, ${nombre}` : 'Hola';
+      $('dashMesActual').textContent = periodo;
+    } catch (err) {
+      console.error('Error saludo:', err);
+    }
+    $('hogarPeriodo').textContent = periodo;
+    $('personalPeriodo').textContent = periodo;
+
+    // ── Render: balance del hogar ─────────────────────────────
+    function renderHogar(b) {
+      const body = $('hogarBody');
+      body.setAttribute('aria-busy', 'false');
+      body.innerHTML = `
+        <div class="dash-line">
+          <span class="dash-line-label">Ingresos</span>
+          <span class="dash-line-value dash-line-value--ingreso">${esc(formatMonto(b.ingresos))}</span>
+        </div>
+        <div class="dash-line">
+          <span class="dash-line-label">Gastos</span>
+          <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(b.gastos))}</span>
+        </div>
+        <div class="dash-neto">
+          <span class="dash-neto-label">Balance neto</span>
+          <span class="dash-neto-value ${netoClass(b.balance)}">${esc(formatMonto(b.balance))}</span>
+        </div>`;
     }
 
-    // ── Botón "Agregar Transacción" ─────────────────────────────
-    const addBtn = document.getElementById('addTransactionBtn');
-    if (addBtn) addBtn.addEventListener('click', () => {
+    // ── Render: balance personal (incluye aporte al hogar) ────
+    function renderPersonal(b) {
+      const body = $('personalBody');
+      body.setAttribute('aria-busy', 'false');
+      body.innerHTML = `
+        <div class="dash-line">
+          <span class="dash-line-label">Ingresos</span>
+          <span class="dash-line-value dash-line-value--ingreso">${esc(formatMonto(b.ingresos))}</span>
+        </div>
+        <div class="dash-line">
+          <span class="dash-line-label">Gastos</span>
+          <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(b.gastos))}</span>
+        </div>
+        <div class="dash-line dash-line--aporte">
+          <span class="dash-line-label">↳ de eso, aporte al hogar</span>
+          <span class="dash-line-value">${esc(formatMonto(b.aporte_realizado))}</span>
+        </div>
+        <div class="dash-neto">
+          <span class="dash-neto-label">Balance neto</span>
+          <span class="dash-neto-value ${netoClass(b.balance)}">${esc(formatMonto(b.balance))}</span>
+        </div>`;
+    }
+
+    // ── Render: alertas ───────────────────────────────────────
+    function renderAlertas(alertas) {
+      const panel = $('dashAlertas');
+      if (!alertas || !alertas.length) { panel.innerHTML = ''; return; }
+      panel.innerHTML = alertas.map((a) => `
+        <div class="alert-item alert-item--${esc(a.nivel)}" role="status">
+          <span class="alert-icon" aria-hidden="true">${esc(a.icono)}</span>
+          <span>${esc(a.mensaje)}</span>
+        </div>`).join('');
+    }
+
+    // ── Render: últimas transacciones ─────────────────────────
+    function renderTransacciones(txs) {
+      const body = $('dashTxBody');
+      body.setAttribute('aria-busy', 'false');
+      if (!txs || !txs.length) {
+        body.innerHTML = '<p class="dash-empty">Aún no hay transacciones.</p>';
+        return;
+      }
+      body.innerHTML = txs.map((t) => {
+        const cat = t.categorias ? t.categorias.nombre : 'Sin categoría';
+        const esIngreso = t.tipo === 'ingreso';
+        const signo = esIngreso ? '+' : '−';
+        const cls = esIngreso ? 'dash-tx-monto--ingreso' : 'dash-tx-monto--gasto';
+        const badge = t.ambito === 'hogar' ? 'hogar' : 'personal';
+        const badgeTxt = t.ambito === 'hogar' ? 'Hogar' : 'Personal';
+        return `<div class="dash-tx">
+          <div class="dash-tx-main">
+            <span class="dash-tx-cat">${esc(cat)}</span>
+            <span class="dash-tx-meta">
+              <span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>
+              ${esc(formatFecha(t.fecha))}
+            </span>
+          </div>
+          <span class="dash-tx-monto ${cls}">${signo} ${esc(formatMonto(t.monto))}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Render: metas (máx 3) ─────────────────────────────────
+    function renderMetas(metas) {
+      const body = $('dashMetasBody');
+      body.setAttribute('aria-busy', 'false');
+      const activas = (metas || []).filter((m) => m.estado === 'en_curso').slice(0, 3);
+      if (!activas.length) {
+        body.innerHTML = '<p class="dash-empty">No tienes metas activas.</p>';
+        return;
+      }
+      body.innerHTML = activas.map((m) => {
+        const obj = Number(m.monto_objetivo) || 0;
+        const act = Number(m.monto_actual) || 0;
+        const pct = obj > 0 ? Math.min(100, Math.round((act / obj) * 100)) : 0;
+        const lograda = pct >= 100 ? ' dash-meta-bar-fill--lograda' : '';
+        return `<div class="dash-meta" data-meta-id="${esc(m.id)}" data-meta-actual="${act}">
+          <div class="dash-meta-head">
+            <span class="dash-meta-nombre">${esc(m.nombre)}</span>
+            <span class="dash-meta-cifras">${esc(formatMonto(act))} / ${esc(formatMonto(obj))}</span>
+          </div>
+          <div class="dash-meta-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso de ${esc(m.nombre)}">
+            <div class="dash-meta-bar-fill${lograda}" style="width:${pct}%;"></div>
+          </div>
+          <div class="dash-meta-foot">
+            <span class="dash-meta-pct">${pct}% completado</span>
+            <button type="button" class="dash-aportar-btn" data-aportar>+ Aportar</button>
+          </div>
+          <div class="dash-aportar-form" data-aportar-form>
+            <input type="number" step="0.01" min="0.01" inputmode="decimal" placeholder="Monto S/" aria-label="Monto a aportar" />
+            <button type="button" class="btn-mini btn-mini--ok" data-aportar-ok>Aportar</button>
+            <button type="button" class="btn-mini btn-mini--x" data-aportar-cancel aria-label="Cancelar">✕</button>
+            <span class="dash-aportar-err" role="alert"></span>
+          </div>
+        </div>`;
+      }).join('');
+      _wireAportes();
+    }
+
+    // Aportar a una meta: revela mini-form, suma a monto_actual via updateMeta.
+    function _wireAportes() {
+      $('dashMetasBody').querySelectorAll('.dash-meta').forEach((card) => {
+        const btn    = card.querySelector('[data-aportar]');
+        const form   = card.querySelector('[data-aportar-form]');
+        const input  = card.querySelector('input');
+        const okBtn  = card.querySelector('[data-aportar-ok]');
+        const xBtn   = card.querySelector('[data-aportar-cancel]');
+        const errEl  = card.querySelector('.dash-aportar-err');
+
+        btn.addEventListener('click', () => {
+          form.classList.add('activo');
+          btn.style.display = 'none';
+          errEl.textContent = '';
+          input.value = '';
+          input.focus();
+        });
+        function cerrar() {
+          form.classList.remove('activo');
+          btn.style.display = '';
+          errEl.textContent = '';
+        }
+        xBtn.addEventListener('click', cerrar);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); okBtn.click(); } });
+
+        okBtn.addEventListener('click', async () => {
+          const monto = parseFloat(input.value);
+          if (isNaN(monto) || monto <= 0) { errEl.textContent = 'Monto inválido.'; return; }
+          okBtn.disabled = true; xBtn.disabled = true; errEl.textContent = '';
+          try {
+            const id = card.getAttribute('data-meta-id');
+            const actual = Number(card.getAttribute('data-meta-actual')) || 0;
+            await updateMeta(id, { monto_actual: actual + monto });
+            renderMetas(await getMetas()); // recargar solo la sección
+          } catch (err) {
+            console.error('Error al aportar:', err);
+            errEl.textContent = err.message || 'No se pudo aportar.';
+            okBtn.disabled = false; xBtn.disabled = false;
+          }
+        });
+      });
+    }
+
+    // ── FAB → modal de transacción ────────────────────────────
+    $('dashFab').addEventListener('click', () => {
       if (typeof abrirModalTransaccion === 'function') {
         abrirModalTransaccion();
       } else {
@@ -303,134 +556,26 @@
       }
     });
 
-    // setBalance(elId, amount) — balance con signo accesible (▲/▼ + color).
-    // El glifo evita transmitir el significado solo por color (WCAG 1.4.1).
-    function setBalance(elId, amount) {
-      const el = document.getElementById(elId);
-      if (!el) return;
-      const amountEl = el.querySelector('.balance-amount') || el;
-      const formatted = formatMonto(amount);
-      amountEl.textContent = formatted;
-      el.classList.remove('balance-value--positive', 'balance-value--negative');
-      if (amount > 0) {
-        el.classList.add('balance-value--positive');
-        el.setAttribute('aria-label', `Balance positivo: ${formatted}`);
-      } else if (amount < 0) {
-        el.classList.add('balance-value--negative');
-        el.setAttribute('aria-label', `Balance negativo: ${formatted}`);
-      } else {
-        el.removeAttribute('aria-label');
-      }
-    }
+    // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
+    (async function cargar() {
+      const [hogar, personal, alertas, txs, metas] = await Promise.allSettled([
+        getBalanceHogar(mes, anio),
+        getBalancePersonal(mes, anio),
+        evaluarAlertas(mes, anio),
+        getUltimasTransacciones(5),
+        getMetas(),
+      ]);
 
-    // setText(id, valor) — escribe texto plano en un elemento por id.
-    function setText(id, valor) {
-      const el = document.getElementById(id);
-      if (el) el.textContent = valor;
-    }
+      if (hogar.status === 'fulfilled')    renderHogar(hogar.value);
+      if (personal.status === 'fulfilled') renderPersonal(personal.value);
+      if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
+      if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
+      if (metas.status === 'fulfilled')    renderMetas(metas.value);
 
-    // esc(s) — escapa texto para inyección segura en innerHTML.
-    function esc(s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-
-    // ── Balances del mes actual ─────────────────────────────────
-    async function cargarBalances() {
-      const { mes, anio } = mesActual();
-      try {
-        const [hogar, personal] = await Promise.all([
-          getBalanceHogar(mes, anio),
-          getBalancePersonal(mes, anio),
-        ]);
-        setText('householdIncome', formatMonto(hogar.ingresos));
-        setText('householdExpenses', formatMonto(hogar.gastos));
-        setBalance('householdBalance', hogar.balance);
-        setText('personalIncome', formatMonto(personal.ingresos));
-        setText('personalExpenses', formatMonto(personal.gastos));
-        setBalance('personalBalance', personal.balance);
-      } catch (err) {
-        console.error('Error cargando balances:', err);
-      }
-    }
-
-    // ── Últimas transacciones ───────────────────────────────────
-    async function cargarUltimas() {
-      const tbody = document.getElementById('transactionsBody');
-      try {
-        const txs = await getUltimasTransacciones(5);
-        if (!txs.length) {
-          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin transacciones aún.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = txs.map((t) => {
-          const cat = t.categorias ? t.categorias.nombre : '—';
-          const signo = t.tipo === 'ingreso' ? '+' : '−';
-          const cls = t.tipo === 'ingreso' ? 'monto-ingreso' : 'monto-gasto';
-          return `<tr>
-            <td>${esc(formatFecha(t.fecha))}</td>
-            <td>${esc(t.nota || '—')}</td>
-            <td>${esc(cat)}</td>
-            <td class="${cls}">${signo} ${esc(formatMonto(t.monto))}</td>
-          </tr>`;
-        }).join('');
-      } catch (err) {
-        console.error('Error cargando transacciones:', err);
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Error al cargar transacciones.</td></tr>';
-      }
-    }
-
-    // ── Metas en progreso ───────────────────────────────────────
-    async function cargarMetas() {
-      const cont = document.getElementById('metasContainer');
-      try {
-        const metas = (await getMetas()).filter((m) => m.estado === 'en_curso');
-        if (!metas.length) {
-          cont.innerHTML = '<p class="text-muted text-center">No hay metas en progreso.</p>';
-          return;
-        }
-        cont.innerHTML = metas.map((m) => {
-          const obj = Number(m.monto_objetivo) || 0;
-          const act = Number(m.monto_actual) || 0;
-          const pct = obj > 0 ? Math.min(100, Math.round((act / obj) * 100)) : 0;
-          const lograda = pct >= 100 ? ' meta-bar-fill--lograda' : '';
-          return `<div class="meta-item">
-            <div class="meta-head">
-              <span class="meta-nombre">${esc(m.nombre)}</span>
-              <span class="meta-cifras">${esc(formatMonto(act))} / ${esc(formatMonto(obj))} (${pct}%)</span>
-            </div>
-            <div class="meta-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
-              <div class="meta-bar-fill${lograda}" style="width: ${pct}%;"></div>
-            </div>
-          </div>`;
-        }).join('');
-      } catch (err) {
-        console.error('Error cargando metas:', err);
-        cont.innerHTML = '<p class="text-muted text-center">Error al cargar metas.</p>';
-      }
-    }
-
-    // ── Panel de alertas ────────────────────────────────────────
-    async function cargarAlertas() {
-      const panel = document.getElementById('alertsPanel');
-      try {
-        const alertas = await evaluarAlertas();
-        if (!alertas.length) { panel.innerHTML = ''; return; }
-        panel.innerHTML = alertas.map((a) => `
-          <div class="alert-item alert-item--${esc(a.nivel)}" role="status">
-            <span class="alert-icon" aria-hidden="true">${esc(a.icono)}</span>
-            <span>${esc(a.mensaje)}</span>
-          </div>`).join('');
-      } catch (err) {
-        console.error('Error cargando alertas:', err);
-      }
-    }
-
-    // Carga en paralelo (cada loader maneja su propio error).
-    cargarBalances();
-    cargarUltimas();
-    cargarMetas();
-    cargarAlertas();
+      // Si TODO falló, es problema de conexión: avisar.
+      const todoFallo = [hogar, personal, alertas, txs, metas]
+        .every((r) => r.status === 'rejected');
+      if (todoFallo) $('dashConnError').style.display = 'flex';
+    })();
   })();
 </script>
