@@ -101,6 +101,15 @@
         </div>
     </div>
 
+    <!-- Modal de transacción — overlay reutilizado desde dashboard -->
+    <div class="modal-overlay" id="transaccionModal" role="dialog" aria-modal="true"
+         aria-labelledby="transaccionModalTitle" style="align-items: flex-start; padding-top: 5vh;">
+      <div class="modal-content" id="transaccionModalContent"
+           style="max-width: 580px; width: 95%; max-height: 90vh; overflow-y: auto;">
+        <!-- transaccion.html se inyecta aquí -->
+      </div>
+    </div>
+
     <!-- Lógica de chip de usuario y logout -->
     <script>
       // updateUserChip() — rellena el chip del sidebar con datos del usuario
@@ -117,6 +126,70 @@
         if (avatarEl) avatarEl.textContent = initial;
         if (nameEl)   nameEl.textContent   = nombre || '—';
       }
+
+      // ── Modal de transacción ──────────────────────────────────────
+      // _lastFocusedEl — elemento que tenía el foco antes de abrir el modal,
+      // para restaurarlo al cerrar (WCAG 2.4.3).
+      var _lastFocusedEl = null;
+
+      async function abrirModalTransaccion() {
+        try {
+          var overlay = document.getElementById('transaccionModal');
+          var container = document.getElementById('transaccionModalContent');
+
+          // Marcar modo modal ANTES de ejecutar el script de la vista.
+          window._modalMode = true;
+          window._modalRefresh = false;
+
+          var response = await fetch('views/transaccion.html');
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          container.innerHTML = await response.text();
+          executeScripts(container);
+
+          // Guardar foco actual y mostrar overlay.
+          _lastFocusedEl = document.activeElement;
+          overlay.classList.add('active');
+          overlay.setAttribute('aria-hidden', 'false');
+
+          // Foco al primer campo del form.
+          var firstInput = container.querySelector('select, input, textarea, button');
+          if (firstInput) setTimeout(function () { firstInput.focus(); }, 50);
+        } catch (err) {
+          window._modalMode = false;
+          console.error('Error abriendo modal de transacción:', err.message);
+        }
+      }
+
+      function cerrarModal() {
+        var overlay = document.getElementById('transaccionModal');
+        var container = document.getElementById('transaccionModalContent');
+        window._modalMode = false;
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+        // Limpiar después de la transición (300ms).
+        setTimeout(function () { container.innerHTML = ''; }, 300);
+        // Restaurar foco.
+        if (_lastFocusedEl) { _lastFocusedEl.focus(); _lastFocusedEl = null; }
+        // Si la transacción se guardó con éxito, recargar la vista actual.
+        if (window._modalRefresh) {
+          window._modalRefresh = false;
+          if (typeof loadView === 'function' && window.routerContext && window.routerContext.currentView) {
+            loadView(window.routerContext.currentView);
+          }
+        }
+      }
+
+      // ESC cierra el modal de transacción.
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.getElementById('transaccionModal').classList.contains('active')) {
+          cerrarModal();
+        }
+      });
+
+      // Clic en el backdrop (fuera del dialog) cierra el modal.
+      document.getElementById('transaccionModal').addEventListener('click', function (e) {
+        if (e.target === e.currentTarget) cerrarModal();
+      });
 
       // ── Modal helpers ─────────────────────────────────────────────
       function showLogoutModal() {
