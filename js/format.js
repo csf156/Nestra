@@ -1,32 +1,66 @@
+// format.js — utilidades puras de formato (sin dependencias, funciones globales)
+
+// formatMonto() — formatea un número como Sol Peruano: "S/ 1,200.00"
 /**
- * formatMonto(amount)
- * Formatea un monto numérico en formato Sol Peruano
- * @param {number} amount - Monto a formatear
- * @returns {string} Monto formateado como "S/ X,XXX.XX"
+ * @param {number} numero - Monto a formatear.
+ * @returns {string} Monto formateado como "S/ X,XXX.XX". null/undefined/NaN → "S/ 0.00".
  */
-function formatMonto(amount) {
-  if (amount === null || amount === undefined) {
+function formatMonto(numero) {
+  const num = Number(numero);
+  if (numero === null || numero === undefined || Number.isNaN(num)) {
     return "S/ 0.00";
   }
-  const num = parseFloat(amount);
   return "S/ " + num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// formatFecha() — convierte ISO a "DD/MM/YYYY" sin usar new Date (evita bug de timezone)
 /**
- * formatFecha(date)
- * Formatea una fecha en formato DD/MM/YYYY
- * @param {Date|string} date - Fecha a formatear
- * @returns {string} Fecha formateada como "DD/MM/YYYY"
+ * @param {string} isoString - Fecha ISO "2026-06-03" o datetime "2026-06-03T...".
+ * @returns {string} Fecha como "DD/MM/YYYY". null/vacío → "".
  */
-function formatFecha(date) {
-  if (date === null || date === undefined) {
+function formatFecha(isoString) {
+  if (!isoString) {
     return "";
   }
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return day + "/" + month + "/" + year;
+  const [anio, mes, dia] = String(isoString).split('T')[0].split('-');
+  return dia + "/" + mes + "/" + anio;
 }
 
-// Vacío ahora, se llena en Fase 2+
+// formatFechaCorta() — convierte ISO a "DD/MM" sin usar new Date (evita bug de timezone)
+/**
+ * @param {string} isoString - Fecha ISO "2026-06-03" o datetime "2026-06-03T...".
+ * @returns {string} Fecha como "DD/MM". null/vacío → "".
+ */
+function formatFechaCorta(isoString) {
+  if (!isoString) {
+    return "";
+  }
+  const [, mes, dia] = String(isoString).split('T')[0].split('-');
+  return dia + "/" + mes;
+}
+
+// mesActual() — mes (1-based) y año actuales
+/**
+ * @returns {{mes: number, anio: number}} mes 1–12, anio de 4 dígitos.
+ */
+function mesActual() {
+  const d = new Date();
+  return { mes: d.getMonth() + 1, anio: d.getFullYear() };
+}
+
+// nombreMes() — nombre del mes en español: "Junio 2026"
+/**
+ * @param {number} mes - Mes 1-based (1–12).
+ * @param {number} anio - Año de 4 dígitos.
+ * @returns {string} Nombre del mes capitalizado y año, o "" si el mes está fuera de rango.
+ */
+function nombreMes(mes, anio) {
+  const nombres = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  if (mes < 1 || mes > 12) {
+    return "";
+  }
+  return nombres[mes - 1] + " " + anio;
+}
