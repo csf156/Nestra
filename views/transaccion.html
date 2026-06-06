@@ -68,6 +68,14 @@
         <p class="form-hint">Crea dos transacciones vinculadas: tu gasto y el ingreso del hogar.</p>
       </div>
 
+      <!-- Préstamo: deudor (solo visible cuando categoría = "Dinero que prestamos") -->
+      <div id="prestamoGroup" class="form-group" style="display: none;">
+        <label for="deudor">¿A quién le prestas?</label>
+        <input type="text" id="deudor" name="deudor" maxlength="120"
+               placeholder="Nombre del deudor" autocomplete="off" />
+        <span id="deudorError" class="form-error" role="alert" style="display: none;"></span>
+      </div>
+
       <!-- Nota (opcional) -->
       <div class="form-group">
         <label for="nota">Nota <span class="label-opcional">(opcional)</span></label>
@@ -216,6 +224,10 @@
     const nuevaCatCancelar = document.getElementById('nuevaCatCancelar');
     const nuevaCatError   = document.getElementById('nuevaCatError');
 
+    const prestamoGroup = document.getElementById('prestamoGroup');
+    const deudorEl      = document.getElementById('deudor');
+    const deudorError   = document.getElementById('deudorError');
+
     const categoriaError = document.getElementById('categoriaError');
     const montoError     = document.getElementById('montoError');
     const formError      = document.getElementById('formError');
@@ -228,6 +240,24 @@
     // Fecha por defecto: hoy (formato YYYY-MM-DD, valor nativo del input date).
     const hoy = new Date();
     fechaEl.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+    const CAT_PRESTAMO = 'Dinero que prestamos';
+
+    // _esPrestamo() — true si la opción seleccionada es la categoría de préstamo.
+    function _esPrestamo() {
+      const opt = categoriaEl.selectedOptions[0];
+      return opt && opt.text === CAT_PRESTAMO;
+    }
+
+    // _mostrarPrestamo() / _ocultarPrestamo() — campo deudor.
+    function _mostrarPrestamo() {
+      prestamoGroup.style.display = 'block';
+    }
+    function _ocultarPrestamo() {
+      prestamoGroup.style.display = 'none';
+      deudorEl.value = '';
+      ocultar(deudorError);
+    }
 
     // _mostrarAporteHogar() — muestra/oculta el toggle según tipo + ámbito.
     function _mostrarAporteHogar() {
@@ -243,6 +273,7 @@
       categoriaEl.disabled = true;
       categoriaEl.innerHTML = '<option value="">Cargando...</option>';
       _ocultarNuevaCat();
+      _ocultarPrestamo();
       try {
         const cats = await getCategorias(tipo);
         if (!cats.length) {
@@ -277,14 +308,16 @@
       ocultar(nuevaCatError);
     }
 
-    // Detectar selección de "+ Crear nueva categoría..."
+    // Detectar selección de "+ Crear nueva categoría..." o categoría de préstamo.
     categoriaEl.addEventListener('change', () => {
       ocultar(categoriaError);
       if (categoriaEl.value === '__nueva__') {
         categoriaEl.value = '';
+        _ocultarPrestamo();
         _mostrarNuevaCat();
       } else {
         _ocultarNuevaCat();
+        if (_esPrestamo()) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
       }
     });
 
@@ -341,6 +374,7 @@
       let ok = true;
       ocultar(categoriaError);
       ocultar(montoError);
+      ocultar(deudorError);
       ocultar(formError);
 
       if (!categoriaEl.value) {
@@ -353,6 +387,10 @@
       const monto = parseFloat(montoEl.value);
       if (isNaN(monto) || monto <= 0) {
         mostrar(montoError, 'El monto debe ser mayor que 0.');
+        ok = false;
+      }
+      if (prestamoGroup.style.display !== 'none' && !deudorEl.value.trim()) {
+        mostrar(deudorError, 'Indica a quién le prestas.');
         ok = false;
       }
       return ok;
@@ -382,7 +420,7 @@
           // Aporte al hogar: crea gasto personal + ingreso hogar vinculados.
           await insertAporteHogar(monto, categoriaEl.value, nota, fecha);
         } else {
-          await insertTransaccion({
+          const tx = await insertTransaccion({
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
             categoria_id: categoriaEl.value,
@@ -390,6 +428,10 @@
             fecha,
             nota,
           });
+          // Préstamo: registrar deudor vinculado a la transacción recién creada.
+          if (prestamoGroup.style.display !== 'none') {
+            await insertPrestamo(tx.id, deudorEl.value.trim());
+          }
         }
         window.location.hash = '#dashboard';
       } catch (err) {
