@@ -194,6 +194,10 @@ as
     m.monto_objetivo, m.fecha_inicio, m.fecha_limite, m.estado,
     m.nota, m.importancia, m.es_fondo_emergencia;
 
+-- Una vista nueva no hereda los GRANT de sus tablas base: sin esto,
+-- PostgREST responde "permission denied" al rol authenticated.
+grant select on public.metas_con_progreso to authenticated;
+
 
 -- =====================================================================
 -- 2. ROW LEVEL SECURITY
