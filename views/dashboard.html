@@ -229,31 +229,81 @@
   }
 </style>
 
+<style>
+  /* Panel de alertas — variantes por nivel */
+  .alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-sm);
+    border-left: 4px solid var(--border-light);
+    background: var(--bg-light-secondary);
+    color: var(--text-dark);
+  }
+  .alert-item--critica { border-left-color: var(--color-danger); }
+  .alert-item--suave   { border-left-color: var(--color-warning); }
+  .alert-item--positiva { border-left-color: var(--color-success); }
+  .alert-item .alert-icon { flex-shrink: 0; }
+
+  /* Metas — barra de progreso */
+  .meta-item { margin-bottom: var(--space-md); }
+  .meta-item:last-child { margin-bottom: 0; }
+  .meta-head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xs);
+    font-size: var(--font-size-sm);
+  }
+  .meta-nombre { font-weight: var(--font-weight-semibold); color: var(--text-dark); }
+  .meta-cifras { color: var(--text-secondary); white-space: nowrap; }
+  .meta-bar {
+    height: 8px;
+    background: var(--border-light);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .meta-bar-fill {
+    height: 100%;
+    background: var(--color-primary);
+    border-radius: var(--radius-sm);
+    transition: width 0.3s;
+  }
+  .meta-bar-fill--lograda { background: var(--color-success); }
+
+  /* Montos en tabla con signo */
+  .monto-ingreso { color: var(--color-success); }
+  .monto-gasto   { color: var(--color-danger); }
+  .text-muted { color: var(--text-secondary); }
+</style>
+
 <script>
   // IIFE runs immediately on injection (DOMContentLoaded already fired by now).
   (function () {
+    // ── Saludo ──────────────────────────────────────────────────
     try {
       const user = getCurrentUser();
       const profile = getCurrentProfile();
       const greeting = document.getElementById('userGreeting');
       const nombre = (profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '');
-      if (nombre) {
-        greeting.textContent = `Bienvenido, ${nombre}`;
-      }
+      if (nombre) greeting.textContent = `Bienvenido, ${nombre}`;
     } catch (error) {
       console.error('Error loading profile:', error);
     }
 
-    // setBalance(el, amount) — render a balance value with sign-aware styling.
-    // Adds ▲/▼ glyph + color so meaning isn't conveyed by color alone (WCAG 1.4.1).
-    // Phase 2 data loaders should call this instead of writing textContent directly.
-    window.setBalance = function (elId, amount) {
+    // ── Botón "Agregar Transacción" ─────────────────────────────
+    const addBtn = document.getElementById('addTransactionBtn');
+    if (addBtn) addBtn.addEventListener('click', () => { window.location.hash = '#transaccion'; });
+
+    // setBalance(elId, amount) — balance con signo accesible (▲/▼ + color).
+    // El glifo evita transmitir el significado solo por color (WCAG 1.4.1).
+    function setBalance(elId, amount) {
       const el = document.getElementById(elId);
       if (!el) return;
       const amountEl = el.querySelector('.balance-amount') || el;
-      const formatted = (typeof formatCurrency === 'function')
-        ? formatCurrency(amount)
-        : `$${Number(amount).toFixed(2)}`;
+      const formatted = formatMonto(amount);
       amountEl.textContent = formatted;
       el.classList.remove('balance-value--positive', 'balance-value--negative');
       if (amount > 0) {
@@ -265,13 +315,116 @@
       } else {
         el.removeAttribute('aria-label');
       }
-    };
+    }
 
-    // Aquí irá la lógica de carga de datos en Fase 2
-    // - Cargar balance del hogar  -> setBalance('householdBalance', monto)
-    // - Cargar tu balance         -> setBalance('personalBalance', monto)
-    // - Cargar últimas transacciones
-    // - Cargar metas en progreso
-    // - Mostrar alertas dinámicas
+    // setText(id, valor) — escribe texto plano en un elemento por id.
+    function setText(id, valor) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = valor;
+    }
+
+    // esc(s) — escapa texto para inyección segura en innerHTML.
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // ── Balances del mes actual ─────────────────────────────────
+    async function cargarBalances() {
+      const { mes, anio } = mesActual();
+      try {
+        const [hogar, personal] = await Promise.all([
+          getBalanceHogar(mes, anio),
+          getBalancePersonal(mes, anio),
+        ]);
+        setText('householdIncome', formatMonto(hogar.ingresos));
+        setText('householdExpenses', formatMonto(hogar.gastos));
+        setBalance('householdBalance', hogar.balance);
+        setText('personalIncome', formatMonto(personal.ingresos));
+        setText('personalExpenses', formatMonto(personal.gastos));
+        setBalance('personalBalance', personal.balance);
+      } catch (err) {
+        console.error('Error cargando balances:', err);
+      }
+    }
+
+    // ── Últimas transacciones ───────────────────────────────────
+    async function cargarUltimas() {
+      const tbody = document.getElementById('transactionsBody');
+      try {
+        const txs = await getUltimasTransacciones(5);
+        if (!txs.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Sin transacciones aún.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = txs.map((t) => {
+          const cat = t.categorias ? t.categorias.nombre : '—';
+          const signo = t.tipo === 'ingreso' ? '+' : '−';
+          const cls = t.tipo === 'ingreso' ? 'monto-ingreso' : 'monto-gasto';
+          return `<tr>
+            <td>${esc(formatFecha(t.fecha))}</td>
+            <td>${esc(t.nota || '—')}</td>
+            <td>${esc(cat)}</td>
+            <td class="${cls}">${signo} ${esc(formatMonto(t.monto))}</td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        console.error('Error cargando transacciones:', err);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Error al cargar transacciones.</td></tr>';
+      }
+    }
+
+    // ── Metas en progreso ───────────────────────────────────────
+    async function cargarMetas() {
+      const cont = document.getElementById('metasContainer');
+      try {
+        const metas = (await getMetas()).filter((m) => m.estado === 'en_curso');
+        if (!metas.length) {
+          cont.innerHTML = '<p class="text-muted text-center">No hay metas en progreso.</p>';
+          return;
+        }
+        cont.innerHTML = metas.map((m) => {
+          const obj = Number(m.monto_objetivo) || 0;
+          const act = Number(m.monto_actual) || 0;
+          const pct = obj > 0 ? Math.min(100, Math.round((act / obj) * 100)) : 0;
+          const lograda = pct >= 100 ? ' meta-bar-fill--lograda' : '';
+          return `<div class="meta-item">
+            <div class="meta-head">
+              <span class="meta-nombre">${esc(m.nombre)}</span>
+              <span class="meta-cifras">${esc(formatMonto(act))} / ${esc(formatMonto(obj))} (${pct}%)</span>
+            </div>
+            <div class="meta-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+              <div class="meta-bar-fill${lograda}" style="width: ${pct}%;"></div>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        console.error('Error cargando metas:', err);
+        cont.innerHTML = '<p class="text-muted text-center">Error al cargar metas.</p>';
+      }
+    }
+
+    // ── Panel de alertas ────────────────────────────────────────
+    async function cargarAlertas() {
+      const panel = document.getElementById('alertsPanel');
+      try {
+        const alertas = await evaluarAlertas();
+        if (!alertas.length) { panel.innerHTML = ''; return; }
+        panel.innerHTML = alertas.map((a) => `
+          <div class="alert-item alert-item--${esc(a.nivel)}" role="status">
+            <span class="alert-icon" aria-hidden="true">${esc(a.icono)}</span>
+            <span>${esc(a.mensaje)}</span>
+          </div>`).join('');
+      } catch (err) {
+        console.error('Error cargando alertas:', err);
+      }
+    }
+
+    // Carga en paralelo (cada loader maneja su propio error).
+    cargarBalances();
+    cargarUltimas();
+    cargarMetas();
+    cargarAlertas();
   })();
 </script>
