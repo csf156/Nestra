@@ -502,12 +502,15 @@ async function getAportesDeMeta(meta_id) {
 async function getAporteMetaMes(meta_id, mes, anio) {
   try {
     const { desde, hasta } = _rangoMes(mes, anio);
+    // created_at es timestamptz (UTC). Los límites del mes son hora local de
+    // Perú (UTC-5); sin el offset, PostgREST los interpreta como UTC y se
+    // pierden aportes de fin de mes por la tarde-noche. Anclar a -05:00.
     const { data, error } = await supabase
       .from('aportes_meta')
       .select('monto, created_at')
       .eq('meta_id', meta_id)
-      .gte('created_at', desde)
-      .lte('created_at', `${hasta}T23:59:59.999`);
+      .gte('created_at', `${desde}T00:00:00-05:00`)
+      .lte('created_at', `${hasta}T23:59:59.999-05:00`);
     if (error) throw error;
     return (data || []).reduce((acc, a) => acc + Number(a.monto), 0);
   } catch (err) {

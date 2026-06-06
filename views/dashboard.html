@@ -537,7 +537,7 @@
           } else if (previo <= 0) {
             el.innerHTML = '<span class="fondo-var-up">▲ Nuevo este mes</span>';
           } else {
-            const pct = Math.round((aporteMes / previo) * 100);
+            const pct = Math.max(1, Math.round((aporteMes / previo) * 100));
             el.innerHTML = `<span class="fondo-var-up">▲ +${pct}% este mes</span> (+${esc(formatMonto(aporteMes))})`;
           }
         } catch (err) {
