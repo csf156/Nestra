@@ -287,33 +287,48 @@
     margin: var(--space-sm) 0 0; font-style: italic;
   }
 
-  /* Fondo de emergencia — bloque predominante, sin barra de progreso */
+  /* Fondos de emergencia — tiles compactos, predominantes, sin barra.
+     mobile-first: 1 columna; ≥480px en 2 columnas para ahorrar alto. */
+  .dash-fondos {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+  }
+  @media (min-width: 480px) {
+    .dash-fondos { grid-template-columns: 1fr 1fr; }
+  }
   .dash-fondo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    column-gap: var(--space-sm);
     background: linear-gradient(135deg, var(--color-primary), var(--color-success));
     color: #fff;
     border-radius: var(--radius-md);
-    padding: var(--space-lg);
-    margin-bottom: var(--space-md);
-    box-shadow: var(--shadow-md);
+    padding: var(--space-sm) var(--space-md);
+    box-shadow: var(--shadow-sm);
   }
   .dash-fondo-label {
+    grid-column: 1 / -1;
     display: flex; align-items: center; gap: var(--space-xs);
-    font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
     text-transform: uppercase; letter-spacing: 0.04em;
-    opacity: 0.95;
+    opacity: 0.9;
   }
   .dash-fondo-monto {
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
     font-weight: var(--font-weight-bold);
     line-height: 1.1;
-    margin-top: var(--space-xs);
     font-variant-numeric: tabular-nums;
   }
-  @media (min-width: 600px) {
-    .dash-fondo-monto { font-size: 2.25rem; }
+  .dash-fondo-var {
+    justify-self: end;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    opacity: 0.95;
   }
-  .dash-fondo-var { margin-top: var(--space-xs); font-size: var(--font-size-sm); opacity: 0.95; }
-  .fondo-var-up { font-weight: var(--font-weight-semibold); }
 
   .dash-empty { color: var(--text-secondary); text-align: center; padding: var(--space-md) 0; font-size: var(--font-size-sm); }
 
@@ -491,15 +506,17 @@
         return;
       }
 
-      const fondosHtml = fondos.map((f) => {
+      const fondosTiles = fondos.map((f) => {
         const total = Number(f.monto_actual) || 0;
         const ambito = f.ambito === 'hogar' ? 'Hogar' : 'Personal';
+        const icono = f.ambito === 'hogar' ? '🏠' : '👤';
         return `<div class="dash-fondo">
-          <div class="dash-fondo-label"><span aria-hidden="true">🛡️</span> Fondo de emergencia · ${esc(ambito)}</div>
-          <div class="dash-fondo-monto">${esc(formatMonto(total))}</div>
-          <div class="dash-fondo-var" id="fondoVar-${esc(f.id)}">Calculando variación…</div>
+          <span class="dash-fondo-label"><span aria-hidden="true">${icono}</span> Fondo · ${esc(ambito)}</span>
+          <span class="dash-fondo-monto">${esc(formatMonto(total))}</span>
+          <span class="dash-fondo-var" id="fondoVar-${esc(f.id)}"></span>
         </div>`;
       }).join('');
+      const fondosHtml = fondos.length ? `<div class="dash-fondos">${fondosTiles}</div>` : '';
 
       const normalesHtml = normales.map((m) => {
         const obj = Number(m.monto_objetivo) || 0;
@@ -533,12 +550,15 @@
           const aporteMes = await getAporteMetaMes(f.id, mes, anio);
           const previo = total - aporteMes;
           if (aporteMes <= 0) {
-            el.textContent = 'Sin movimientos este mes';
+            el.textContent = '0% mes';
+            el.title = 'Sin movimientos este mes';
           } else if (previo <= 0) {
-            el.innerHTML = '<span class="fondo-var-up">▲ Nuevo este mes</span>';
+            el.textContent = '▲ nuevo';
+            el.title = `+${formatMonto(aporteMes)} este mes`;
           } else {
             const pct = Math.max(1, Math.round((aporteMes / previo) * 100));
-            el.innerHTML = `<span class="fondo-var-up">▲ +${pct}% este mes</span> (+${esc(formatMonto(aporteMes))})`;
+            el.textContent = `▲ +${pct}% mes`;
+            el.title = `+${formatMonto(aporteMes)} este mes`;
           }
         } catch (err) {
           el.textContent = '';
