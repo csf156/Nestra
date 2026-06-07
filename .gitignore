@@ -4,3 +4,8 @@ KEYS.txt
 *.key
 .env
 .env.*
+
+# Tooling artefacts
+.agents/
+.claude/skills/
+.security/
