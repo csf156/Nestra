@@ -327,7 +327,53 @@
         },
       });
     }
-    function render5() { setEstado(5, 'vacio'); }
+    function render5(datos) {
+      var txs = datos.txHogarMes.filter(function (t) { return t.tipo === 'gasto'; });
+      var dias = datos.rango.dias;
+      var porDia = new Array(dias).fill(0);
+      txs.forEach(function (t) {
+        var d = parseInt(String(t.fecha).split('T')[0].split('-')[2], 10) - 1;
+        if (d >= 0 && d < dias) porDia[d] += Number(t.monto);
+      });
+      var conGasto = porDia.filter(function (v) { return v > 0; });
+      if (!conGasto.length) { setEstado(5, 'vacio'); return; }
+      var media = conGasto.reduce(function (a, b) { return a + b; }, 0) / conGasto.length;
+
+      function colorDia(v) {
+        if (v <= 0) return 'transparent';
+        if (v <= media) return 'rgba(16,185,129,0.85)';
+        if (v <= media * 2) return 'rgba(245,158,11,0.85)';
+        return 'rgba(239,68,68,0.85)';
+      }
+
+      var primerDow = new Date(estado.anio, estado.mes - 1, 1).getDay();
+      var grid = $('heatmap5');
+      grid.innerHTML = '';
+      ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach(function (d) {
+        var h = document.createElement('div'); h.className = 'hcell empty';
+        h.style.color = cssVar('--text-secondary'); h.style.fontWeight = '600'; h.textContent = d;
+        grid.appendChild(h);
+      });
+      for (var e = 0; e < primerDow; e++) { var sp = document.createElement('div'); sp.className = 'hcell empty'; grid.appendChild(sp); }
+      for (var dia = 1; dia <= dias; dia++) {
+        var cell = document.createElement('div');
+        cell.className = 'hcell';
+        var v = porDia[dia - 1];
+        cell.style.background = v > 0 ? colorDia(v) : cssVar('--bg-light-secondary');
+        cell.textContent = dia;
+        cell.title = v > 0 ? formatMonto(v) : 'Sin gasto';
+        grid.appendChild(cell);
+      }
+
+      var leg = $('heatmapLegend5');
+      leg.innerHTML =
+        '<span><i class="sw" style="background:' + cssVar('--bg-light-secondary') + '"></i>Sin gasto</span>' +
+        '<span><i class="sw" style="background:rgba(16,185,129,0.85)"></i>≤ promedio</span>' +
+        '<span><i class="sw" style="background:rgba(245,158,11,0.85)"></i>&gt; promedio</span>' +
+        '<span><i class="sw" style="background:rgba(239,68,68,0.85)"></i>&gt; 2× promedio</span>';
+
+      setEstado(5, 'ok');
+    }
     function render6() { setEstado(6, 'vacio'); }
     function render7() { setEstado(7, 'vacio'); }
     function render8() { setEstado(8, 'vacio'); }
