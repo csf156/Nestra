@@ -374,7 +374,55 @@
 
       setEstado(5, 'ok');
     }
-    function render6() { setEstado(6, 'vacio'); }
+    function render6(datos) {
+      var resumen = datos.resumen;
+      var ingresos = resumen.hogar.ingresos || 0;
+      var cats = (resumen.porCategoria || []).slice(0, 6);
+      if (ingresos <= 0 && !cats.length) { setEstado(6, 'vacio'); return; }
+
+      var labels = ['Ingresos'];
+      var base = [0];
+      var visible = [ingresos];
+      var colores = [cssVar('--color-success')];
+
+      var corriente = ingresos;
+      cats.forEach(function (c) {
+        labels.push(c.nombre);
+        var monto = Number(c.total);
+        corriente -= monto;
+        base.push(corriente);
+        visible.push(monto);
+        colores.push(cssVar('--color-danger'));
+      });
+
+      labels.push('Balance');
+      base.push(0);
+      visible.push(corriente);
+      colores.push(corriente >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'));
+
+      setEstado(6, 'ok');
+      charts.chart6 = new Chart($('chart6'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: '_base', data: base, backgroundColor: 'transparent', stack: 'cf' },
+            { label: 'Flujo', data: visible, backgroundColor: colores, stack: 'cf' },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { filter: function (item) { return item.dataset.label !== '_base'; } },
+          },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false }, stacked: true },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, stacked: true },
+          },
+        },
+      });
+    }
     function render7() { setEstado(7, 'vacio'); }
     function render8() { setEstado(8, 'vacio'); }
 
