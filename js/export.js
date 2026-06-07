@@ -42,7 +42,7 @@ var exportador = (function () {
         'Tipo':      t.tipo || '',
         'Ámbito':    t.ambito || '',
         'Categoría': t.categorias ? t.categorias.nombre : '',
-        'Monto':     Number(t.monto),
+        'Monto':     Number(t.monto) || 0,
         'Nota':      t.nota || ''
       };
     });
