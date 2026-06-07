@@ -191,7 +191,40 @@
       };
     }
 
-    function render1() { setEstado(1, 'vacio'); }
+    function render1(datos) {
+      var txs = datos.txHogarMes;
+      if (!txs.length) { setEstado(1, 'vacio'); return; }
+      var dias = datos.rango.dias;
+      var gastos = new Array(dias).fill(0), ingresos = new Array(dias).fill(0);
+      txs.forEach(function (t) {
+        var d = parseInt(String(t.fecha).split('T')[0].split('-')[2], 10) - 1;
+        if (d < 0 || d >= dias) return;
+        if (t.tipo === 'gasto') gastos[d] += Number(t.monto);
+        else if (t.tipo === 'ingreso') ingresos[d] += Number(t.monto);
+      });
+      for (var i = 1; i < dias; i++) { gastos[i] += gastos[i - 1]; ingresos[i] += ingresos[i - 1]; }
+      var labels = []; for (var k = 1; k <= dias; k++) labels.push(k);
+
+      setEstado(1, 'ok');
+      charts.chart1 = new Chart($('chart1'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Gastos', data: gastos, borderColor: cssVar('--color-danger'), backgroundColor: 'transparent', tension: 0.25 },
+            { label: 'Ingresos', data: ingresos, borderColor: cssVar('--color-success'), backgroundColor: 'transparent', tension: 0.25 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
     function render2() { setEstado(2, 'vacio'); }
     function render3() { setEstado(3, 'vacio'); }
     function render4() { setEstado(4, 'vacio'); }
