@@ -299,7 +299,34 @@
         },
       });
     }
-    function render4() { setEstado(4, 'vacio'); }
+    function render4(datos) {
+      var serie = datos.balance6m || [];
+      if (!serie.length) { setEstado(4, 'vacio'); return; }
+      var labels = serie.map(function (x) { return x.label; });
+      var acum = []; var run = 0;
+      serie.forEach(function (x) { run += Number(x.balance) || 0; acum.push(run); });
+
+      setEstado(4, 'ok');
+      charts.chart4 = new Chart($('chart4'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Ahorro acumulado', data: acum,
+            borderColor: cssVar('--color-primary'),
+            backgroundColor: 'rgba(5,150,105,0.12)', fill: true, tension: 0.3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
     function render5() { setEstado(5, 'vacio'); }
     function render6() { setEstado(6, 'vacio'); }
     function render7() { setEstado(7, 'vacio'); }
