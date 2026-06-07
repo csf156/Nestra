@@ -445,6 +445,12 @@
 
     const CAT_PRESTAMO = 'Dinero que prestamos';
 
+    // Modo edición: si el historial dejó window._editTx, precargamos los
+    // campos y al guardar usamos updateTransaccion en vez de insertar. Se
+    // consume una sola vez (null inmediato) para no contaminar un alta nueva.
+    const editTx = window._editTx || null;
+    window._editTx = null;
+
     // ── Fecha por defecto: hoy ────────────────────────────────
     const hoy = new Date();
     fechaEl.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
@@ -492,6 +498,8 @@
 
     // ── Aporte al hogar ───────────────────────────────────────
     function _mostrarAporteHogar() {
+      // En edición no ofrecemos convertir en aporte (rompería la mitad ya existente).
+      if (editTx) { aporteHogarGroup.style.display = 'none'; aporteHogarEl.checked = false; return; }
       const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto';
       aporteHogarGroup.style.display = esHogarGasto ? 'block' : 'none';
       if (!esHogarGasto) aporteHogarEl.checked = false;
@@ -528,7 +536,7 @@
           cats.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('') +
           '<option value="__nueva__">+ Nueva categoría</option>';
         if (autoSelectId) categoriaEl.value = autoSelectId;
-        if (_esPrestamo()) _mostrarPrestamo();
+        if (_esPrestamo() && !editTx) _mostrarPrestamo();
       } catch (err) {
         console.error('Error cargando categorías:', err);
         categoriaEl.innerHTML = '<option value="">Error al cargar</option>';
@@ -545,7 +553,7 @@
         _mostrarNuevaCat();
       } else {
         _ocultarNuevaCat();
-        if (_esPrestamo()) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
+        if (_esPrestamo() && !editTx) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
       }
     });
 
@@ -682,6 +690,23 @@
 
       setCargando(true);
       try {
+        if (editTx) {
+          // Edición: solo actualiza campos. No toca préstamos ni aportes
+          // vinculados (esas filas no son editables desde el historial).
+          await updateTransaccion(editTx.id, {
+            tipo:         tipoEl.value,
+            ambito:       ambitoEl.value,
+            categoria_id: savedCatId,
+            monto,
+            fecha,
+            nota,
+          });
+          // Re-distribuir aportes a metas si la categoría es/era "Ahorro".
+          // Best-effort: fallo no revierte la edición ya guardada.
+          await _reDistribuirAhorro(editTx.id, savedCatId);
+          await mostrarExito(savedCatId);
+          return;
+        }
         if (aporteHogarEl.checked) {
           await insertAporteHogar(monto, savedCatId, nota, fecha);
         } else {
@@ -706,7 +731,34 @@
     });
 
     // ── Carga inicial ─────────────────────────────────────────
-    cargarCategorias();
-    _mostrarAporteHogar();
+    if (editTx) {
+      document.getElementById('transaccionModalTitle').textContent = 'Editar transacción';
+      const sub = document.querySelector('.tx-header p');
+      if (sub) sub.textContent = 'Modifica los datos y guarda';
+      guardarText.textContent = 'Guardar cambios';
+
+      // Toggles: solo UI (no recargar categorías dos veces).
+      tipoEl.value = editTx.tipo;
+      btnTipoGasto.classList.toggle('tx-active', editTx.tipo === 'gasto');
+      btnTipoGasto.setAttribute('aria-pressed', String(editTx.tipo === 'gasto'));
+      btnTipoIngreso.classList.toggle('tx-active', editTx.tipo === 'ingreso');
+      btnTipoIngreso.setAttribute('aria-pressed', String(editTx.tipo === 'ingreso'));
+
+      ambitoEl.value = editTx.ambito;
+      btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
+      btnAmbitoPersonal.setAttribute('aria-pressed', String(editTx.ambito === 'personal'));
+      btnAmbitoHogar.classList.toggle('tx-active', editTx.ambito === 'hogar');
+      btnAmbitoHogar.setAttribute('aria-pressed', String(editTx.ambito === 'hogar'));
+
+      montoEl.value = editTx.monto;
+      fechaEl.value = String(editTx.fecha).split('T')[0];
+      notaEl.value = editTx.nota || '';
+      aporteHogarGroup.style.display = 'none';
+
+      cargarCategorias(editTx.categoria_id);
+    } else {
+      cargarCategorias();
+      _mostrarAporteHogar();
+    }
   })();
 </script>

@@ -139,6 +139,35 @@ async function _distribuirSiAhorro(tx) {
   }
 }
 
+// _reDistribuirAhorro(txId, nuevaCatId) — re-reparte aportes_meta tras editar
+// una transacción. Borra los aportes previos del tx y re-invoca distribuir_ahorro
+// si la nueva categoría sigue siendo "Ahorro". Cubre los 4 casos:
+//   Ahorro→Ahorro: borra viejos + redistribuye con nuevo monto.
+//   Ahorro→otro:   borra viejos, sin redistribuir.
+//   otro→Ahorro:   no hay aportes previos, redistribuye directamente.
+//   otro→otro:     noop (no hay aportes, no es Ahorro).
+// Best-effort: no lanza, no revierte la edición ya guardada.
+async function _reDistribuirAhorro(txId, nuevaCatId) {
+  try {
+    const cats = await getCategorias('gasto');
+    const esAhoraAhorro = cats.some((c) => c.id === nuevaCatId && c.nombre === 'Ahorro');
+
+    // Borrar aportes_meta anteriores del tx (RLS ALL permite al usuario borrar los suyos).
+    const { error: errDel } = await supabase
+      .from('aportes_meta')
+      .delete()
+      .eq('transaccion_id', txId);
+    if (errDel) throw errDel;
+
+    if (esAhoraAhorro) {
+      const { error: errRpc } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: txId });
+      if (errRpc) throw errRpc;
+    }
+  } catch (err) {
+    console.error('Aviso: no se pudo re-distribuir el ahorro tras editar:', err.message || err);
+  }
+}
+
 // updateTransaccion(id, datos) — actualiza campos de una transacción.
 // datos: subconjunto de { tipo, ambito, categoria_id, monto, fecha, nota }
 // Returns: fila actualizada. Lanza Error en fallo.

@@ -1,0 +1,6 @@
+# Secrets — never commit
+KEYS.txt
+**/KEYS.txt
+*.key
+.env
+.env.*
