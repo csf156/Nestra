@@ -423,7 +423,39 @@
         },
       });
     }
-    function render7() { setEstado(7, 'vacio'); }
+    function render7(datos) {
+      var actual = datos.resumen.porCategoria || [];
+      var anterior = datos.resumenAnterior.porCategoria || [];
+      if (!actual.length && !anterior.length) { setEstado(7, 'vacio'); return; }
+      var top = actual.slice(0, 5).map(function (c) { return c.nombre; });
+      var mapAnt = {};
+      anterior.forEach(function (c) { mapAnt[c.nombre] = c.total; });
+      var mapAct = {};
+      actual.forEach(function (c) { mapAct[c.nombre] = c.total; });
+
+      var dActual = top.map(function (n) { return mapAct[n] || 0; });
+      var dAnterior = top.map(function (n) { return mapAnt[n] || 0; });
+
+      setEstado(7, 'ok');
+      charts.chart7 = new Chart($('chart7'), {
+        type: 'bar',
+        data: {
+          labels: top,
+          datasets: [
+            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Mes actual', data: dActual, backgroundColor: cssVar('--color-primary') },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
     function render8() { setEstado(8, 'vacio'); }
 
     var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
