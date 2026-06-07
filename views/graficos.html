@@ -456,7 +456,96 @@
         },
       });
     }
-    function render8() { setEstado(8, 'vacio'); }
+    function render8(datos) {
+      var metas = datos.metas || [];
+      if (!metas.length) { setEstado(8, 'vacio'); return; }
+
+      var paleta = ['#059669', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var datasets = [];
+      var labelsSet = [];
+
+      metas.forEach(function (item, idx) {
+        var meta = item.meta;
+        var aportes = (item.aportes || []).slice().sort(function (a, b) {
+          return new Date(a.created_at) - new Date(b.created_at);
+        });
+        var objetivo = Number(meta.monto_objetivo);
+        var color = paleta[idx % paleta.length];
+
+        var acumPorMes = {};
+        var run = 0;
+        aportes.forEach(function (ap) {
+          var ym = String(ap.created_at).slice(0, 7);
+          run += Number(ap.monto);
+          acumPorMes[ym] = run;
+        });
+        var actualAcum = Number(meta.monto_actual) || run;
+
+        var mesesConAporte = Object.keys(acumPorMes).length || 1;
+        var ritmo = actualAcum / mesesConAporte;
+
+        var restante = Math.max(objetivo - actualAcum, 0);
+        var mesesParaMeta = ritmo > 0 ? Math.ceil(restante / ritmo) : Infinity;
+
+        var llega = true;
+        if (meta.fecha_limite) {
+          var hoyD = new Date();
+          var limD = new Date(meta.fecha_limite);
+          var mesesHastaLimite = (limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth());
+          llega = mesesParaMeta <= Math.max(mesesHastaLimite, 0);
+        } else {
+          llega = ritmo > 0;
+        }
+
+        var ymHoy = new Date().toISOString().slice(0, 7);
+        var realLabels = Object.keys(acumPorMes);
+        if (!realLabels.length) realLabels = [ymHoy];
+        realLabels.forEach(function (l) { if (labelsSet.indexOf(l) === -1) labelsSet.push(l); });
+
+        var realData = realLabels.map(function (l) { return acumPorMes[l] != null ? acumPorMes[l] : null; });
+        datasets.push({
+          label: meta.nombre, data: realData, _labels: realLabels,
+          borderColor: color, backgroundColor: 'transparent', tension: 0.2, spanGaps: true,
+        });
+
+        var projLabels = [];
+        var cursor = new Date(ymHoy + '-01');
+        var pasos = isFinite(mesesParaMeta) ? mesesParaMeta : 6;
+        for (var s = 0; s <= pasos; s++) {
+          projLabels.push(cursor.toISOString().slice(0, 7));
+          cursor.setMonth(cursor.getMonth() + 1);
+        }
+        projLabels.forEach(function (l) { if (labelsSet.indexOf(l) === -1) labelsSet.push(l); });
+        var projData = projLabels.map(function (l, i) { return Math.min(actualAcum + ritmo * i, objetivo); });
+        datasets.push({
+          label: meta.nome + ' (proyección)', data: projData, _labels: projLabels,
+          borderColor: llega ? cssVar('--color-success') : cssVar('--color-danger'),
+          backgroundColor: 'transparent', borderDash: [6, 4], pointRadius: 0, tension: 0.1,
+        });
+      });
+
+      labelsSet.sort();
+      datasets.forEach(function (ds) {
+        var byLabel = {};
+        ds._labels.forEach(function (l, i) { byLabel[l] = ds.data[i]; });
+        ds.data = labelsSet.map(function (l) { return byLabel[l] != null ? byLabel[l] : null; });
+        delete ds._labels;
+      });
+
+      setEstado(8, 'ok');
+      charts.chart8 = new Chart($('chart8'), {
+        type: 'line',
+        data: { labels: labelsSet, datasets: datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false, spanGaps: true,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
 
     var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
 
