@@ -472,7 +472,7 @@ async function getAportesPorMiembro(mes, anio) {
       getProfiles(),
       supabase
         .from('transacciones')
-        .select('user_id, monto, aporte_id')
+        .select('user_id, monto')
         .not('aporte_id', 'is', null)
         .gte('fecha', desde)
         .lte('fecha', hasta),
