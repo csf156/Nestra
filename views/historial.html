@@ -101,6 +101,23 @@
   <span aria-hidden="true">+</span>
 </button>
 
+<!-- ── Modal: confirmar borrado de transacción normal ───────────── -->
+<div class="modal-overlay" id="histDeleteModal" role="dialog" aria-modal="true"
+     aria-labelledby="histDeleteTitle">
+  <div class="modal-content hist-aporte-modal">
+    <p class="hist-aporte-icon" aria-hidden="true">🗑️</p>
+    <h2 class="hist-aporte-title" id="histDeleteTitle">¿Eliminar movimiento?</h2>
+    <p class="hist-aporte-body" id="histDeleteBody"></p>
+    <div class="hist-aporte-actions">
+      <button type="button" class="btn btn-secondary" id="histDeleteCancel">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="histDeleteConfirm">
+        <span id="histDeleteConfirmText">Eliminar</span>
+        <span id="histDeleteSpinner" class="spinner" role="status" aria-label="Eliminando" style="display:none;"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal: confirmar borrado de aporte vinculado ─────────────── -->
 <div class="modal-overlay" id="histAporteModal" role="dialog" aria-modal="true"
      aria-labelledby="histAporteTitle">
@@ -966,58 +983,63 @@
     }
 
     // ── Borrado ───────────────────────────────────────────────
-    // Normal: optimista con borrado DIFERIDO. La fila desaparece y el
-    // deleteTransaccion real corre solo si el toast expira sin "Deshacer".
-    // Aporte vinculado (aporte_id): modal explícito + borrado inmediato.
-    var borradoPendiente = null;
-
-    function restaurarFila(tx) {
-      rawData.push(tx);
-      rawData.sort(function (a, b) {
-        if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
-        return (a.created_at || '') < (b.created_at || '') ? 1 : -1;
-      });
-      aplicarLocalYRender();
-    }
+    // Todos los borrados requieren confirmación explícita en modal.
+    // Normal: histDeleteModal. Aporte vinculado (aporte_id): histAporteModal.
 
     function pedirBorrado(id) {
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
       if (!tx) return;
       if (tx.aporte_id) { abrirModalAporte(tx); return; }
-      borrarNormal(tx);
+      abrirModalDelete(tx);
     }
 
-    function borrarNormal(tx) {
-      confirmarBorradoDiferido(); // cerrar cualquier borrado diferido anterior
+    // ── Modal borrado normal ──────────────────────────────────
+    var deleteModal = $('histDeleteModal');
+    var deleteTxPendiente = null;
 
-      rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
-      aplicarLocalYRender();
-
-      var timer = setTimeout(function () {
-        borradoPendiente = null;
-        deleteTransaccion(tx.id).catch(function () {
-          restaurarFila(tx);
-          mostrarToast('No se pudo borrar. Reintenta.', null, null, 4000);
-        });
-      }, 5000);
-
-      borradoPendiente = { tx: tx, timer: timer };
-      mostrarToast('Movimiento eliminado', 'Deshacer', function () {
-        clearTimeout(timer);
-        borradoPendiente = null;
-        restaurarFila(tx);
-      }, 5000);
+    function abrirModalDelete(tx) {
+      deleteTxPendiente = tx;
+      $('histDeleteBody').textContent =
+        '¿Seguro que quieres eliminar este movimiento de ' + formatMonto(tx.monto) + '? Esta acción no se puede deshacer.';
+      $('histDeleteConfirmText').style.display = 'inline';
+      $('histDeleteSpinner').style.display = 'none';
+      $('histDeleteConfirm').disabled = false;
+      $('histDeleteCancel').disabled = false;
+      deleteModal.classList.add('active');
+      setTimeout(function () { $('histDeleteCancel').focus(); }, 50);
     }
 
-    // Ejecuta ya un borrado diferido en curso (no espera el timer).
-    function confirmarBorradoDiferido() {
-      if (!borradoPendiente) return;
-      clearTimeout(borradoPendiente.timer);
-      var tx = borradoPendiente.tx;
-      borradoPendiente = null;
-      deleteTransaccion(tx.id).catch(function () { /* fila ya fuera de pantalla */ });
+    function cerrarModalDelete() {
+      deleteModal.classList.remove('active');
+      deleteTxPendiente = null;
+      $('histDeleteSpinner').style.display = 'none';
+      $('histDeleteConfirmText').style.display = 'inline';
+      $('histDeleteConfirm').disabled = false;
+      $('histDeleteCancel').disabled = false;
     }
-    window.addEventListener('hashchange', confirmarBorradoDiferido, { once: true });
+
+    $('histDeleteCancel').addEventListener('click', cerrarModalDelete);
+    deleteModal.addEventListener('click', function (e) { if (e.target === e.currentTarget) cerrarModalDelete(); });
+    deleteModal.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModalDelete(); });
+
+    $('histDeleteConfirm').addEventListener('click', async function () {
+      if (!deleteTxPendiente) return;
+      var tx = deleteTxPendiente;
+      $('histDeleteConfirm').disabled = true;
+      $('histDeleteCancel').disabled = true;
+      $('histDeleteConfirmText').style.display = 'none';
+      $('histDeleteSpinner').style.display = 'inline-block';
+      try {
+        await deleteTransaccion(tx.id);
+        cerrarModalDelete();
+        rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
+        aplicarLocalYRender();
+        mostrarToast('Movimiento eliminado', null, null, 3000);
+      } catch (err) {
+        cerrarModalDelete();
+        mostrarToast('No se pudo borrar. Reintenta.', null, null, 4000);
+      }
+    });
 
     // ── Modal de aporte ───────────────────────────────────────
     var aporteModal = $('histAporteModal');
@@ -1065,7 +1087,6 @@
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
       if (!tx || tx.aporte_id) return; // aporte vinculado no editable
       if (typeof abrirModalTransaccion !== 'function') { window.location.hash = '#transaccion'; return; }
-      confirmarBorradoDiferido();
       window._editTx = tx;
       abrirModalTransaccion();
     }
