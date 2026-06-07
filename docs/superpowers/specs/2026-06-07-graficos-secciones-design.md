@@ -37,10 +37,22 @@ Hogar: 8. Personal: 6 (oculta tarjetas 3 y 6).
 
 ## UI
 
-- Toggle de chips **Hogar | Personal** bajo el header (reusa el patrón visual de chips de `historial.html`). Default **Hogar**.
-- `aria-pressed` en los chips, `role="group"`.
+- **Toggle segmentado** (control pill de 2 segmentos) **Hogar | Personal** bajo el header. Default **Hogar**. Patrón segmentado (no chips de filtro): comunica selección binaria mutuamente excluyente, no multi-filtro.
+- `role="group"` en el contenedor; cada segmento es un `<button>` con `aria-pressed`. El segmento activo resaltado (fondo `--color-primary`, texto claro).
 - Cambiar de pestaña: actualiza `estado.ambito`, oculta/muestra las tarjetas 3 y 6, dispara `recargarTodo()`.
-- Las tarjetas 3 y 6 se ocultan con una clase CSS condicionada al ámbito (no se destruyen del DOM).
+- Las tarjetas 3 y 6 se ocultan con una clase CSS en el contenedor (`.graf--personal`), no se destruyen del DOM.
+
+## Mobile-first & mejoras de interfaz
+
+La vista ya es mobile-first (grid 1-columna por defecto, 2-columnas en `@media (min-width:720px)`). Se refuerza y se añaden mejoras de interfaz:
+
+1. **Barra de controles sticky.** Header + toggle + navegador de mes viven en un contenedor `position: sticky; top: 0` con fondo del tema y leve sombra al hacer scroll. La página es larga (hasta 8 gráficos); en móvil esto mantiene mes y ámbito siempre alcanzables sin volver arriba. `z-index` sobre las tarjetas.
+2. **Header apilado en móvil.** `<720px`: título, toggle y navegador de mes se apilan verticales a ancho completo (no `justify-between` que aprieta). El toggle ocupa el ancho completo (cada segmento 50%). Tap targets ≥44px.
+3. **Transición de re-render.** Al recargar (toggle o mes), las tarjetas hacen un fade corto (opacity 0.5→1, ~150ms) para suavizar el swap de datos. Envuelto en `@media (prefers-reduced-motion: reduce)` → sin animación.
+4. **Leyenda del donut sin overflow.** En móvil la leyenda va debajo del canvas (ya es `flex-direction: column`); textos largos con `overflow-wrap`.
+5. **Navegador de mes táctil.** Botones ‹ › ya 36px → subir a 44px en móvil para cumplir el mínimo táctil.
+
+Todas las mejoras son CSS + un toggle de clase; sin impacto en la capa de datos.
 
 ---
 
