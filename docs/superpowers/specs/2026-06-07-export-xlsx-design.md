@@ -30,23 +30,29 @@ SheetJS (xlsx.js) loaded from jsDelivr CDN. No npm, no local vendor file.
 | Before | After |
 |---|---|
 | `exportador.exportCSV(txs)` | `exportador.exportXLSX(txs)` |
-| Returns `{ ok, count, fallback }` | Returns `{ ok, count, fallback }` (same shape) |
+| Returns `{ ok, count, fallback }` | Returns `{ ok, count, fallback }` on success; `{ ok:false, count:0, reason }` on failure |
+
+`reason` ∈ `'sin-libreria'` (CDN failed) \| `'sin-datos'` (empty list) \| `'descarga-fallo'` (both download paths threw).
 
 ---
 
 ## Files Changed
 
 ### `index.html`
-Add SheetJS CDN script **before** `export.js`, with `defer` to avoid blocking render:
+Add one plain SheetJS CDN `<script>` line, matching the existing Supabase CDN pattern
+(line 75 — classic script, no `defer`). Place it among the application scripts, e.g. right
+before `js/export.js`:
 
 ```html
-<script defer src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script defer src="js/export.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="js/export.js"></script>
 ```
 
-> Note: `export.js` currently has no `defer`. Both scripts must be deferred together so
-> `XLSX` global is available when `export.js` initializes. Check that other scripts
-> loaded after them are also deferred or placed at end of `<body>`.
+> Why no `defer`: `export.js` does NOT reference `XLSX` at load time — it only defines the
+> `exportador` IIFE. `XLSX` is touched lazily inside `exportXLSX()`, which runs on the export
+> button click, long after page + CDN have loaded. So script order relative to `export.js` is
+> irrelevant, and `defer` would only diverge from the project's existing classic-script
+> convention. The `typeof XLSX === 'undefined'` guard covers the rare not-yet-loaded case.
 
 ### `js/export.js`
 Full rewrite of export logic. Keep IIFE structure, `_isoHoy()` helper, `_descargar()` removed
@@ -55,12 +61,12 @@ Full rewrite of export logic. Keep IIFE structure, `_isoHoy()` helper, `_descarg
 ```js
 function exportXLSX(transacciones) {
   if (typeof XLSX === 'undefined') {
-    // SheetJS CDN failed to load
-    return { ok: false, count: 0, fallback: false };
+    // SheetJS CDN failed to load — distinct reason from "no data"
+    return { ok: false, count: 0, reason: 'sin-libreria' };
   }
 
   var datos = transacciones || [];
-  if (!datos.length) return { ok: false, count: 0, fallback: false };
+  if (!datos.length) return { ok: false, count: 0, reason: 'sin-datos' };
 
   // Map to plain objects with Spanish headers
   var filas = datos.map(function (t) {
@@ -91,7 +97,7 @@ function exportXLSX(transacciones) {
       window.open(dataUrl, '_blank');
       return { ok: true, count: datos.length, fallback: true };
     } catch (err2) {
-      return { ok: false, count: 0, fallback: false };
+      return { ok: false, count: 0, reason: 'descarga-fallo' };
     }
   }
 }
@@ -110,8 +116,17 @@ else if (!res.fallback) { mostrarToast('CSV descargado (' + res.count + ')', ...
 
 // After
 var res = exportador.exportXLSX(datosVisibles());
-if (!res.ok) { mostrarToast('No hay movimientos para exportar.', ...); }
-else if (!res.fallback) { mostrarToast('Excel descargado (' + res.count + ' filas)', ...); }
+if (!res.ok) {
+  var msg = res.reason === 'sin-libreria'
+    ? 'No se pudo cargar el exportador. Revisa tu conexión.'
+    : res.reason === 'descarga-fallo'
+      ? 'No se pudo generar el archivo.'
+      : 'No hay movimientos para exportar.';
+  mostrarToast(msg, null, null, 3000);
+} else if (!res.fallback) {
+  mostrarToast('Excel descargado (' + res.count + ' filas)', null, null, 3000);
+}
+// fallback (iOS): se abrió en pestaña nueva, sin toast.
 ```
 
 Button label in HTML also changes: `Exportar CSV` → `Exportar Excel`.
@@ -137,12 +152,12 @@ Sheet name: `Historial`.
 
 ## Error Handling
 
-| Scenario | Behavior |
-|---|---|
-| `XLSX` global undefined (CDN failed) | `{ ok: false }` → toast "No hay movimientos para exportar" (reuses existing path) |
-| Empty filtered list | `{ ok: false }` → same toast |
-| `writeFile` throws (iOS Safari) | Fallback: base64 `data:` URL opened in new tab |
-| Both download paths throw | `{ ok: false }` → toast |
+| Scenario | `reason` | Toast |
+|---|---|---|
+| `XLSX` global undefined (CDN failed) | `sin-libreria` | "No se pudo cargar el exportador. Revisa tu conexión." |
+| Empty filtered list | `sin-datos` | "No hay movimientos para exportar." |
+| `writeFile` throws (iOS Safari) | — | Fallback: base64 `data:` URL in new tab (no toast) |
+| Both download paths throw | `descarga-fallo` | "No se pudo generar el archivo." |
 
 ---
 
@@ -150,8 +165,7 @@ Sheet name: `Historial`.
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| jsDelivr CDN downtime | Low (99.9% SLA) | `typeof XLSX === 'undefined'` guard |
-| `defer` load order broken | Medium if other scripts lack `defer` | Audit script tags in index.html during impl |
+| jsDelivr CDN downtime | Low (99.9% SLA) | `typeof XLSX === 'undefined'` guard → `sin-libreria` toast |
 | iOS XLSX open (not download) | High on Safari | base64 fallback opens in new tab; acceptable |
 | SheetJS version breaking change | Low | Pin to `xlsx@0.18.5` in CDN URL |
 
