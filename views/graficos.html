@@ -125,6 +125,7 @@
     var hoy = mesActual();
     var estado = { mes: hoy.mes, anio: hoy.anio };
     var charts = {};
+    var cargaToken = 0;
 
     function cssVar(nombre) {
       return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
@@ -202,16 +203,19 @@
     var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
 
     async function recargarTodo() {
+      var token = ++cargaToken;
       for (var n = 1; n <= 8; n++) setEstado(n, 'cargando');
       var datos;
       try {
         datos = await cargarDatos();
       } catch (err) {
+        if (token !== cargaToken) return; // llegó una recarga más nueva
         console.error('cargarDatos falló:', err);
         for (var k = 1; k <= 8; k++) setEstado(k, 'error');
         return;
       }
-      for (var id in charts) destruir(id);
+      if (token !== cargaToken) return; // descartar resultado obsoleto
+      Object.keys(charts).forEach(function (id) { destruir(id); });
       RENDERS.forEach(function (fn, idx) {
         try { fn(datos); }
         catch (err) { console.error('render' + (idx + 1) + ' falló:', err); setEstado(idx + 1, 'error'); }
@@ -229,7 +233,7 @@
     $('grafMesNext').addEventListener('click', function () { cambiarMes(1); });
 
     if (typeof Chart === 'undefined') {
-      for (var n2 = 1; n2 <= 8; n2++) setEstado(n2, 'error');
+      for (var n = 1; n <= 8; n++) setEstado(n, 'error');
       console.error('Chart.js no cargó');
       return;
     }
