@@ -1,15 +1,21 @@
 <div class="graf">
-  <header class="graf-header">
-    <div>
-      <h1 class="graf-title">Gráficos</h1>
-      <p class="graf-sub">Análisis financiero del hogar</p>
+  <div class="graf-controls">
+    <header class="graf-header">
+      <div>
+        <h1 class="graf-title">Gráficos</h1>
+        <p class="graf-sub">Análisis financiero</p>
+      </div>
+      <div class="graf-month" role="group" aria-label="Periodo">
+        <button type="button" class="graf-month-nav" id="grafMesPrev" aria-label="Mes anterior">‹</button>
+        <span class="graf-month-label" id="grafMesLabel" aria-live="polite">—</span>
+        <button type="button" class="graf-month-nav" id="grafMesNext" aria-label="Mes siguiente">›</button>
+      </div>
+    </header>
+    <div class="graf-toggle" role="group" aria-label="Ámbito">
+      <button type="button" class="graf-seg graf-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
+      <button type="button" class="graf-seg" data-ambito="personal" aria-pressed="false">Personal</button>
     </div>
-    <div class="graf-month" role="group" aria-label="Periodo">
-      <button type="button" class="graf-month-nav" id="grafMesPrev" aria-label="Mes anterior">‹</button>
-      <span class="graf-month-label" id="grafMesLabel" aria-live="polite">—</span>
-      <button type="button" class="graf-month-nav" id="grafMesNext" aria-label="Mes siguiente">›</button>
-    </div>
-  </header>
+  </div>
 
   <div class="graf-grid">
     <section class="graf-card" id="card1">
@@ -69,6 +75,25 @@
 
 <style>
   .graf { max-width: 1100px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-xl); }
+
+  .graf-controls { position: sticky; top: 0; z-index: 10; background: var(--bg-light); padding: var(--space-md) 0 var(--space-sm); margin-bottom: var(--space-md); border-bottom: 1px solid var(--border-light); }
+
+  .graf-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); margin-top: var(--space-md); }
+  .graf-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .graf-seg--active { background: var(--color-primary); color: #ffffff; }
+
+  .graf-grid { transition: opacity 0.15s ease; }
+  .graf-grid.is-loading { opacity: 0.5; }
+  @media (prefers-reduced-motion: reduce) { .graf-grid, .graf-seg { transition: none; } }
+
+  .graf--personal #card3, .graf--personal #card6 { display: none; }
+
+  @media (max-width: 719px) {
+    .graf-header { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+    .graf-month { justify-content: center; }
+    .graf-month-nav { width: 44px; height: 44px; }
+  }
+
   .graf-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
   .graf-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
   .graf-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
