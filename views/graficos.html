@@ -509,16 +509,19 @@
         });
 
         var projLabels = [];
-        var cursor = new Date(ymHoy + '-01');
+        var py = parseInt(ymHoy.slice(0, 4), 10);
+        var pm = parseInt(ymHoy.slice(5, 7), 10); // 1-based
         var pasos = isFinite(mesesParaMeta) ? mesesParaMeta : 6;
         for (var s = 0; s <= pasos; s++) {
-          projLabels.push(cursor.toISOString().slice(0, 7));
-          cursor.setMonth(cursor.getMonth() + 1);
+          var mm = pm + s;
+          var yy = py + Math.floor((mm - 1) / 12);
+          var mo = ((mm - 1) % 12) + 1;
+          projLabels.push(yy + '-' + String(mo).padStart(2, '0'));
         }
         projLabels.forEach(function (l) { if (labelsSet.indexOf(l) === -1) labelsSet.push(l); });
         var projData = projLabels.map(function (l, i) { return Math.min(actualAcum + ritmo * i, objetivo); });
         datasets.push({
-          label: meta.nome + ' (proyección)', data: projData, _labels: projLabels,
+          label: meta.nombre + ' (proyección)', data: projData, _labels: projLabels,
           borderColor: llega ? cssVar('--color-success') : cssVar('--color-danger'),
           backgroundColor: 'transparent', borderDash: [6, 4], pointRadius: 0, tension: 0.1,
         });
