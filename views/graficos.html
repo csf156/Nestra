@@ -232,7 +232,7 @@
       var colorPorNombre = {};
       datos.categoriasGasto.forEach(function (c) {
         limitePorNombre[c.nombre] = c.limite_mensual != null ? Number(c.limite_mensual) : null;
-        colorPorNombre[c.nombre] = c.color || cssVar('--color-primary');
+        colorPorNombre[c.nombre] = c.color || null; // sin color → paleta por índice
       });
       var paleta = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
       var labels = [], valores = [], colores = [];
