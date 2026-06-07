@@ -225,7 +225,53 @@
         },
       });
     }
-    function render2() { setEstado(2, 'vacio'); }
+    function render2(datos) {
+      var cats = datos.resumen.porCategoria || [];
+      if (!cats.length) { setEstado(2, 'vacio'); return; }
+      var limitePorNombre = {};
+      var colorPorNombre = {};
+      datos.categoriasGasto.forEach(function (c) {
+        limitePorNombre[c.nombre] = c.limite_mensual != null ? Number(c.limite_mensual) : null;
+        colorPorNombre[c.nombre] = c.color || cssVar('--color-primary');
+      });
+      var paleta = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var labels = [], valores = [], colores = [];
+      cats.forEach(function (c, i) {
+        labels.push(c.nombre);
+        valores.push(c.total);
+        colores.push(colorPorNombre[c.nombre] || paleta[i % paleta.length]);
+      });
+      var total = valores.reduce(function (a, b) { return a + b; }, 0);
+
+      setEstado(2, 'ok');
+      charts.chart2 = new Chart($('chart2'), {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: valores, backgroundColor: colores, borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      var leyenda = $('legend2');
+      leyenda.innerHTML = '';
+      cats.forEach(function (c, i) {
+        var lim = limitePorNombre[c.nombre];
+        var pctTotal = total ? Math.round((c.total / total) * 100) : 0;
+        var sem = '', semTxt = '';
+        if (lim != null && lim > 0) {
+          var pctLim = (c.total / lim) * 100;
+          if (pctLim > 100) { sem = '🔴'; semTxt = Math.round(pctLim) + '% límite'; }
+          else if (pctLim >= 80) { sem = '🟡'; semTxt = Math.round(pctLim) + '% límite'; }
+          else { sem = '🟢'; semTxt = Math.round(pctLim) + '% límite'; }
+        }
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="dot" style="background:' + colores[i] + '"></span>' +
+          '<span>' + c.nombre + ' — ' + formatMonto(c.total) + ' (' + pctTotal + '%)</span>' +
+          (sem ? '<span class="sem">' + sem + ' ' + semTxt + '</span>' : '');
+        leyenda.appendChild(li);
+      });
+    }
     function render3() { setEstado(3, 'vacio'); }
     function render4() { setEstado(4, 'vacio'); }
     function render5() { setEstado(5, 'vacio'); }
