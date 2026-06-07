@@ -1,0 +1,240 @@
+<div class="graf">
+  <header class="graf-header">
+    <div>
+      <h1 class="graf-title">Gráficos</h1>
+      <p class="graf-sub">Análisis financiero del hogar</p>
+    </div>
+    <div class="graf-month" role="group" aria-label="Periodo">
+      <button type="button" class="graf-month-nav" id="grafMesPrev" aria-label="Mes anterior">‹</button>
+      <span class="graf-month-label" id="grafMesLabel" aria-live="polite">—</span>
+      <button type="button" class="graf-month-nav" id="grafMesNext" aria-label="Mes siguiente">›</button>
+    </div>
+  </header>
+
+  <div class="graf-grid">
+    <section class="graf-card" id="card1">
+      <h2 class="graf-card-title">Evolución temporal</h2>
+      <p class="graf-card-desc">Gastos e ingresos del hogar, acumulados por día.</p>
+      <div class="graf-state" data-card="1"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart1" aria-label="Gráfico de evolución temporal de gastos e ingresos"></canvas></div>
+    </section>
+    <section class="graf-card" id="card2">
+      <h2 class="graf-card-title">Distribución por categoría</h2>
+      <p class="graf-card-desc">Gasto del hogar por categoría, con estado de límite.</p>
+      <div class="graf-state" data-card="2"></div>
+      <div class="graf-donut-wrap">
+        <div class="graf-canvas-wrap"><canvas id="chart2" aria-label="Distribución de gasto por categoría"></canvas></div>
+        <ul class="graf-legend" id="legend2"></ul>
+      </div>
+    </section>
+    <section class="graf-card" id="card3">
+      <h2 class="graf-card-title">Aporte real vs. esperado</h2>
+      <p class="graf-card-desc">Aporte al hogar de cada miembro este mes.</p>
+      <div class="graf-state" data-card="3"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart3" aria-label="Aporte real frente a esperado por miembro"></canvas></div>
+    </section>
+    <section class="graf-card" id="card4">
+      <h2 class="graf-card-title">Ahorro acumulado</h2>
+      <p class="graf-card-desc">Balance neto del hogar en los últimos 6 meses.</p>
+      <div class="graf-state" data-card="4"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart4" aria-label="Tendencia de ahorro acumulado"></canvas></div>
+    </section>
+    <section class="graf-card" id="card5">
+      <h2 class="graf-card-title">Mapa de calor de gastos</h2>
+      <p class="graf-card-desc">Intensidad de gasto por día del mes.</p>
+      <div class="graf-state" data-card="5"></div>
+      <div class="graf-heatmap" id="heatmap5"></div>
+      <div class="graf-heatmap-legend" id="heatmapLegend5"></div>
+    </section>
+    <section class="graf-card" id="card6">
+      <h2 class="graf-card-title">Flujo de caja</h2>
+      <p class="graf-card-desc">De ingresos a balance, restando cada categoría.</p>
+      <div class="graf-state" data-card="6"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
+    </section>
+    <section class="graf-card" id="card7">
+      <h2 class="graf-card-title">Comparativa mes a mes</h2>
+      <p class="graf-card-desc">Top 5 categorías: este mes vs. el anterior.</p>
+      <div class="graf-state" data-card="7"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart7" aria-label="Comparativa de gasto por categoría entre meses"></canvas></div>
+    </section>
+    <section class="graf-card graf-card--wide" id="card8">
+      <h2 class="graf-card-title">Proyección de metas</h2>
+      <p class="graf-card-desc">Progreso real y proyección hacia cada objetivo.</p>
+      <div class="graf-state" data-card="8"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart8" aria-label="Proyección de metas"></canvas></div>
+    </section>
+  </div>
+</div>
+
+<style>
+  .graf { max-width: 1100px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-xl); }
+  .graf-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
+  .graf-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
+  .graf-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+  .graf-month { display: flex; align-items: center; gap: var(--space-sm); }
+  .graf-month-nav { width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-xl); cursor: pointer; line-height: 1; }
+  .graf-month-nav:hover { background: var(--bg-light-secondary); }
+  .graf-month-label { min-width: 130px; text-align: center; font-weight: var(--font-weight-semibold); color: var(--text-dark); }
+
+  .graf-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-lg); }
+  @media (min-width: 720px) { .graf-grid { grid-template-columns: 1fr 1fr; } .graf-card--wide { grid-column: 1 / -1; } }
+
+  .graf-card { background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); position: relative; }
+  .graf-card-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0; }
+  .graf-card-desc { font-size: var(--font-size-xs); color: var(--text-secondary); margin: 2px 0 var(--space-md); }
+  .graf-canvas-wrap { position: relative; height: 240px; }
+  .graf-card--wide .graf-canvas-wrap { height: 300px; }
+
+  .graf-state { display: none; align-items: center; justify-content: center; min-height: 240px; color: var(--text-secondary); font-size: var(--font-size-sm); text-align: center; }
+  .graf-card[data-estado="cargando"] .graf-state,
+  .graf-card[data-estado="vacio"] .graf-state,
+  .graf-card[data-estado="error"] .graf-state { display: flex; }
+  .graf-card[data-estado="cargando"] .graf-canvas-wrap,
+  .graf-card[data-estado="vacio"] .graf-canvas-wrap,
+  .graf-card[data-estado="error"] .graf-canvas-wrap,
+  .graf-card[data-estado="cargando"] .graf-donut-wrap,
+  .graf-card[data-estado="vacio"] .graf-donut-wrap,
+  .graf-card[data-estado="error"] .graf-donut-wrap,
+  .graf-card[data-estado="cargando"] .graf-heatmap,
+  .graf-card[data-estado="vacio"] .graf-heatmap,
+  .graf-card[data-estado="error"] .graf-heatmap,
+  .graf-card[data-estado="cargando"] .graf-heatmap-legend,
+  .graf-card[data-estado="vacio"] .graf-heatmap-legend,
+  .graf-card[data-estado="error"] .graf-heatmap-legend { display: none; }
+
+  .graf-donut-wrap { display: flex; flex-direction: column; gap: var(--space-md); }
+  .graf-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .graf-legend li { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-xs); color: var(--text-dark); }
+  .graf-legend .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .graf-legend .sem { margin-left: auto; font-size: 11px; }
+
+  .graf-heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .graf-heatmap .hcell { aspect-ratio: 1 / 1; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-dark); }
+  .graf-heatmap .hcell.empty { background: transparent; }
+  .graf-heatmap-legend { display: flex; gap: var(--space-md); margin-top: var(--space-md); font-size: var(--font-size-xs); color: var(--text-secondary); flex-wrap: wrap; }
+  .graf-heatmap-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .graf-heatmap-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+
+<script>
+  (function () {
+    'use strict';
+    function $(id) { return document.getElementById(id); }
+
+    var hoy = mesActual();
+    var estado = { mes: hoy.mes, anio: hoy.anio };
+    var charts = {};
+
+    function cssVar(nombre) {
+      return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    }
+    function setEstado(n, est) {
+      var card = $('card' + n);
+      if (!card) return;
+      card.setAttribute('data-estado', est);
+      var box = card.querySelector('.graf-state');
+      if (box) {
+        box.textContent = est === 'cargando' ? 'Cargando…'
+          : est === 'vacio' ? 'Sin movimientos este mes'
+          : est === 'error' ? 'No se pudo cargar'
+          : '';
+      }
+    }
+    function destruir(id) {
+      if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+    function rangoMesLocal(mes, anio) {
+      var desde = anio + '-' + String(mes).padStart(2, '0') + '-01';
+      var ultimo = new Date(anio, mes, 0).getDate();
+      var hasta = anio + '-' + String(mes).padStart(2, '0') + '-' + String(ultimo).padStart(2, '0');
+      return { desde: desde, hasta: hasta, dias: ultimo };
+    }
+    function mesAnterior(mes, anio) {
+      return mes === 1 ? { mes: 12, anio: anio - 1 } : { mes: mes - 1, anio: anio };
+    }
+
+    async function cargarDatos() {
+      var m = estado.mes, a = estado.anio;
+      var r = rangoMesLocal(m, a);
+      var ant = mesAnterior(m, a);
+
+      var meses6 = [];
+      var cur = { mes: m, anio: a };
+      for (var i = 0; i < 6; i++) { meses6.unshift(cur); cur = mesAnterior(cur.mes, cur.anio); }
+
+      var resultados = await Promise.all([
+        getTransacciones({ ambito: 'hogar', fecha_desde: r.desde, fecha_hasta: r.hasta }),
+        getResumenMensual(m, a),
+        getResumenMensual(ant.mes, ant.anio),
+        getCategorias('gasto'),
+        getAportesPorMiembro(m, a),
+        Promise.all(meses6.map(function (x) { return getBalanceHogar(x.mes, x.anio); })),
+        getMetas(),
+      ]);
+
+      var metas = (resultados[6] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
+      var aportesPorMeta = await Promise.all(metas.map(function (mt) { return getAportesDeMeta(mt.id); }));
+
+      return {
+        txHogarMes: resultados[0] || [],
+        resumen: resultados[1],
+        resumenAnterior: resultados[2],
+        categoriasGasto: resultados[3] || [],
+        aportesMiembro: resultados[4] || [],
+        balance6m: meses6.map(function (x, i) {
+          return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resultados[5][i] || {}).balance || 0 };
+        }),
+        metas: metas.map(function (mt, i) { return { meta: mt, aportes: aportesPorMeta[i] || [] }; }),
+        rango: r,
+      };
+    }
+
+    function render1() { setEstado(1, 'vacio'); }
+    function render2() { setEstado(2, 'vacio'); }
+    function render3() { setEstado(3, 'vacio'); }
+    function render4() { setEstado(4, 'vacio'); }
+    function render5() { setEstado(5, 'vacio'); }
+    function render6() { setEstado(6, 'vacio'); }
+    function render7() { setEstado(7, 'vacio'); }
+    function render8() { setEstado(8, 'vacio'); }
+
+    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
+
+    async function recargarTodo() {
+      for (var n = 1; n <= 8; n++) setEstado(n, 'cargando');
+      var datos;
+      try {
+        datos = await cargarDatos();
+      } catch (err) {
+        console.error('cargarDatos falló:', err);
+        for (var k = 1; k <= 8; k++) setEstado(k, 'error');
+        return;
+      }
+      for (var id in charts) destruir(id);
+      RENDERS.forEach(function (fn, idx) {
+        try { fn(datos); }
+        catch (err) { console.error('render' + (idx + 1) + ' falló:', err); setEstado(idx + 1, 'error'); }
+      });
+    }
+
+    function renderLabel() { $('grafMesLabel').textContent = nombreMes(estado.mes, estado.anio); }
+    function cambiarMes(delta) {
+      var nuevo = delta < 0 ? mesAnterior(estado.mes, estado.anio)
+        : (estado.mes === 12 ? { mes: 1, anio: estado.anio + 1 } : { mes: estado.mes + 1, anio: estado.anio });
+      estado.mes = nuevo.mes; estado.anio = nuevo.anio;
+      renderLabel(); recargarTodo();
+    }
+    $('grafMesPrev').addEventListener('click', function () { cambiarMes(-1); });
+    $('grafMesNext').addEventListener('click', function () { cambiarMes(1); });
+
+    if (typeof Chart === 'undefined') {
+      for (var n2 = 1; n2 <= 8; n2++) setEstado(n2, 'error');
+      console.error('Chart.js no cargó');
+      return;
+    }
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    renderLabel();
+    recargarTodo();
+  })();
+</script>
