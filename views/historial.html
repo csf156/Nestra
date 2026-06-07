@@ -90,7 +90,7 @@
         <span class="hist-tot-gasto" id="histTotGasto">S/ 0.00</span>
         <span class="hist-tot-neto" id="histTotNeto">S/ 0.00</span>
       </span>
-      <button type="button" class="btn btn-primary btn-small" id="histExport">Exportar CSV</button>
+      <button type="button" class="btn btn-primary btn-small" id="histExport">Exportar Excel</button>
     </div>
   </section>
 
@@ -773,7 +773,7 @@
       $('histTotIngreso').textContent = formatMonto(ingresos);
       $('histTotGasto').textContent = formatMonto(gastos);
       $('histTotNeto').textContent = formatMonto(neto);
-      $('histExport').textContent = 'Exportar CSV (' + datos.length + ')';
+      $('histExport').textContent = 'Exportar Excel (' + datos.length + ')';
       totales.style.display = 'flex';
       totales.setAttribute('aria-hidden', 'false');
     }
@@ -1108,15 +1108,19 @@
       if (row && e.target === row) { e.preventDefault(); toggleExpand(row); }
     });
 
-    // ── Export CSV (delega en el módulo exportador) ───────────
+    // ── Export XLSX (delega en el módulo exportador) ──────────
     $('histExport').addEventListener('click', function () {
-      var res = exportador.exportCSV(datosVisibles());
+      var res = exportador.exportXLSX(datosVisibles());
       if (!res.ok) {
-        mostrarToast('No hay movimientos para exportar.', null, null, 3000);
-      } else if (!res.fallback) {
-        mostrarToast('CSV descargado (' + res.count + ')', null, null, 3000);
+        var msg = res.reason === 'sin-libreria'
+          ? 'No se pudo cargar el exportador. Revisa tu conexión.'
+          : res.reason === 'descarga-fallo'
+            ? 'No se pudo generar el archivo.'
+            : 'No hay movimientos para exportar.';
+        mostrarToast(msg, null, null, 4000);
+      } else {
+        mostrarToast('Excel descargado (' + res.count + ' filas)', null, null, 3000);
       }
-      // fallback (iOS): se abrió en pestaña nueva, sin toast.
     });
 
     // ── Nueva transacción (reusa el modal global) ─────────────
