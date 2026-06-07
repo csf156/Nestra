@@ -272,7 +272,33 @@
         leyenda.appendChild(li);
       });
     }
-    function render3() { setEstado(3, 'vacio'); }
+    function render3(datos) {
+      var miembros = datos.aportesMiembro || [];
+      if (!miembros.length) { setEstado(3, 'vacio'); return; }
+      var labels = miembros.map(function (x) { return x.nombre; });
+      var esperado = miembros.map(function (x) { return x.esperado; });
+      var real = miembros.map(function (x) { return x.real; });
+
+      setEstado(3, 'ok');
+      charts.chart3 = new Chart($('chart3'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Real', data: real, backgroundColor: cssVar('--color-primary') },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
     function render4() { setEstado(4, 'vacio'); }
     function render5() { setEstado(5, 'vacio'); }
     function render6() { setEstado(6, 'vacio'); }
