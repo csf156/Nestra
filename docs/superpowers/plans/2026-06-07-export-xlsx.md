@@ -17,15 +17,15 @@
 | File | Responsibility | Change |
 |---|---|---|
 | `index.html` | Script loading | Add one SheetJS CDN `<script>` line before `js/export.js` |
-| `js/export.js` | Export module (`exportador`) | Rewrite: CSV → XLSX. Rename method `exportCSV` → `exportXLSX`. Return `reason` codes on failure |
-| `views/historial.html` | Historial view | Update call site (line 1113), toast branches (1114-1119), static label (93), dynamic label (776) |
+| `js/export.js` | Export module (`exportador`) | Rewrite: CSV → XLSX. Rename method `exportCSV` → `exportXLSX`. Filename `mes-año`. No iOS fallback. |
+| `views/historial.html` | Historial view | Update call site (line ~1113), toast branches, static label (line ~93), dynamic label (line ~776) |
 
 ---
 
 ### Task 1: Load SheetJS from CDN
 
 **Files:**
-- Modify: `index.html:82` (insert before `<script src="js/export.js"></script>`)
+- Modify: `index.html` (insert before `<script src="js/export.js"></script>`)
 
 - [ ] **Step 1: Add the CDN script tag**
 
@@ -60,7 +60,7 @@ git commit -m "build: load SheetJS (xlsx@0.18.5) from CDN"
 ### Task 2: Rewrite export.js — CSV to XLSX
 
 **Files:**
-- Modify: `js/export.js` (full rewrite of export logic; keep IIFE + `_isoHoy`, drop `_campo` and `_descargar`)
+- Modify: `js/export.js` (full rewrite; keep IIFE, replace `_isoHoy`/`_campo`/`_descargar` with `_mesAnio`, SheetJS logic)
 
 - [ ] **Step 1: Replace the module body**
 
@@ -78,12 +78,13 @@ Overwrite `js/export.js` with:
 
 var exportador = (function () {
 
-  // _isoHoy() — fecha de hoy 'YYYY-MM-DD' (hora local) para el nombre de archivo.
-  function _isoHoy() {
+  var _MESES = ['enero','febrero','marzo','abril','mayo','junio',
+                'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  // _mesAnio() — 'mes-año' en español (ej. 'junio-2026') para el nombre de archivo.
+  function _mesAnio() {
     var d = new Date();
-    return d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' +
-      String(d.getDate()).padStart(2, '0');
+    return _MESES[d.getMonth()] + '-' + d.getFullYear();
   }
 
   // exportXLSX(transacciones) — genera y descarga un .xlsx de las transacciones dadas.
@@ -92,7 +93,7 @@ var exportador = (function () {
   //   - Monto: número crudo (celda numérica → Excel suma).
   // Recibe el array ya filtrado/visible (la vista decide qué exportar).
   // Returns:
-  //   éxito → { ok: true, count: number, fallback: bool }
+  //   éxito → { ok: true, count: number }
   //   fallo → { ok: false, count: 0, reason: 'sin-libreria'|'sin-datos'|'descarga-fallo' }
   function exportXLSX(transacciones) {
     if (typeof XLSX === 'undefined') {
@@ -119,21 +120,13 @@ var exportador = (function () {
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Historial');
 
-    var nombre = 'nestra-historial-' + _isoHoy() + '.xlsx';
+    var nombre = 'nestra-historial-' + _mesAnio() + '.xlsx';
 
     try {
       XLSX.writeFile(wb, nombre);
-      return { ok: true, count: datos.length, fallback: false };
+      return { ok: true, count: datos.length };
     } catch (err) {
-      // Fallback iOS Safari: base64 data URL en pestaña nueva.
-      try {
-        var b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-        var dataUrl = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64;
-        window.open(dataUrl, '_blank');
-        return { ok: true, count: datos.length, fallback: true };
-      } catch (err2) {
-        return { ok: false, count: 0, reason: 'descarga-fallo' };
-      }
+      return { ok: false, count: 0, reason: 'descarga-fallo' };
     }
   }
 
@@ -149,9 +142,9 @@ Reload the app, then via preview_eval:
 typeof exportador.exportXLSX
 ```
 
-Expected: `"function"`. Also confirm `typeof exportador.exportCSV` is now `"undefined"` (old method gone).
+Expected: `"function"`. Also confirm `typeof exportador.exportCSV` is `"undefined"` (old method gone).
 
-- [ ] **Step 3: Smoke-test export with a stub row**
+- [ ] **Step 3: Smoke-test with a stub row**
 
 Via preview_eval:
 
@@ -159,7 +152,7 @@ Via preview_eval:
 exportador.exportXLSX([{ fecha: '2026-06-01T00:00:00', tipo: 'gasto', ambito: 'hogar', categorias: { nombre: 'Comida' }, monto: 12.5, nota: 'prueba' }])
 ```
 
-Expected: returns `{ ok: true, count: 1, fallback: false }` and triggers a file download (`nestra-historial-<hoy>.xlsx`). Check preview_console_logs for zero errors.
+Expected: returns `{ ok: true, count: 1 }` and triggers download of `nestra-historial-junio-2026.xlsx`. Check preview_console_logs for zero errors.
 
 - [ ] **Step 4: Commit**
 
@@ -173,25 +166,23 @@ git commit -m "feat(export): replace CSV with XLSX via SheetJS"
 ### Task 3: Wire historial view to XLSX
 
 **Files:**
-- Modify: `views/historial.html:93` (static button label)
-- Modify: `views/historial.html:776` (dynamic button label)
-- Modify: `views/historial.html:1111-1120` (call site + toast branches)
+- Modify: `views/historial.html` (static label ~93, dynamic label ~776, call site ~1111-1120)
 
-- [ ] **Step 1: Update the static button label (line 93)**
+- [ ] **Step 1: Update the static button label (locate by `id="histExport"`)**
 
 ```html
 <button type="button" class="btn btn-primary btn-small" id="histExport">Exportar Excel</button>
 ```
 
-- [ ] **Step 2: Update the dynamic button label (line 776)**
+- [ ] **Step 2: Update the dynamic button label (locate by `$('histExport').textContent`)**
 
 ```js
 $('histExport').textContent = 'Exportar Excel (' + datos.length + ')';
 ```
 
-- [ ] **Step 3: Update the call site and toast branches (lines 1111-1120)**
+- [ ] **Step 3: Update the call site and toast branches (locate by `exportador.exportCSV`)**
 
-Replace the existing block:
+Replace the existing export click handler block:
 
 ```js
     // ── Export XLSX (delega en el módulo exportador) ──────────
@@ -204,20 +195,19 @@ Replace the existing block:
             ? 'No se pudo generar el archivo.'
             : 'No hay movimientos para exportar.';
         mostrarToast(msg, null, null, 3000);
-      } else if (!res.fallback) {
+      } else {
         mostrarToast('Excel descargado (' + res.count + ' filas)', null, null, 3000);
       }
-      // fallback (iOS): se abrió en pestaña nueva, sin toast.
     });
 ```
 
 - [ ] **Step 4: Verify end-to-end in the browser**
 
-Reload the app, navigate to `#historial` (sign in or use existing stub flow). Confirm via preview_snapshot the button reads "Exportar Excel (N)". Click it via preview_click on `#histExport`, then check preview_console_logs for zero errors and confirm a download or success toast "Excel descargado (N filas)".
+Reload, navigate to `#historial`. Confirm via preview_snapshot the button reads "Exportar Excel (N)". Click via preview_click on `#histExport`, check preview_console_logs for zero errors, confirm success toast "Excel descargado (N filas)" and file download named `nestra-historial-junio-2026.xlsx`.
 
-- [ ] **Step 5: Verify the empty-state toast**
+- [ ] **Step 5: Verify empty-state toast**
 
-If a filter yields zero rows, the button still fires `sin-datos`. Via preview_eval simulate:
+Via preview_eval:
 
 ```js
 exportador.exportXLSX([])
@@ -241,11 +231,11 @@ git commit -m "feat(historial): export to Excel instead of CSV"
 
 - [ ] **Step 1: Grep for leftover CSV references**
 
-Run a content search for `exportCSV`, `CSV`, and `text/csv` across the repo (excluding the spec/plan docs). Expected: zero hits in `js/`, `views/`, `index.html`. If any remain, fix them inline and re-commit.
+Search for `exportCSV`, `CSV`, `text/csv` in `js/`, `views/`, `index.html` (skip `docs/`). Expected: zero hits. If any remain, fix and re-commit.
 
-- [ ] **Step 2: Confirm the spec's "Files Changed" matches reality**
+- [ ] **Step 2: Confirm only 3 files touched**
 
-Three files touched: `index.html`, `js/export.js`, `views/historial.html`. No others.
+`index.html`, `js/export.js`, `views/historial.html`. No others.
 
 - [ ] **Step 3: Final commit if step 1 found anything**
 
@@ -259,15 +249,16 @@ git commit -m "chore: remove stale CSV references"
 ## Self-Review
 
 **Spec coverage:**
-- CDN load (spec "index.html") → Task 1 ✅
-- export.js rewrite with `reason` codes (spec "js/export.js") → Task 2 ✅
-- Call site + toast + label (spec "views/historial.html") → Task 3 ✅ (plus dynamic label at line 776 and static label at 93 — both caught beyond the spec's prose)
-- Error handling table (`sin-libreria`/`sin-datos`/`descarga-fallo`) → Tasks 2 & 3 ✅
-- iOS base64 fallback → Task 2 Step 1 ✅
-- Numeric Monto cell → Task 2 Step 1 (`Number(t.monto)`) ✅
+- CDN load → Task 1 ✅
+- export.js rewrite with `reason` codes → Task 2 ✅
+- Filename `mes-año` (ej. `junio-2026`) → Task 2 Step 1 (`_mesAnio()`) ✅
+- No iOS fallback → Task 2 Step 1 (single try/catch, no new tab) ✅
+- Numeric `Monto` cell → Task 2 Step 1 (`Number(t.monto)`) ✅
+- Call site + toasts + labels → Task 3 ✅ (static label ~93, dynamic label ~776, handler ~1111)
+- Error handling (`sin-libreria`/`sin-datos`/`descarga-fallo`) → Tasks 2 & 3 ✅
 
-**Placeholder scan:** No TBD/TODO/placeholder steps. All code blocks are complete.
+**Placeholder scan:** No TBD/TODO. All code blocks complete.
 
-**Type consistency:** Method name `exportXLSX` consistent across Tasks 2 and 3. Return shape `{ ok, count, fallback }` / `{ ok, count, reason }` consistent between export.js (Task 2) and the toast logic (Task 3). `reason` values match the spec's error-handling table exactly.
+**Type consistency:** `exportXLSX` consistent across Tasks 2-3. Return `{ ok, count }` on success, `{ ok, count, reason }` on failure — consistent between export.js and toast logic. No `fallback` field (removed per user confirmation).
 
-**Note on line numbers:** Lines 776, 1111-1120 may drift if earlier edits change file length. Tasks are ordered so historial.html (Task 3) is edited in one pass; locate by content (`$('histExport')`, the export click handler) rather than trusting absolute line numbers.
+**Note on line numbers:** Use content search to locate edits in historial.html — absolute line numbers drift with file edits.
