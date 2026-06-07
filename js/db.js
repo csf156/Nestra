@@ -460,6 +460,42 @@ async function getProfiles() {
   }
 }
 
+// getAportesPorMiembro(mes, anio) — aporte real al hogar por cada miembro en el
+// mes dado, junto al esperado de su perfil. Para el gráfico "aporte real vs. esperado".
+// Real = SUMA de transacciones con aporte_id != null en el mes, agrupado por user_id.
+// Returns: [{ user_id, nombre, esperado, real }] (un elemento por perfil) o [].
+// RLS: perfiles del hogar y transacciones de aporte visibles entre miembros.
+async function getAportesPorMiembro(mes, anio) {
+  try {
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const [profiles, txs] = await Promise.all([
+      getProfiles(),
+      supabase
+        .from('transacciones')
+        .select('user_id, monto')
+        .not('aporte_id', 'is', null)
+        .gte('fecha', desde)
+        .lte('fecha', hasta),
+    ]);
+    if (txs.error) throw txs.error;
+
+    const realPorUser = new Map();
+    (txs.data || []).forEach((t) => {
+      realPorUser.set(t.user_id, (realPorUser.get(t.user_id) || 0) + Number(t.monto));
+    });
+
+    return (profiles || []).map((p) => ({
+      user_id: p.user_id,
+      nombre: p.nombre,
+      esperado: Number(p.aporte_mensual_esperado) || 0,
+      real: realPorUser.get(p.user_id) || 0,
+    }));
+  } catch (err) {
+    console.error('Error en getAportesPorMiembro():', err.message || err);
+    return [];
+  }
+}
+
 // updateProfile(datos) — actualiza el perfil del usuario activo.
 // datos: { nombre?, aporte_mensual_esperado? }
 // RLS solo permite editar el propio perfil (user_id = auth.uid()).

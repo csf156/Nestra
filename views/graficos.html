@@ -1,0 +1,594 @@
+<div class="graf">
+  <header class="graf-header">
+    <div>
+      <h1 class="graf-title">Gráficos</h1>
+      <p class="graf-sub">Análisis financiero del hogar</p>
+    </div>
+    <div class="graf-month" role="group" aria-label="Periodo">
+      <button type="button" class="graf-month-nav" id="grafMesPrev" aria-label="Mes anterior">‹</button>
+      <span class="graf-month-label" id="grafMesLabel" aria-live="polite">—</span>
+      <button type="button" class="graf-month-nav" id="grafMesNext" aria-label="Mes siguiente">›</button>
+    </div>
+  </header>
+
+  <div class="graf-grid">
+    <section class="graf-card" id="card1">
+      <h2 class="graf-card-title">Evolución temporal</h2>
+      <p class="graf-card-desc">Gastos e ingresos del hogar, acumulados por día.</p>
+      <div class="graf-state" data-card="1"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart1" aria-label="Gráfico de evolución temporal de gastos e ingresos"></canvas></div>
+    </section>
+    <section class="graf-card" id="card2">
+      <h2 class="graf-card-title">Distribución por categoría</h2>
+      <p class="graf-card-desc">Gasto del hogar por categoría, con estado de límite.</p>
+      <div class="graf-state" data-card="2"></div>
+      <div class="graf-donut-wrap">
+        <div class="graf-canvas-wrap"><canvas id="chart2" aria-label="Distribución de gasto por categoría"></canvas></div>
+        <ul class="graf-legend" id="legend2"></ul>
+      </div>
+    </section>
+    <section class="graf-card" id="card3">
+      <h2 class="graf-card-title">Aporte real vs. esperado</h2>
+      <p class="graf-card-desc">Aporte al hogar de cada miembro este mes.</p>
+      <div class="graf-state" data-card="3"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart3" aria-label="Aporte real frente a esperado por miembro"></canvas></div>
+    </section>
+    <section class="graf-card" id="card4">
+      <h2 class="graf-card-title">Ahorro acumulado</h2>
+      <p class="graf-card-desc">Balance neto del hogar en los últimos 6 meses.</p>
+      <div class="graf-state" data-card="4"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart4" aria-label="Tendencia de ahorro acumulado"></canvas></div>
+    </section>
+    <section class="graf-card" id="card5">
+      <h2 class="graf-card-title">Mapa de calor de gastos</h2>
+      <p class="graf-card-desc">Intensidad de gasto por día del mes.</p>
+      <div class="graf-state" data-card="5"></div>
+      <div class="graf-heatmap" id="heatmap5"></div>
+      <div class="graf-heatmap-legend" id="heatmapLegend5"></div>
+    </section>
+    <section class="graf-card" id="card6">
+      <h2 class="graf-card-title">Flujo de caja</h2>
+      <p class="graf-card-desc">De ingresos a balance, restando cada categoría.</p>
+      <div class="graf-state" data-card="6"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
+    </section>
+    <section class="graf-card" id="card7">
+      <h2 class="graf-card-title">Comparativa mes a mes</h2>
+      <p class="graf-card-desc">Top 5 categorías: este mes vs. el anterior.</p>
+      <div class="graf-state" data-card="7"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart7" aria-label="Comparativa de gasto por categoría entre meses"></canvas></div>
+    </section>
+    <section class="graf-card graf-card--wide" id="card8">
+      <h2 class="graf-card-title">Proyección de metas</h2>
+      <p class="graf-card-desc">Progreso real y proyección hacia cada objetivo.</p>
+      <div class="graf-state" data-card="8"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart8" aria-label="Proyección de metas"></canvas></div>
+    </section>
+  </div>
+</div>
+
+<style>
+  .graf { max-width: 1100px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-xl); }
+  .graf-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
+  .graf-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
+  .graf-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+  .graf-month { display: flex; align-items: center; gap: var(--space-sm); }
+  .graf-month-nav { width: 36px; height: 36px; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-xl); cursor: pointer; line-height: 1; }
+  .graf-month-nav:hover { background: var(--bg-light-secondary); }
+  .graf-month-label { min-width: 130px; text-align: center; font-weight: var(--font-weight-semibold); color: var(--text-dark); }
+
+  .graf-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-lg); }
+  @media (min-width: 720px) { .graf-grid { grid-template-columns: 1fr 1fr; } .graf-card--wide { grid-column: 1 / -1; } }
+
+  .graf-card { background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); position: relative; }
+  .graf-card-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0; }
+  .graf-card-desc { font-size: var(--font-size-xs); color: var(--text-secondary); margin: 2px 0 var(--space-md); }
+  .graf-canvas-wrap { position: relative; height: 240px; }
+  .graf-card--wide .graf-canvas-wrap { height: 300px; }
+
+  .graf-state { display: none; align-items: center; justify-content: center; min-height: 240px; color: var(--text-secondary); font-size: var(--font-size-sm); text-align: center; }
+  .graf-card[data-estado="cargando"] .graf-state,
+  .graf-card[data-estado="vacio"] .graf-state,
+  .graf-card[data-estado="error"] .graf-state { display: flex; }
+  .graf-card[data-estado="cargando"] .graf-canvas-wrap,
+  .graf-card[data-estado="vacio"] .graf-canvas-wrap,
+  .graf-card[data-estado="error"] .graf-canvas-wrap,
+  .graf-card[data-estado="cargando"] .graf-donut-wrap,
+  .graf-card[data-estado="vacio"] .graf-donut-wrap,
+  .graf-card[data-estado="error"] .graf-donut-wrap,
+  .graf-card[data-estado="cargando"] .graf-heatmap,
+  .graf-card[data-estado="vacio"] .graf-heatmap,
+  .graf-card[data-estado="error"] .graf-heatmap,
+  .graf-card[data-estado="cargando"] .graf-heatmap-legend,
+  .graf-card[data-estado="vacio"] .graf-heatmap-legend,
+  .graf-card[data-estado="error"] .graf-heatmap-legend { display: none; }
+
+  .graf-donut-wrap { display: flex; flex-direction: column; gap: var(--space-md); }
+  .graf-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .graf-legend li { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-xs); color: var(--text-dark); }
+  .graf-legend .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .graf-legend .sem { margin-left: auto; font-size: 11px; }
+
+  .graf-heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .graf-heatmap .hcell { aspect-ratio: 1 / 1; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-dark); }
+  .graf-heatmap .hcell.empty { background: transparent; }
+  .graf-heatmap-legend { display: flex; gap: var(--space-md); margin-top: var(--space-md); font-size: var(--font-size-xs); color: var(--text-secondary); flex-wrap: wrap; }
+  .graf-heatmap-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .graf-heatmap-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+
+<script>
+  (function () {
+    'use strict';
+    function $(id) { return document.getElementById(id); }
+
+    var hoy = mesActual();
+    var estado = { mes: hoy.mes, anio: hoy.anio };
+    var charts = {};
+    var cargaToken = 0;
+
+    function cssVar(nombre) {
+      return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    }
+    function setEstado(n, est) {
+      var card = $('card' + n);
+      if (!card) return;
+      card.setAttribute('data-estado', est);
+      var box = card.querySelector('.graf-state');
+      if (box) {
+        box.textContent = est === 'cargando' ? 'Cargando…'
+          : est === 'vacio' ? 'Sin movimientos este mes'
+          : est === 'error' ? 'No se pudo cargar'
+          : '';
+      }
+    }
+    function destruir(id) {
+      if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+    function rangoMesLocal(mes, anio) {
+      var desde = anio + '-' + String(mes).padStart(2, '0') + '-01';
+      var ultimo = new Date(anio, mes, 0).getDate();
+      var hasta = anio + '-' + String(mes).padStart(2, '0') + '-' + String(ultimo).padStart(2, '0');
+      return { desde: desde, hasta: hasta, dias: ultimo };
+    }
+    function mesAnterior(mes, anio) {
+      return mes === 1 ? { mes: 12, anio: anio - 1 } : { mes: mes - 1, anio: anio };
+    }
+
+    async function cargarDatos() {
+      var m = estado.mes, a = estado.anio;
+      var r = rangoMesLocal(m, a);
+      var ant = mesAnterior(m, a);
+
+      var meses6 = [];
+      var cur = { mes: m, anio: a };
+      for (var i = 0; i < 6; i++) { meses6.unshift(cur); cur = mesAnterior(cur.mes, cur.anio); }
+
+      var resultados = await Promise.all([
+        getTransacciones({ ambito: 'hogar', fecha_desde: r.desde, fecha_hasta: r.hasta }),
+        getResumenMensual(m, a),
+        getResumenMensual(ant.mes, ant.anio),
+        getCategorias('gasto'),
+        getAportesPorMiembro(m, a),
+        Promise.all(meses6.map(function (x) { return getBalanceHogar(x.mes, x.anio); })),
+        getMetas(),
+      ]);
+
+      var metas = (resultados[6] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
+      var aportesPorMeta = await Promise.all(metas.map(function (mt) { return getAportesDeMeta(mt.id); }));
+
+      return {
+        txHogarMes: resultados[0] || [],
+        resumen: resultados[1],
+        resumenAnterior: resultados[2],
+        categoriasGasto: resultados[3] || [],
+        aportesMiembro: resultados[4] || [],
+        balance6m: meses6.map(function (x, i) {
+          return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resultados[5][i] || {}).balance || 0 };
+        }),
+        metas: metas.map(function (mt, i) { return { meta: mt, aportes: aportesPorMeta[i] || [] }; }),
+        rango: r,
+      };
+    }
+
+    function render1(datos) {
+      var txs = datos.txHogarMes;
+      if (!txs.length) { setEstado(1, 'vacio'); return; }
+      var dias = datos.rango.dias;
+      var gastos = new Array(dias).fill(0), ingresos = new Array(dias).fill(0);
+      txs.forEach(function (t) {
+        var d = parseInt(String(t.fecha).split('T')[0].split('-')[2], 10) - 1;
+        if (d < 0 || d >= dias) return;
+        if (t.tipo === 'gasto') gastos[d] += Number(t.monto);
+        else if (t.tipo === 'ingreso') ingresos[d] += Number(t.monto);
+      });
+      for (var i = 1; i < dias; i++) { gastos[i] += gastos[i - 1]; ingresos[i] += ingresos[i - 1]; }
+      var labels = []; for (var k = 1; k <= dias; k++) labels.push(k);
+
+      setEstado(1, 'ok');
+      charts.chart1 = new Chart($('chart1'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Gastos', data: gastos, borderColor: cssVar('--color-danger'), backgroundColor: 'transparent', tension: 0.25 },
+            { label: 'Ingresos', data: ingresos, borderColor: cssVar('--color-success'), backgroundColor: 'transparent', tension: 0.25 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
+    function render2(datos) {
+      var cats = datos.resumen.porCategoria || [];
+      if (!cats.length) { setEstado(2, 'vacio'); return; }
+      var limitePorNombre = {};
+      var colorPorNombre = {};
+      datos.categoriasGasto.forEach(function (c) {
+        limitePorNombre[c.nombre] = c.limite_mensual != null ? Number(c.limite_mensual) : null;
+        colorPorNombre[c.nombre] = c.color || cssVar('--color-primary');
+      });
+      var paleta = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var labels = [], valores = [], colores = [];
+      cats.forEach(function (c, i) {
+        labels.push(c.nombre);
+        valores.push(c.total);
+        colores.push(colorPorNombre[c.nombre] || paleta[i % paleta.length]);
+      });
+      var total = valores.reduce(function (a, b) { return a + b; }, 0);
+
+      setEstado(2, 'ok');
+      charts.chart2 = new Chart($('chart2'), {
+        type: 'doughnut',
+        data: { labels: labels, datasets: [{ data: valores, backgroundColor: colores, borderWidth: 0 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+        },
+      });
+
+      var leyenda = $('legend2');
+      leyenda.innerHTML = '';
+      cats.forEach(function (c, i) {
+        var lim = limitePorNombre[c.nombre];
+        var pctTotal = total ? Math.round((c.total / total) * 100) : 0;
+        var sem = '', semTxt = '';
+        if (lim != null && lim > 0) {
+          var pctLim = (c.total / lim) * 100;
+          if (pctLim > 100) { sem = '🔴'; semTxt = Math.round(pctLim) + '% límite'; }
+          else if (pctLim >= 80) { sem = '🟡'; semTxt = Math.round(pctLim) + '% límite'; }
+          else { sem = '🟢'; semTxt = Math.round(pctLim) + '% límite'; }
+        }
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="dot" style="background:' + colores[i] + '"></span>' +
+          '<span>' + c.nombre + ' — ' + formatMonto(c.total) + ' (' + pctTotal + '%)</span>' +
+          (sem ? '<span class="sem">' + sem + ' ' + semTxt + '</span>' : '');
+        leyenda.appendChild(li);
+      });
+    }
+    function render3(datos) {
+      var miembros = datos.aportesMiembro || [];
+      if (!miembros.length) { setEstado(3, 'vacio'); return; }
+      var labels = miembros.map(function (x) { return x.nombre; });
+      var esperado = miembros.map(function (x) { return x.esperado; });
+      var real = miembros.map(function (x) { return x.real; });
+
+      setEstado(3, 'ok');
+      charts.chart3 = new Chart($('chart3'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Real', data: real, backgroundColor: cssVar('--color-primary') },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
+    function render4(datos) {
+      var serie = datos.balance6m || [];
+      if (!serie.length) { setEstado(4, 'vacio'); return; }
+      var labels = serie.map(function (x) { return x.label; });
+      var acum = []; var run = 0;
+      serie.forEach(function (x) { run += Number(x.balance) || 0; acum.push(run); });
+
+      setEstado(4, 'ok');
+      charts.chart4 = new Chart($('chart4'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Ahorro acumulado', data: acum,
+            borderColor: cssVar('--color-primary'),
+            backgroundColor: 'rgba(5,150,105,0.12)', fill: true, tension: 0.3,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
+    function render5(datos) {
+      var txs = datos.txHogarMes.filter(function (t) { return t.tipo === 'gasto'; });
+      var dias = datos.rango.dias;
+      var porDia = new Array(dias).fill(0);
+      txs.forEach(function (t) {
+        var d = parseInt(String(t.fecha).split('T')[0].split('-')[2], 10) - 1;
+        if (d >= 0 && d < dias) porDia[d] += Number(t.monto);
+      });
+      var conGasto = porDia.filter(function (v) { return v > 0; });
+      if (!conGasto.length) { setEstado(5, 'vacio'); return; }
+      var media = conGasto.reduce(function (a, b) { return a + b; }, 0) / conGasto.length;
+
+      function colorDia(v) {
+        if (v <= 0) return 'transparent';
+        if (v <= media) return 'rgba(16,185,129,0.85)';
+        if (v <= media * 2) return 'rgba(245,158,11,0.85)';
+        return 'rgba(239,68,68,0.85)';
+      }
+
+      var primerDow = new Date(estado.anio, estado.mes - 1, 1).getDay();
+      var grid = $('heatmap5');
+      grid.innerHTML = '';
+      ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach(function (d) {
+        var h = document.createElement('div'); h.className = 'hcell empty';
+        h.style.color = cssVar('--text-secondary'); h.style.fontWeight = '600'; h.textContent = d;
+        grid.appendChild(h);
+      });
+      for (var e = 0; e < primerDow; e++) { var sp = document.createElement('div'); sp.className = 'hcell empty'; grid.appendChild(sp); }
+      for (var dia = 1; dia <= dias; dia++) {
+        var cell = document.createElement('div');
+        cell.className = 'hcell';
+        var v = porDia[dia - 1];
+        cell.style.background = v > 0 ? colorDia(v) : cssVar('--bg-light-secondary');
+        cell.textContent = dia;
+        cell.title = v > 0 ? formatMonto(v) : 'Sin gasto';
+        grid.appendChild(cell);
+      }
+
+      var leg = $('heatmapLegend5');
+      leg.innerHTML =
+        '<span><i class="sw" style="background:' + cssVar('--bg-light-secondary') + '"></i>Sin gasto</span>' +
+        '<span><i class="sw" style="background:rgba(16,185,129,0.85)"></i>≤ promedio</span>' +
+        '<span><i class="sw" style="background:rgba(245,158,11,0.85)"></i>&gt; promedio</span>' +
+        '<span><i class="sw" style="background:rgba(239,68,68,0.85)"></i>&gt; 2× promedio</span>';
+
+      setEstado(5, 'ok');
+    }
+    function render6(datos) {
+      var resumen = datos.resumen;
+      var ingresos = resumen.hogar.ingresos || 0;
+      var cats = (resumen.porCategoria || []).slice(0, 6);
+      if (ingresos <= 0 && !cats.length) { setEstado(6, 'vacio'); return; }
+
+      var labels = ['Ingresos'];
+      var base = [0];
+      var visible = [ingresos];
+      var colores = [cssVar('--color-success')];
+
+      var corriente = ingresos;
+      cats.forEach(function (c) {
+        labels.push(c.nombre);
+        var monto = Number(c.total);
+        corriente -= monto;
+        base.push(corriente);
+        visible.push(monto);
+        colores.push(cssVar('--color-danger'));
+      });
+
+      labels.push('Balance');
+      base.push(0);
+      visible.push(corriente);
+      colores.push(corriente >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'));
+
+      setEstado(6, 'ok');
+      charts.chart6 = new Chart($('chart6'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: '_base', data: base, backgroundColor: 'transparent', stack: 'cf' },
+            { label: 'Flujo', data: visible, backgroundColor: colores, stack: 'cf' },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { filter: function (item) { return item.dataset.label !== '_base'; } },
+          },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false }, stacked: true },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, stacked: true },
+          },
+        },
+      });
+    }
+    function render7(datos) {
+      var actual = datos.resumen.porCategoria || [];
+      var anterior = datos.resumenAnterior.porCategoria || [];
+      if (!actual.length && !anterior.length) { setEstado(7, 'vacio'); return; }
+      var top = actual.slice(0, 5).map(function (c) { return c.nombre; });
+      var mapAnt = {};
+      anterior.forEach(function (c) { mapAnt[c.nombre] = c.total; });
+      var mapAct = {};
+      actual.forEach(function (c) { mapAct[c.nombre] = c.total; });
+
+      var dActual = top.map(function (n) { return mapAct[n] || 0; });
+      var dAnterior = top.map(function (n) { return mapAnt[n] || 0; });
+
+      setEstado(7, 'ok');
+      charts.chart7 = new Chart($('chart7'), {
+        type: 'bar',
+        data: {
+          labels: top,
+          datasets: [
+            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Mes actual', data: dActual, backgroundColor: cssVar('--color-primary') },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
+    function render8(datos) {
+      var metas = datos.metas || [];
+      if (!metas.length) { setEstado(8, 'vacio'); return; }
+
+      var paleta = ['#059669', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var datasets = [];
+      var labelsSet = [];
+
+      metas.forEach(function (item, idx) {
+        var meta = item.meta;
+        var aportes = (item.aportes || []).slice().sort(function (a, b) {
+          return new Date(a.created_at) - new Date(b.created_at);
+        });
+        var objetivo = Number(meta.monto_objetivo);
+        var color = paleta[idx % paleta.length];
+
+        var acumPorMes = {};
+        var run = 0;
+        aportes.forEach(function (ap) {
+          var ym = String(ap.created_at).slice(0, 7);
+          run += Number(ap.monto);
+          acumPorMes[ym] = run;
+        });
+        var actualAcum = Number(meta.monto_actual) || run;
+
+        var mesesConAporte = Object.keys(acumPorMes).length || 1;
+        var ritmo = actualAcum / mesesConAporte;
+
+        var restante = Math.max(objetivo - actualAcum, 0);
+        var mesesParaMeta = ritmo > 0 ? Math.ceil(restante / ritmo) : Infinity;
+
+        var llega = true;
+        if (meta.fecha_limite) {
+          var hoyD = new Date();
+          var limD = new Date(meta.fecha_limite);
+          var mesesHastaLimite = (limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth());
+          llega = mesesParaMeta <= Math.max(mesesHastaLimite, 0);
+        } else {
+          llega = ritmo > 0;
+        }
+
+        var ymHoy = new Date().toISOString().slice(0, 7);
+        var realLabels = Object.keys(acumPorMes);
+        if (!realLabels.length) realLabels = [ymHoy];
+        realLabels.forEach(function (l) { if (labelsSet.indexOf(l) === -1) labelsSet.push(l); });
+
+        var realData = realLabels.map(function (l) { return acumPorMes[l] != null ? acumPorMes[l] : null; });
+        datasets.push({
+          label: meta.nombre, data: realData, _labels: realLabels,
+          borderColor: color, backgroundColor: 'transparent', tension: 0.2, spanGaps: true,
+        });
+
+        var projLabels = [];
+        var py = parseInt(ymHoy.slice(0, 4), 10);
+        var pm = parseInt(ymHoy.slice(5, 7), 10); // 1-based
+        var pasos = isFinite(mesesParaMeta) ? mesesParaMeta : 6;
+        for (var s = 0; s <= pasos; s++) {
+          var mm = pm + s;
+          var yy = py + Math.floor((mm - 1) / 12);
+          var mo = ((mm - 1) % 12) + 1;
+          projLabels.push(yy + '-' + String(mo).padStart(2, '0'));
+        }
+        projLabels.forEach(function (l) { if (labelsSet.indexOf(l) === -1) labelsSet.push(l); });
+        var projData = projLabels.map(function (l, i) { return Math.min(actualAcum + ritmo * i, objetivo); });
+        datasets.push({
+          label: meta.nombre + ' (proyección)', data: projData, _labels: projLabels,
+          borderColor: llega ? cssVar('--color-success') : cssVar('--color-danger'),
+          backgroundColor: 'transparent', borderDash: [6, 4], pointRadius: 0, tension: 0.1,
+        });
+      });
+
+      labelsSet.sort();
+      datasets.forEach(function (ds) {
+        var byLabel = {};
+        ds._labels.forEach(function (l, i) { byLabel[l] = ds.data[i]; });
+        ds.data = labelsSet.map(function (l) { return byLabel[l] != null ? byLabel[l] : null; });
+        delete ds._labels;
+      });
+
+      setEstado(8, 'ok');
+      charts.chart8 = new Chart($('chart8'), {
+        type: 'line',
+        data: { labels: labelsSet, datasets: datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false, spanGaps: true,
+          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          scales: {
+            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+          },
+        },
+      });
+    }
+
+    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
+
+    async function recargarTodo() {
+      var token = ++cargaToken;
+      for (var n = 1; n <= 8; n++) setEstado(n, 'cargando');
+      var datos;
+      try {
+        datos = await cargarDatos();
+      } catch (err) {
+        if (token !== cargaToken) return; // llegó una recarga más nueva
+        console.error('cargarDatos falló:', err);
+        for (var k = 1; k <= 8; k++) setEstado(k, 'error');
+        return;
+      }
+      if (token !== cargaToken) return; // descartar resultado obsoleto
+      Object.keys(charts).forEach(function (id) { destruir(id); });
+      RENDERS.forEach(function (fn, idx) {
+        try { fn(datos); }
+        catch (err) { console.error('render' + (idx + 1) + ' falló:', err); setEstado(idx + 1, 'error'); }
+      });
+    }
+
+    function renderLabel() { $('grafMesLabel').textContent = nombreMes(estado.mes, estado.anio); }
+    function cambiarMes(delta) {
+      var nuevo = delta < 0 ? mesAnterior(estado.mes, estado.anio)
+        : (estado.mes === 12 ? { mes: 1, anio: estado.anio + 1 } : { mes: estado.mes + 1, anio: estado.anio });
+      estado.mes = nuevo.mes; estado.anio = nuevo.anio;
+      renderLabel(); recargarTodo();
+    }
+    $('grafMesPrev').addEventListener('click', function () { cambiarMes(-1); });
+    $('grafMesNext').addEventListener('click', function () { cambiarMes(1); });
+
+    if (typeof Chart === 'undefined') {
+      for (var n = 1; n <= 8; n++) setEstado(n, 'error');
+      console.error('Chart.js no cargó');
+      return;
+    }
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    renderLabel();
+    recargarTodo();
+  })();
+</script>
