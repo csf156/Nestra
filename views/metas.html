@@ -211,13 +211,16 @@
     function ocultarToast() { clearTimeout(toastTimer); $('metasToast').hidden = true; }
 
     // ── Carga (render real en Tasks 2-3) ─────────────────────
+    var _metas = [];
     async function cargar() {
       var metas = await getMetas();
-      var activas = (metas || []).filter(function (m) { return m.estado === 'en_curso' || m.estado === 'vencida'; });
-      var completadas = (metas || []).filter(function (m) { return m.estado === 'lograda'; });
+      _metas = metas || [];
+      var activas = _metas.filter(function (m) { return m.estado === 'en_curso' || m.estado === 'vencida'; });
+      var completadas = _metas.filter(function (m) { return m.estado === 'lograda'; });
       renderActivas(activas);
       renderCompletadas(completadas);
     }
+    function _metaPorId(id) { return _metas.filter(function (m) { return String(m.id) === String(id); })[0]; }
     var TIPO_LBL = { ahorro: 'Ahorro', reduccion_gasto: 'Reducción', aporte_hogar: 'Aporte hogar' };
     var HOR_LBL = { corto: 'Corto plazo', mediano: 'Mediano plazo', largo: 'Largo plazo' };
     var AMB_LBL = { personal: 'Personal', hogar: 'Hogar' };
@@ -295,10 +298,18 @@
       else if (act === 'eliminar') eliminarMeta(id, btn);
     });
 
-    function registrarAporte() {
-      mostrarToast('Elige la categoría Ahorro para aportar.', null, null, 3500);
-      if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
-      else window.location.hash = '#transaccion';
+    var aportePendiente = null;
+    function registrarAporte(id) {
+      var m = _metaPorId(id);
+      if (!m) return;
+      aportePendiente = id;
+      $('aporteMetaNombre').textContent = 'Aporte a: ' + m.nombre;
+      $('aporteError').hidden = true;
+      $('aMonto').value = '';
+      $('aNota').value = '';
+      $('aFecha').value = _hoyISO();
+      $('aporteModal').hidden = false;
+      setTimeout(function () { $('aMonto').focus(); }, 50);
     }
 
     async function marcarLograda(id) {
@@ -331,6 +342,27 @@
     function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; }
     $('metasFab').addEventListener('click', abrirModal);
     $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; });
+    $('aporteCancelar').addEventListener('click', function () { $('aporteModal').hidden = true; aportePendiente = null; });
+    $('aporteModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) { $('aporteModal').hidden = true; aportePendiente = null; } });
+    $('aporteForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var err = $('aporteError');
+      function _err(msg) { err.textContent = msg; err.hidden = false; }
+      if (!aportePendiente) return;
+      var monto = parseFloat(String($('aMonto').value).replace(',', '.'));
+      if (!(monto > 0)) { return _err('El monto debe ser mayor que 0.'); }
+      var fecha = $('aFecha').value || _hoyISO();
+      var nota = $('aNota').value.trim() || null;
+      try {
+        await insertAporteDirecto(aportePendiente, monto, fecha, nota);
+        $('aporteModal').hidden = true;
+        aportePendiente = null;
+        mostrarToast('Aporte registrado', null, null, 3000);
+        cargar();
+      } catch (e2) {
+        _err('No se pudo registrar el aporte. Reintenta.');
+      }
+    });
     Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (b) {
       b.addEventListener('click', function () {
         estadoForm.ambito = b.getAttribute('data-ambito');
