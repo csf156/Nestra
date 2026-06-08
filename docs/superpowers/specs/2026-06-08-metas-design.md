@@ -111,6 +111,21 @@ metas.html
 - Modo oscuro/claro vía custom properties. `prefers-reduced-motion` respetado.
 - Acciones destructivas (Eliminar) con confirmación (reusar patrón de toast-undo o modal de confirmación existente).
 
+### Patrones UI/UX (guía de diseño aplicada)
+
+> La skill `ui-ux-pro-max` está en modo catálogo (sin librería de patrones instalada); se aplica guía de diseño por defecto.
+
+1. **La barra de progreso es el héroe de la tarjeta.** Grande, con el % visible y el par `S/ actual → S/ objetivo` debajo. Es lo primero que el ojo busca en una meta.
+2. **Días restantes en lenguaje humano**, no un número crudo: "Faltan 5 días", "Vence hoy", "Vencida hace 3 días". El texto comunica la urgencia además del color (no solo color → a11y).
+3. **Urgencia sin alarmismo.** Ámbar = empujón suave (borde + fondo tenue). Rojo = claro pero no agresivo (sin relleno rojo pleno; borde + tinte). El relleno rojo solo en la barra de la meta vencida.
+4. **Badges sobrios y jerarquizados.** Pills pequeñas; el badge de **ámbito** (Personal/Hogar) es el más prominente porque cambia quién la ve; tipo y horizonte, secundarios.
+5. **Estado vacío amable con CTA.** "Aún no tienes metas. Crea la primera." junto al FAB, no una pantalla en blanco.
+6. **FAB alcanzable con el pulgar** (abajo-derecha, 56px) — patrón ya usado en historial.
+7. **Modal como hoja en móvil.** Pantalla completa que sube desde abajo en móvil; centrado en desktop. Primario "Guardar" prominente, secundario "Cancelar" sobrio.
+8. **Eliminar = toast-undo** (consistente con historial), más suave que un modal de confirmación seco; 5s para deshacer antes del `deleteMeta`.
+9. **Completadas con cierre celebratorio.** Sección apagada, colapsada, con ✓ por ítem — sensación de logro sin ruido.
+10. **Accesibilidad.** Barra con `role="progressbar"` + `aria-valuenow/min/max`; badges con texto; la urgencia nunca depende solo del color (también el texto de días).
+
 ---
 
 ## Manejo de errores
