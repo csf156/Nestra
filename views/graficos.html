@@ -88,12 +88,6 @@
 
   .graf--personal #card3, .graf--personal #card6 { display: none; }
 
-  @media (max-width: 719px) {
-    .graf-header { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
-    .graf-month { justify-content: center; }
-    .graf-month-nav { width: 44px; height: 44px; }
-  }
-
   .graf-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
   .graf-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
   .graf-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
@@ -140,6 +134,13 @@
   .graf-heatmap-legend { display: flex; gap: var(--space-md); margin-top: var(--space-md); font-size: var(--font-size-xs); color: var(--text-secondary); flex-wrap: wrap; }
   .graf-heatmap-legend span { display: inline-flex; align-items: center; gap: 4px; }
   .graf-heatmap-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  /* Mobile-first overrides — al final para ganar por orden de fuente */
+  @media (max-width: 719px) {
+    .graf-header { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+    .graf-month { justify-content: center; }
+    .graf-month-nav { width: 44px; height: 44px; }
+  }
 </style>
 
 <script>
