@@ -195,7 +195,6 @@
     function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     var estadoForm = { ambito: 'hogar' };
-    var borradoPendiente = null;
 
     // ── Toast local (mensaje + acción opcional con timeout) ───
     var toastTimer = null;
@@ -336,19 +335,13 @@
       }
     }
 
-    function eliminarMeta(id, btn) {
-      var card = btn.closest('.meta-card');
-      if (card) card.style.display = 'none';
-      if (borradoPendiente) { clearTimeout(borradoPendiente.timer); _ejecutarBorrado(borradoPendiente.id); }
-      var timer = setTimeout(function () { _ejecutarBorrado(id); borradoPendiente = null; }, 5000);
-      borradoPendiente = { id: id, timer: timer };
-      mostrarToast('Meta eliminada', 'Deshacer', function () {
-        clearTimeout(timer); borradoPendiente = null;
-        if (card) card.style.display = '';
-      }, 5000);
-    }
-    async function _ejecutarBorrado(id) {
-      try { await deleteMeta(id); } catch (err) { mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000); cargar(); }
+    var delMetaPendiente = null;
+    function eliminarMeta(id) {
+      var m = _metaPorId(id);
+      delMetaPendiente = id;
+      $('delMetaBody').textContent = '¿Seguro que quieres eliminar «' + (m ? m.nombre : 'esta meta') + '»? Esta acción no se puede deshacer.';
+      $('delMetaModal').hidden = false;
+      setTimeout(function () { $('delMetaCancelar').focus(); }, 50);
     }
 
     // ── FAB + modal (alta real en Task 4) ─────────────────────
@@ -375,6 +368,24 @@
         cargar();
       } catch (e2) {
         _err('No se pudo registrar el aporte. Reintenta.');
+      }
+    });
+    $('delMetaCancelar').addEventListener('click', function () { $('delMetaModal').hidden = true; delMetaPendiente = null; });
+    $('delMetaModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) { $('delMetaModal').hidden = true; delMetaPendiente = null; } });
+    $('delMetaModal').addEventListener('keydown', function (e) { if (e.key === 'Escape') { $('delMetaModal').hidden = true; delMetaPendiente = null; } });
+    $('delMetaConfirmar').addEventListener('click', async function () {
+      if (!delMetaPendiente) return;
+      var id = delMetaPendiente;
+      try {
+        await deleteMeta(id);
+        $('delMetaModal').hidden = true;
+        delMetaPendiente = null;
+        mostrarToast('Meta eliminada', null, null, 3000);
+        cargar();
+      } catch (err) {
+        $('delMetaModal').hidden = true;
+        delMetaPendiente = null;
+        mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000);
       }
     });
     Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (b) {
