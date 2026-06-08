@@ -24,6 +24,15 @@
     </div>
   </div>
 
+  <!-- Categorías favoritas -->
+  <div class="card config-card">
+    <div class="card-header">
+      <h2 class="card-title">Categorías favoritas</h2>
+    </div>
+    <p class="text-muted config-fav-ayuda">Marca con ★ las categorías que consultas seguido. Aparecerán en el Oráculo.</p>
+    <ul class="config-fav-lista" id="configFavLista"><li class="config-fav-cargando">Cargando…</li></ul>
+  </div>
+
   <!-- Cuenta -->
   <div class="card config-card">
     <div class="card-header">
@@ -98,6 +107,14 @@
     background-color: var(--color-danger);
     color: #fff;
   }
+
+  .config-fav-ayuda { font-size: var(--font-size-sm); margin: 0 0 var(--space-md); }
+  .config-fav-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .config-fav-lista li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: 8px 0; border-bottom: 1px solid var(--border-light); }
+  .config-fav-nombre { color: var(--text-dark); font-size: var(--font-size-base); }
+  .config-fav-estrella { min-width: 44px; min-height: 44px; border: none; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--color-warning); }
+  .config-fav-estrella[aria-pressed="false"] { color: var(--border-light); }
+  .config-fav-cargando { color: var(--text-secondary); justify-content: flex-start; }
 </style>
 
 <script>
@@ -122,5 +139,41 @@
     } catch (err) {
       console.error('Error cargando configuración:', err);
     }
+  })();
+
+  (function () {
+    'use strict';
+    var lista = document.getElementById('configFavLista');
+    if (!lista) return;
+
+    function fila(c) {
+      var li = document.createElement('li');
+      var nom = document.createElement('span');
+      nom.className = 'config-fav-nombre'; nom.textContent = c.nombre;
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'config-fav-estrella';
+      btn.setAttribute('aria-pressed', c.favorita ? 'true' : 'false');
+      btn.setAttribute('aria-label', (c.favorita ? 'Quitar de favoritas: ' : 'Marcar como favorita: ') + c.nombre);
+      btn.textContent = c.favorita ? '★' : '☆';
+      btn.addEventListener('click', function () {
+        var on = btn.getAttribute('aria-pressed') !== 'true';
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.textContent = on ? '★' : '☆';
+        toggleFavorita(c.id, on).catch(function () {
+          btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+          btn.textContent = on ? '☆' : '★';
+          alert('No se pudo actualizar la favorita. Reintenta.');
+        });
+      });
+      li.appendChild(nom); li.appendChild(btn);
+      return li;
+    }
+
+    (async function () {
+      var cats = await getCategoriasConFavorito('gasto');
+      lista.innerHTML = '';
+      if (!cats.length) { lista.innerHTML = '<li class="config-fav-cargando">No hay categorías de gasto.</li>'; return; }
+      cats.forEach(function (c) { lista.appendChild(fila(c)); });
+    })();
   })();
 </script>
