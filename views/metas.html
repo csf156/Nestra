@@ -168,11 +168,118 @@
       renderActivas(activas);
       renderCompletadas(completadas);
     }
-    function renderActivas(activas) { $('metasActivas').innerHTML = '<p class="metas-vacio">Cargando…</p>'; }
-    function renderCompletadas(c) {}
+    var TIPO_LBL = { ahorro: 'Ahorro', reduccion_gasto: 'Reducción', aporte_hogar: 'Aporte hogar' };
+    var HOR_LBL = { corto: 'Corto plazo', mediano: 'Mediano plazo', largo: 'Largo plazo' };
+    var AMB_LBL = { personal: 'Personal', hogar: 'Hogar' };
+
+    function diasRestantes(fechaLimite) {
+      if (!fechaLimite) return null;
+      var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      var lim = new Date(fechaLimite + 'T00:00:00');
+      return Math.round((lim - hoy) / 86400000);
+    }
+    function textoPlazo(dias) {
+      if (dias == null) return 'Sin fecha límite';
+      if (dias > 1) return 'Faltan ' + dias + ' días';
+      if (dias === 1) return 'Falta 1 día';
+      if (dias === 0) return 'Vence hoy';
+      if (dias === -1) return 'Vencida hace 1 día';
+      return 'Vencida hace ' + Math.abs(dias) + ' días';
+    }
+    function estadoVisual(meta, dias) {
+      var completa = Number(meta.monto_actual) >= Number(meta.monto_objetivo);
+      if (meta.estado === 'vencida' || (dias != null && dias < 0 && !completa)) return 'vencida';
+      if (dias != null && dias < 7 && dias >= 0) return 'urgente';
+      return 'normal';
+    }
+
+    function renderActivas(activas) {
+      var cont = $('metasActivas');
+      if (!activas.length) {
+        cont.innerHTML = '<p class="metas-vacio">Aún no tienes metas. Crea la primera con el botón +.</p>';
+        return;
+      }
+      cont.innerHTML = activas.map(function (m) {
+        var dias = diasRestantes(m.fecha_limite);
+        var vis = estadoVisual(m, dias);
+        var obj = Number(m.monto_objetivo) || 0;
+        var act = Number(m.monto_actual) || 0;
+        var pct = obj > 0 ? Math.min(100, Math.round(act / obj * 100)) : 0;
+        var plazoCls = vis === 'vencida' ? ' meta-plazo--vencida' : (vis === 'urgente' ? ' meta-plazo--urgente' : '');
+        var aporte = m.tipo === 'ahorro'
+          ? '<button type="button" class="btn-small btn-small--primary" data-act="aporte" data-id="' + m.id + '">Registrar aporte</button>'
+          : '<span class="meta-nota-info">El progreso se actualiza con tus movimientos.</span>';
+        return '<article class="meta-card" data-estado="' + vis + '" data-id="' + m.id + '">' +
+          '<h2 class="meta-nombre">' + esc(m.nombre) + '</h2>' +
+          '<div class="meta-badges">' +
+            '<span class="meta-badge meta-badge--ambito">' + AMB_LBL[m.ambito] + '</span>' +
+            '<span class="meta-badge">' + (TIPO_LBL[m.tipo] || m.tipo) + '</span>' +
+            '<span class="meta-badge">' + (HOR_LBL[m.horizonte] || m.horizonte || '—') + '</span>' +
+          '</div>' +
+          '<div class="meta-barra" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">' +
+            '<div class="meta-barra-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>' +
+          '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
+          '<div class="meta-acciones">' + aporte +
+            '<button type="button" class="btn-small" data-act="lograda" data-id="' + m.id + '">Marcar como lograda</button>' +
+            '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
+          '</div></article>';
+      }).join('');
+    }
+
+    function renderCompletadas(comp) {
+      $('metasCompCount').textContent = comp.length;
+      $('metasCompLista').innerHTML = comp.map(function (m) {
+        return '<li><span>' + esc(m.nombre) + '</span><span>' + (m.fecha_limite || '—') + ' · ' + formatMonto(Number(m.monto_actual) || 0) + '</span></li>';
+      }).join('');
+    }
+
+    // ── Delegación de acciones en las tarjetas ────────────────
+    $('metasActivas').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-id');
+      var act = btn.getAttribute('data-act');
+      if (act === 'aporte') registrarAporte();
+      else if (act === 'lograda') marcarLograda(id);
+      else if (act === 'eliminar') eliminarMeta(id, btn);
+    });
+
+    function registrarAporte() {
+      mostrarToast('Elige la categoría Ahorro para aportar.', null, null, 3500);
+      if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+      else window.location.hash = '#transaccion';
+    }
+
+    async function marcarLograda(id) {
+      try {
+        await updateMeta(id, { estado: 'lograda' });
+        mostrarToast('Meta marcada como lograda 🎉', null, null, 3000);
+        cargar();
+      } catch (err) {
+        mostrarToast('No se pudo actualizar. Reintenta.', null, null, 4000);
+      }
+    }
+
+    function eliminarMeta(id, btn) {
+      var card = btn.closest('.meta-card');
+      if (card) card.style.display = 'none';
+      if (borradoPendiente) { clearTimeout(borradoPendiente.timer); _ejecutarBorrado(borradoPendiente.id); }
+      var timer = setTimeout(function () { _ejecutarBorrado(id); borradoPendiente = null; }, 5000);
+      borradoPendiente = { id: id, timer: timer };
+      mostrarToast('Meta eliminada', 'Deshacer', function () {
+        clearTimeout(timer); borradoPendiente = null;
+        if (card) card.style.display = '';
+      }, 5000);
+    }
+    async function _ejecutarBorrado(id) {
+      try { await deleteMeta(id); } catch (err) { mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000); cargar(); }
+    }
 
     // ── FAB + modal (alta real en Task 4) ─────────────────────
-    $('metasFab').addEventListener('click', function () { $('metaModal').hidden = false; });
+    function _hoyISO() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+    function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; }
+    $('metasFab').addEventListener('click', abrirModal);
     $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; });
     Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (b) {
       b.addEventListener('click', function () {
@@ -182,7 +289,40 @@
         });
       });
     });
-    $('metaForm').addEventListener('submit', function (e) { e.preventDefault(); });
+    $('metaForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var err = $('metaError');
+      function _formError(msg) { err.textContent = msg; err.hidden = false; }
+      var nombre = $('mNombre').value.trim();
+      var objetivo = parseFloat(String($('mObjetivo').value).replace(',', '.'));
+      var inicio = $('mInicio').value;
+      var limite = $('mLimite').value;
+
+      if (!nombre) { return _formError('Ponle un nombre a la meta.'); }
+      if (!(objetivo > 0)) { return _formError('El monto objetivo debe ser mayor que 0.'); }
+      if (!limite) { return _formError('Indica una fecha límite.'); }
+      if (inicio && limite <= inicio) { return _formError('La fecha límite debe ser posterior a la de inicio.'); }
+
+      var datos = {
+        nombre: nombre,
+        tipo: $('mTipo').value,
+        horizonte: $('mHorizonte').value,
+        ambito: estadoForm.ambito,
+        monto_objetivo: objetivo,
+        fecha_inicio: inicio || _hoyISO(),
+        fecha_limite: limite,
+        nota: $('mNota').value.trim() || null,
+      };
+      try {
+        await insertMeta(datos);
+        $('metaModal').hidden = true;
+        $('metaForm').reset();
+        mostrarToast('Meta creada', null, null, 3000);
+        cargar();
+      } catch (e2) {
+        _formError('No se pudo guardar: ' + (e2.message || 'error'));
+      }
+    });
 
     // Exponer helpers a tareas siguientes vía closure (no global).
     window.__metasCargar = cargar; // usado solo por el harness de verificación
