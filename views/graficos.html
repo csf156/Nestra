@@ -99,10 +99,13 @@
   .graf-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-lg); }
   @media (min-width: 720px) { .graf-grid { grid-template-columns: 1fr 1fr; } .graf-card--wide { grid-column: 1 / -1; } }
 
-  .graf-card { background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); position: relative; }
+  /* min-width:0 → items de grid pueden encoger bajo el ancho intrínseco del
+     canvas de Chart.js; sin esto, el canvas fuerza overflow horizontal en móvil. */
+  .graf-card { background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); position: relative; min-width: 0; overflow: hidden; }
   .graf-card-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0; }
   .graf-card-desc { font-size: var(--font-size-xs); color: var(--text-secondary); margin: 2px 0 var(--space-md); }
-  .graf-canvas-wrap { position: relative; height: 240px; }
+  .graf-canvas-wrap { position: relative; height: 240px; min-width: 0; }
+  .graf-canvas-wrap canvas { max-width: 100%; }
   .graf-card--wide .graf-canvas-wrap { height: 300px; }
 
   .graf-state { display: none; align-items: center; justify-content: center; min-height: 240px; color: var(--text-secondary); font-size: var(--font-size-sm); text-align: center; }
