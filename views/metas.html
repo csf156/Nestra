@@ -71,6 +71,44 @@
     <span id="metasToastMsg"></span>
     <button type="button" id="metasToastAccion" class="metas-toast-btn" hidden></button>
   </div>
+
+  <!-- Mini-modal: aporte directo a meta -->
+  <div class="metas-modal-overlay" id="aporteModal" role="dialog" aria-modal="true" aria-labelledby="aporteModalTitle" hidden>
+    <div class="metas-modal">
+      <h2 class="metas-modal-title" id="aporteModalTitle">Registrar aporte</h2>
+      <p class="metas-aporte-meta" id="aporteMetaNombre"></p>
+      <form id="aporteForm" class="metas-form">
+        <label class="metas-flabel">Monto
+          <div class="metas-monto"><span aria-hidden="true">S/</span>
+            <input class="metas-input" id="aMonto" type="text" inputmode="decimal" placeholder="0.00" />
+          </div>
+        </label>
+        <label class="metas-flabel">Fecha
+          <input class="metas-input" id="aFecha" type="date" />
+        </label>
+        <label class="metas-flabel">Nota (opcional)
+          <textarea class="metas-input" id="aNota" rows="2"></textarea>
+        </label>
+        <p class="metas-form-error" id="aporteError" role="alert" hidden></p>
+        <div class="metas-modal-actions">
+          <button type="button" class="btn btn-secondary" id="aporteCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Aportar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: confirmar borrado de meta -->
+  <div class="metas-modal-overlay" id="delMetaModal" role="dialog" aria-modal="true" aria-labelledby="delMetaTitle" hidden>
+    <div class="metas-modal metas-modal--confirm">
+      <h2 class="metas-modal-title" id="delMetaTitle">Eliminar meta</h2>
+      <p class="metas-confirm-body" id="delMetaBody"></p>
+      <div class="metas-modal-actions">
+        <button type="button" class="btn btn-secondary" id="delMetaCancelar">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="delMetaConfirmar">Eliminar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -134,6 +172,18 @@
   .metas-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--space-lg) + 72px); background: var(--text-dark); color: var(--bg-light); padding: 12px var(--space-lg); border-radius: var(--radius-md); display: flex; align-items: center; gap: var(--space-md); z-index: 50; box-shadow: var(--shadow-lg); font-size: var(--font-size-sm); }
   .metas-toast[hidden] { display: none; }
   .metas-toast-btn { background: transparent; border: none; color: var(--color-success); font-weight: var(--font-weight-semibold); cursor: pointer; }
+
+  .metas-aporte-meta { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--space-md); }
+  .metas-modal--confirm { max-width: 420px; }
+  .metas-confirm-body { color: var(--text-dark); font-size: var(--font-size-base); margin: 0 0 var(--space-lg); }
+
+  .meta-card--lograda { border-left-color: var(--color-success); background: rgba(16,185,129,0.06); }
+  .meta-felicita { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-sm); padding: var(--space-md) 0; }
+  .meta-felicita-icono { font-size: 2.5rem; line-height: 1; }
+  .meta-felicita-titulo { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-success); margin: 0; }
+  .meta-felicita-nombre { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0; }
+  .meta-felicita-monto { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--space-sm); }
+  .meta-felicita .btn { min-width: 160px; }
 
   @media (prefers-reduced-motion: reduce) { .meta-barra-fill { transition: none; } }
 </style>
