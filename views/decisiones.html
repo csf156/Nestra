@@ -1,0 +1,125 @@
+<div class="dec">
+  <header class="dec-header">
+    <h1 class="dec-title">Oráculo</h1>
+    <p class="dec-sub">Consulta antes de gastar</p>
+  </header>
+
+  <div class="dec-estado" id="decEstado" data-salud="" aria-live="polite"></div>
+
+  <form class="dec-form" id="decForm">
+    <div class="dec-field">
+      <label class="dec-label" for="decMonto">¿Cuánto quieres gastar?</label>
+      <div class="dec-monto">
+        <span class="dec-monto-pre" aria-hidden="true">S/</span>
+        <input class="dec-monto-input" id="decMonto" type="text" inputmode="decimal"
+               placeholder="0.00" autocomplete="off" />
+      </div>
+    </div>
+    <div class="dec-field">
+      <label class="dec-label" for="decCat">¿En qué categoría?</label>
+      <select class="dec-select" id="decCat"></select>
+    </div>
+    <div class="dec-field">
+      <span class="dec-label">¿Ámbito?</span>
+      <div class="dec-toggle" id="decAmbito" role="group" aria-label="Ámbito">
+        <button type="button" class="dec-seg dec-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
+        <button type="button" class="dec-seg" data-ambito="personal" aria-pressed="false">Personal</button>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary dec-submit">Consultar al oráculo</button>
+  </form>
+
+  <section class="dec-veredicto" id="decVeredicto" data-nivel="" aria-live="polite" hidden></section>
+</div>
+
+<style>
+  .dec { max-width: 640px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-xl); }
+  .dec-header { margin-bottom: var(--space-lg); }
+  .dec-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
+  .dec-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+
+  .dec-estado { display: none; padding: var(--space-md); border-radius: var(--radius-md); margin-bottom: var(--space-lg); font-size: var(--font-size-sm); border: 1px solid var(--border-light); }
+  .dec-estado[data-salud] { display: block; }
+  .dec-estado[data-salud=""] { display: none; }
+  .dec-estado-titulo { font-weight: var(--font-weight-semibold); color: var(--text-dark); display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 4px; }
+  .dec-estado-focos { margin: 4px 0 0; padding-left: 1.1em; color: var(--text-secondary); }
+  .dec-estado[data-salud="sano"]     { background: rgba(16,185,129,0.10); }
+  .dec-estado[data-salud="ajustado"] { background: rgba(245,158,11,0.10); }
+  .dec-estado[data-salud="riesgo"]   { background: rgba(239,68,68,0.10); }
+
+  .dec-form { display: flex; flex-direction: column; gap: var(--space-lg); background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); }
+  .dec-field { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .dec-label { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-dark); }
+  .dec-monto { display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; }
+  .dec-monto-pre { padding: 0 var(--space-md); color: var(--text-secondary); background: var(--bg-light-secondary); align-self: stretch; display: flex; align-items: center; }
+  .dec-monto-input { flex: 1; border: none; padding: 12px var(--space-md); font-size: var(--font-size-lg); min-height: 44px; background: transparent; color: var(--text-dark); }
+  .dec-monto-input:focus { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+  .dec-select { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-base); }
+
+  .dec-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); }
+  .dec-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); cursor: pointer; }
+  .dec-seg--active { background: var(--color-primary); color: #fff; }
+  .dec-submit { min-height: 48px; }
+
+  .dec-veredicto { margin-top: var(--space-lg); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-light); }
+  .dec-veredicto[hidden] { display: none; }
+  .dec-ver-cabecera { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-dark); }
+  .dec-ver-icono { font-size: 1.6em; line-height: 1; }
+  .dec-ver-razon { margin: var(--space-sm) 0 0; color: var(--text-dark); }
+  .dec-ver-cifra { margin: var(--space-md) 0 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); }
+  .dec-ver-acciones { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-md); }
+  .dec-ver-detalle { margin-top: var(--space-md); font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-ver-detalle summary { cursor: pointer; color: var(--color-primary); }
+  .dec-ver-detalle ul { margin: var(--space-sm) 0 0; padding-left: 1.1em; }
+
+  .dec-veredicto[data-nivel="recomendable"] { background: rgba(16,185,129,0.10); }
+  .dec-veredicto[data-nivel="cautela"]      { background: rgba(245,158,11,0.10); }
+  .dec-veredicto[data-nivel="no"]           { background: rgba(239,68,68,0.10); }
+  .dec-veredicto[data-nivel="sin-presupuesto"] { background: var(--bg-light-secondary); }
+  .dec-veredicto[data-nivel="ahorro"]       { background: rgba(16,185,129,0.10); }
+
+  .btn-ghost { background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); min-height: 44px; border-radius: var(--radius-md); cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) { .dec-seg { transition: none; } }
+</style>
+
+<script>
+  (function () {
+    'use strict';
+    function $(id) { return document.getElementById(id); }
+    function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+    var estado = { ambito: 'hogar' };
+    var catsPorId = {};   // id → categoría
+    var hoy = mesActual();
+
+    async function cargarCategorias() {
+      var cats = await getCategorias('gasto');
+      catsPorId = {};
+      var sel = $('decCat');
+      sel.innerHTML = '';
+      (cats || []).forEach(function (c) {
+        catsPorId[c.id] = c;
+        var opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.nombre;
+        sel.appendChild(opt);
+      });
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll('#decAmbito .dec-seg'), function (b) {
+      b.addEventListener('click', function () {
+        estado.ambito = b.getAttribute('data-ambito');
+        Array.prototype.forEach.call(document.querySelectorAll('#decAmbito .dec-seg'), function (x) {
+          var on = x === b;
+          x.classList.toggle('dec-seg--active', on);
+          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      });
+    });
+
+    // Los stubs de evaluación y estado general se completan en Tasks 3 y 4.
+    $('decForm').addEventListener('submit', function (e) { e.preventDefault(); });
+
+    cargarCategorias();
+  })();
+</script>
