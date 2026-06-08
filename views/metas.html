@@ -1,0 +1,332 @@
+<div class="metas">
+  <header class="metas-header">
+    <div>
+      <h1 class="metas-title">Metas</h1>
+      <p class="metas-sub">Tu progreso hacia cada objetivo</p>
+    </div>
+  </header>
+
+  <section class="metas-activas" id="metasActivas" aria-live="polite"></section>
+
+  <details class="metas-completadas" id="metasCompletadas">
+    <summary class="metas-comp-sum">Metas completadas (<span id="metasCompCount">0</span>)</summary>
+    <ul class="metas-comp-lista" id="metasCompLista"></ul>
+  </details>
+
+  <button type="button" class="metas-fab" id="metasFab" aria-label="Nueva meta">+</button>
+
+  <!-- Modal de alta -->
+  <div class="metas-modal-overlay" id="metaModal" role="dialog" aria-modal="true" aria-labelledby="metaModalTitle" hidden>
+    <div class="metas-modal">
+      <h2 class="metas-modal-title" id="metaModalTitle">Nueva meta</h2>
+      <form id="metaForm" class="metas-form">
+        <label class="metas-flabel">Nombre
+          <input class="metas-input" id="mNombre" type="text" required />
+        </label>
+        <label class="metas-flabel">Tipo
+          <select class="metas-input" id="mTipo">
+            <option value="ahorro">Ahorro</option>
+            <option value="reduccion_gasto">Reducción de gasto</option>
+            <option value="aporte_hogar">Aporte al hogar</option>
+          </select>
+        </label>
+        <label class="metas-flabel">Horizonte
+          <select class="metas-input" id="mHorizonte">
+            <option value="corto">Corto plazo</option>
+            <option value="mediano">Mediano plazo</option>
+            <option value="largo">Largo plazo</option>
+          </select>
+        </label>
+        <div class="metas-flabel">Ámbito
+          <div class="metas-toggle" role="group" aria-label="Ámbito">
+            <button type="button" class="metas-seg metas-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
+            <button type="button" class="metas-seg" data-ambito="personal" aria-pressed="false">Personal</button>
+          </div>
+        </div>
+        <label class="metas-flabel">Monto objetivo
+          <div class="metas-monto"><span aria-hidden="true">S/</span>
+            <input class="metas-input" id="mObjetivo" type="text" inputmode="decimal" placeholder="0.00" />
+          </div>
+        </label>
+        <label class="metas-flabel">Fecha de inicio
+          <input class="metas-input" id="mInicio" type="date" />
+        </label>
+        <label class="metas-flabel">Fecha límite
+          <input class="metas-input" id="mLimite" type="date" />
+        </label>
+        <label class="metas-flabel">Nota (opcional)
+          <textarea class="metas-input" id="mNota" rows="2"></textarea>
+        </label>
+        <p class="metas-form-error" id="metaError" role="alert" hidden></p>
+        <div class="metas-modal-actions">
+          <button type="button" class="btn btn-secondary" id="metaCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="metas-toast" id="metasToast" role="status" aria-live="polite" hidden>
+    <span id="metasToastMsg"></span>
+    <button type="button" id="metasToastAccion" class="metas-toast-btn" hidden></button>
+  </div>
+</div>
+
+<style>
+  .metas { max-width: 720px; margin: 0 auto; padding: var(--space-lg) var(--space-md) calc(var(--space-xl) + 72px); }
+  .metas-header { margin-bottom: var(--space-lg); }
+  .metas-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
+  .metas-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+
+  .metas-activas { display: flex; flex-direction: column; gap: var(--space-md); }
+  .metas-vacio { color: var(--text-secondary); text-align: center; padding: var(--space-xl) var(--space-md); }
+
+  .meta-card { background: var(--bg-light); border: 1px solid var(--border-light); border-left: 4px solid var(--color-primary); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); }
+  .meta-card[data-estado="urgente"] { border-left-color: var(--color-warning); background: rgba(245,158,11,0.06); }
+  .meta-card[data-estado="vencida"] { border-left-color: var(--color-danger); background: rgba(239,68,68,0.06); }
+  .meta-nombre { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0 0 var(--space-sm); }
+  .meta-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-md); }
+  .meta-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--bg-light-secondary); color: var(--text-secondary); }
+  .meta-badge--ambito { background: var(--color-primary); color: #fff; font-weight: var(--font-weight-semibold); }
+
+  .meta-barra { height: 10px; border-radius: 999px; background: var(--bg-light-secondary); overflow: hidden; }
+  .meta-barra-fill { height: 100%; background: var(--color-primary); border-radius: 999px; transition: width 0.3s; }
+  .meta-card[data-estado="vencida"] .meta-barra-fill { background: var(--color-danger); }
+  .meta-cifras { display: flex; justify-content: space-between; margin-top: 6px; font-size: var(--font-size-sm); color: var(--text-dark); }
+  .meta-pct { font-weight: var(--font-weight-semibold); }
+  .meta-plazo { margin-top: var(--space-sm); font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .meta-plazo--urgente { color: var(--color-warning); font-weight: var(--font-weight-medium); }
+  .meta-plazo--vencida { color: var(--color-danger); font-weight: var(--font-weight-medium); }
+
+  .meta-acciones { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-md); }
+  .meta-acciones .btn-small { min-height: 40px; padding: 0 var(--space-md); border-radius: var(--radius-md); font-size: var(--font-size-sm); cursor: pointer; border: 1px solid var(--border-light); background: var(--bg-light); color: var(--text-dark); }
+  .meta-acciones .btn-small--primary { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .meta-acciones .btn-small--danger { color: var(--color-danger); }
+  .meta-nota-info { margin-top: var(--space-sm); font-size: var(--font-size-xs); color: var(--text-secondary); }
+
+  .metas-completadas { margin-top: var(--space-xl); border-top: 1px solid var(--border-light); padding-top: var(--space-md); }
+  .metas-comp-sum { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-sm); }
+  .metas-comp-lista { list-style: none; margin: var(--space-md) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+  .metas-comp-lista li { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .metas-comp-lista li::before { content: "✓"; color: var(--color-success); margin-right: 6px; }
+
+  .metas-fab { position: fixed; right: var(--space-lg); bottom: var(--space-lg); width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--color-primary); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 20; }
+
+  .metas-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 40; padding: 0; }
+  .metas-modal-overlay[hidden] { display: none; }
+  .metas-modal { background: var(--bg-light); width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-lg); }
+  @media (min-width: 600px) { .metas-modal-overlay { align-items: center; } .metas-modal { border-radius: var(--radius-lg); } }
+  .metas-modal-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0 0 var(--space-md); }
+  .metas-form { display: flex; flex-direction: column; gap: var(--space-md); }
+  .metas-flabel { display: flex; flex-direction: column; gap: 4px; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-dark); }
+  .metas-input { min-height: 44px; padding: 8px var(--space-md); border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-base); }
+  textarea.metas-input { min-height: 60px; }
+  .metas-monto { display: flex; align-items: center; gap: var(--space-sm); }
+  .metas-monto span { color: var(--text-secondary); }
+  .metas-monto .metas-input { flex: 1; }
+  .metas-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); margin-top: 4px; }
+  .metas-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); cursor: pointer; }
+  .metas-seg--active { background: var(--color-primary); color: #fff; }
+  .metas-form-error { color: var(--color-danger); font-size: var(--font-size-sm); margin: 0; }
+  .metas-modal-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-sm); }
+
+  .metas-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--space-lg) + 72px); background: var(--text-dark); color: var(--bg-light); padding: 12px var(--space-lg); border-radius: var(--radius-md); display: flex; align-items: center; gap: var(--space-md); z-index: 50; box-shadow: var(--shadow-lg); font-size: var(--font-size-sm); }
+  .metas-toast[hidden] { display: none; }
+  .metas-toast-btn { background: transparent; border: none; color: var(--color-success); font-weight: var(--font-weight-semibold); cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) { .meta-barra-fill { transition: none; } }
+</style>
+
+<script>
+  (function () {
+    'use strict';
+    function $(id) { return document.getElementById(id); }
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    var estadoForm = { ambito: 'hogar' };
+    var borradoPendiente = null;
+
+    // ── Toast local (mensaje + acción opcional con timeout) ───
+    var toastTimer = null;
+    function mostrarToast(msg, accionLabel, onAccion, ms) {
+      var t = $('metasToast'), btn = $('metasToastAccion');
+      $('metasToastMsg').textContent = msg;
+      if (accionLabel) { btn.textContent = accionLabel; btn.hidden = false; btn.onclick = function () { onAccion && onAccion(); ocultarToast(); }; }
+      else { btn.hidden = true; btn.onclick = null; }
+      t.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(ocultarToast, ms || 3000);
+    }
+    function ocultarToast() { clearTimeout(toastTimer); $('metasToast').hidden = true; }
+
+    // ── Carga (render real en Tasks 2-3) ─────────────────────
+    async function cargar() {
+      var metas = await getMetas();
+      var activas = (metas || []).filter(function (m) { return m.estado === 'en_curso' || m.estado === 'vencida'; });
+      var completadas = (metas || []).filter(function (m) { return m.estado === 'lograda'; });
+      renderActivas(activas);
+      renderCompletadas(completadas);
+    }
+    var TIPO_LBL = { ahorro: 'Ahorro', reduccion_gasto: 'Reducción', aporte_hogar: 'Aporte hogar' };
+    var HOR_LBL = { corto: 'Corto plazo', mediano: 'Mediano plazo', largo: 'Largo plazo' };
+    var AMB_LBL = { personal: 'Personal', hogar: 'Hogar' };
+
+    function diasRestantes(fechaLimite) {
+      if (!fechaLimite) return null;
+      var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      var lim = new Date(fechaLimite + 'T00:00:00');
+      return Math.round((lim - hoy) / 86400000);
+    }
+    function textoPlazo(dias) {
+      if (dias == null) return 'Sin fecha límite';
+      if (dias > 1) return 'Faltan ' + dias + ' días';
+      if (dias === 1) return 'Falta 1 día';
+      if (dias === 0) return 'Vence hoy';
+      if (dias === -1) return 'Vencida hace 1 día';
+      return 'Vencida hace ' + Math.abs(dias) + ' días';
+    }
+    function estadoVisual(meta, dias) {
+      var completa = Number(meta.monto_actual) >= Number(meta.monto_objetivo);
+      if (meta.estado === 'vencida' || (dias != null && dias < 0 && !completa)) return 'vencida';
+      if (dias != null && dias < 7 && dias >= 0) return 'urgente';
+      return 'normal';
+    }
+
+    function renderActivas(activas) {
+      var cont = $('metasActivas');
+      if (!activas.length) {
+        cont.innerHTML = '<p class="metas-vacio">Aún no tienes metas. Crea la primera con el botón +.</p>';
+        return;
+      }
+      cont.innerHTML = activas.map(function (m) {
+        var dias = diasRestantes(m.fecha_limite);
+        var vis = estadoVisual(m, dias);
+        var obj = Number(m.monto_objetivo) || 0;
+        var act = Number(m.monto_actual) || 0;
+        var pct = obj > 0 ? Math.min(100, Math.round(act / obj * 100)) : 0;
+        var plazoCls = vis === 'vencida' ? ' meta-plazo--vencida' : (vis === 'urgente' ? ' meta-plazo--urgente' : '');
+        var aporte = m.tipo === 'ahorro'
+          ? '<button type="button" class="btn-small btn-small--primary" data-act="aporte" data-id="' + m.id + '">Registrar aporte</button>'
+          : '<span class="meta-nota-info">El progreso se actualiza con tus movimientos.</span>';
+        return '<article class="meta-card" data-estado="' + vis + '" data-id="' + m.id + '">' +
+          '<h2 class="meta-nombre">' + esc(m.nombre) + '</h2>' +
+          '<div class="meta-badges">' +
+            '<span class="meta-badge meta-badge--ambito">' + AMB_LBL[m.ambito] + '</span>' +
+            '<span class="meta-badge">' + (TIPO_LBL[m.tipo] || m.tipo) + '</span>' +
+            '<span class="meta-badge">' + (HOR_LBL[m.horizonte] || m.horizonte || '—') + '</span>' +
+          '</div>' +
+          '<div class="meta-barra" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">' +
+            '<div class="meta-barra-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>' +
+          '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
+          '<div class="meta-acciones">' + aporte +
+            '<button type="button" class="btn-small" data-act="lograda" data-id="' + m.id + '">Marcar como lograda</button>' +
+            '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
+          '</div></article>';
+      }).join('');
+    }
+
+    function renderCompletadas(comp) {
+      $('metasCompCount').textContent = comp.length;
+      $('metasCompLista').innerHTML = comp.map(function (m) {
+        return '<li><span>' + esc(m.nombre) + '</span><span>' + (m.fecha_limite || '—') + ' · ' + formatMonto(Number(m.monto_actual) || 0) + '</span></li>';
+      }).join('');
+    }
+
+    // ── Delegación de acciones en las tarjetas ────────────────
+    $('metasActivas').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-act]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-id');
+      var act = btn.getAttribute('data-act');
+      if (act === 'aporte') registrarAporte();
+      else if (act === 'lograda') marcarLograda(id);
+      else if (act === 'eliminar') eliminarMeta(id, btn);
+    });
+
+    function registrarAporte() {
+      mostrarToast('Elige la categoría Ahorro para aportar.', null, null, 3500);
+      if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+      else window.location.hash = '#transaccion';
+    }
+
+    async function marcarLograda(id) {
+      try {
+        await updateMeta(id, { estado: 'lograda' });
+        mostrarToast('Meta marcada como lograda 🎉', null, null, 3000);
+        cargar();
+      } catch (err) {
+        mostrarToast('No se pudo actualizar. Reintenta.', null, null, 4000);
+      }
+    }
+
+    function eliminarMeta(id, btn) {
+      var card = btn.closest('.meta-card');
+      if (card) card.style.display = 'none';
+      if (borradoPendiente) { clearTimeout(borradoPendiente.timer); _ejecutarBorrado(borradoPendiente.id); }
+      var timer = setTimeout(function () { _ejecutarBorrado(id); borradoPendiente = null; }, 5000);
+      borradoPendiente = { id: id, timer: timer };
+      mostrarToast('Meta eliminada', 'Deshacer', function () {
+        clearTimeout(timer); borradoPendiente = null;
+        if (card) card.style.display = '';
+      }, 5000);
+    }
+    async function _ejecutarBorrado(id) {
+      try { await deleteMeta(id); } catch (err) { mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000); cargar(); }
+    }
+
+    // ── FAB + modal (alta real en Task 4) ─────────────────────
+    function _hoyISO() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+    function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; }
+    $('metasFab').addEventListener('click', abrirModal);
+    $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; });
+    Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (b) {
+      b.addEventListener('click', function () {
+        estadoForm.ambito = b.getAttribute('data-ambito');
+        Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (x) {
+          var on = x === b; x.classList.toggle('metas-seg--active', on); x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      });
+    });
+    $('metaForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var err = $('metaError');
+      function _formError(msg) { err.textContent = msg; err.hidden = false; }
+      var nombre = $('mNombre').value.trim();
+      var objetivo = parseFloat(String($('mObjetivo').value).replace(',', '.'));
+      var inicio = $('mInicio').value;
+      var limite = $('mLimite').value;
+
+      if (!nombre) { return _formError('Ponle un nombre a la meta.'); }
+      if (!(objetivo > 0)) { return _formError('El monto objetivo debe ser mayor que 0.'); }
+      if (!limite) { return _formError('Indica una fecha límite.'); }
+      if (inicio && limite <= inicio) { return _formError('La fecha límite debe ser posterior a la de inicio.'); }
+
+      var datos = {
+        nombre: nombre,
+        tipo: $('mTipo').value,
+        horizonte: $('mHorizonte').value,
+        ambito: estadoForm.ambito,
+        monto_objetivo: objetivo,
+        fecha_inicio: inicio || _hoyISO(),
+        fecha_limite: limite,
+        nota: $('mNota').value.trim() || null,
+      };
+      try {
+        await insertMeta(datos);
+        $('metaModal').hidden = true;
+        $('metaForm').reset();
+        mostrarToast('Meta creada', null, null, 3000);
+        cargar();
+      } catch (e2) {
+        _formError('No se pudo guardar: ' + (e2.message || 'error'));
+      }
+    });
+
+    // Exponer helpers a tareas siguientes vía closure (no global).
+    window.__metasCargar = cargar; // usado solo por el harness de verificación
+
+    cargar();
+  })();
+</script>
