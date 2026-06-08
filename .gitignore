@@ -9,3 +9,4 @@ KEYS.txt
 .agents/
 .claude/skills/
 .security/
+.worktrees/
