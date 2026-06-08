@@ -246,6 +246,11 @@
       return 'normal';
     }
 
+    function metaAlcanzada(m) {
+      var obj = Number(m.monto_objetivo) || 0;
+      return m.estado === 'en_curso' && obj > 0 && Number(m.monto_actual) >= obj;
+    }
+
     function renderActivas(activas) {
       var cont = $('metasActivas');
       if (!activas.length) {
@@ -253,6 +258,16 @@
         return;
       }
       cont.innerHTML = activas.map(function (m) {
+        if (metaAlcanzada(m)) {
+          return '<article class="meta-card meta-card--lograda" data-id="' + m.id + '">' +
+            '<div class="meta-felicita">' +
+              '<div class="meta-felicita-icono" aria-hidden="true">🎉</div>' +
+              '<h2 class="meta-felicita-titulo">¡Meta cumplida!</h2>' +
+              '<p class="meta-felicita-nombre">' + esc(m.nombre) + '</p>' +
+              '<p class="meta-felicita-monto">' + formatMonto(Number(m.monto_actual) || 0) + '</p>' +
+              '<button type="button" class="btn btn-primary" data-act="confirmar" data-id="' + m.id + '">Confirmar</button>' +
+            '</div></article>';
+        }
         var dias = diasRestantes(m.fecha_limite);
         var vis = estadoVisual(m, dias);
         var obj = Number(m.monto_objetivo) || 0;
@@ -274,7 +289,6 @@
           '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>' +
           '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
           '<div class="meta-acciones">' + aporte +
-            '<button type="button" class="btn-small" data-act="lograda" data-id="' + m.id + '">Marcar como lograda</button>' +
             '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
           '</div></article>';
       }).join('');
@@ -293,9 +307,9 @@
       if (!btn) return;
       var id = btn.getAttribute('data-id');
       var act = btn.getAttribute('data-act');
-      if (act === 'aporte') registrarAporte();
-      else if (act === 'lograda') marcarLograda(id);
-      else if (act === 'eliminar') eliminarMeta(id, btn);
+      if (act === 'aporte') registrarAporte(id);
+      else if (act === 'confirmar') confirmarLograda(id);
+      else if (act === 'eliminar') eliminarMeta(id);
     });
 
     var aportePendiente = null;
@@ -312,10 +326,10 @@
       setTimeout(function () { $('aMonto').focus(); }, 50);
     }
 
-    async function marcarLograda(id) {
+    async function confirmarLograda(id) {
       try {
         await updateMeta(id, { estado: 'lograda' });
-        mostrarToast('Meta marcada como lograda 🎉', null, null, 3000);
+        mostrarToast('¡Meta guardada en cumplidas!', null, null, 3000);
         cargar();
       } catch (err) {
         mostrarToast('No se pudo actualizar. Reintenta.', null, null, 4000);
