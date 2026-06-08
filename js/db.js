@@ -383,6 +383,55 @@ async function getCategorias(tipo = null) {
   }
 }
 
+// getCategoriasConFavorito(tipo?) — todas las categorías activas (de `tipo` si se da)
+// + bandera `favorita` para el usuario activo. Para la gestión en Configuración.
+// Returns: [{ ...categoria, favorita: bool }] o [].
+async function getCategoriasConFavorito(tipo = null) {
+  try {
+    const cats = await getCategorias(tipo);
+    const { data: favs, error } = await supabase
+      .from('categorias_favoritas')
+      .select('categoria_id'); // RLS lo acota al usuario activo
+    if (error) throw error;
+    const favSet = new Set((favs || []).map((f) => f.categoria_id));
+    return cats.map((c) => ({ ...c, favorita: favSet.has(c.id) }));
+  } catch (err) {
+    console.error('Error en getCategoriasConFavorito():', err.message || err);
+    return [];
+  }
+}
+
+// getCategoriasFavoritas(tipo?) — solo las categorías marcadas favoritas por el
+// usuario activo (de `tipo` si se da). Para el Oráculo. Returns: [categoria] o [].
+async function getCategoriasFavoritas(tipo = null) {
+  const cats = await getCategoriasConFavorito(tipo);
+  return cats.filter((c) => c.favorita);
+}
+
+// toggleFavorita(categoria_id, on) — marca (on=true) o desmarca (on=false) una
+// categoría como favorita del usuario activo. Idempotente (upsert por unique).
+// Lanza Error en fallo para que la UI revierta el toggle optimista.
+async function toggleFavorita(categoria_id, on) {
+  try {
+    if (on) {
+      const userId = _requireUserId();
+      const { error } = await supabase
+        .from('categorias_favoritas')
+        .upsert({ categoria_id: categoria_id, user_id: userId }, { onConflict: 'user_id,categoria_id' });
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('categorias_favoritas')
+        .delete()
+        .eq('categoria_id', categoria_id); // RLS limita al usuario activo
+      if (error) throw error;
+    }
+  } catch (err) {
+    console.error('Error en toggleFavorita():', err.message || err);
+    throw err;
+  }
+}
+
 // getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta) — suma de
 // GASTOS de una categoría en el rango y ámbito dados. Para el oráculo.
 // Returns: número (0 en error o sin gastos).
