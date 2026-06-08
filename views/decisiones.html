@@ -200,21 +200,24 @@
         return { nivel: 'sin-presupuesto', razon: 'Define un presupuesto para ' + cat.nombre + ' y podré aconsejarte.' };
       }
       var margen = m.limite - m.gastoMes;
-      var disponible = m.ingresos - m.gastos - m.colchon;
-      var sugerido = Math.max(0, Math.min(margen, disponible));
+      var sugerido = Math.max(0, margen);
       var objetivoSemanal = m.limite * 7 / m.diasMes;
       var ritmoSemanal = m.gastoSemana / Math.max(m.diasSemana, 1);
       var aceleracion = (ritmoSemanal * 7) > objetivoSemanal;
+      // El colchón de metas YA NO bloquea: solo avisa si la compra reduce de forma
+      // notable lo que apartas para metas este mes (umbral 20% del colchón).
+      var comeAhorro = m.colchon > 0 && monto > (m.colchon * 0.2) && (m.gastos + monto) > (m.ingresos - m.colchon);
 
-      var rompeColchon = (m.gastos + monto) > (m.ingresos - m.colchon);
-      if (monto > margen || rompeColchon) {
-        var causa = monto > margen
-          ? 'Superarías tu presupuesto de ' + cat.nombre + ' por ' + formatMonto(monto - margen) + '.'
-          : 'Comprometerías el ahorro de tu meta ' + (m.metaCritica || 'del hogar') + '.';
-        return { nivel: 'no', razon: causa, sugerido: sugerido, margen: margen };
+      // "No recomendable" SOLO por exceder el presupuesto de la categoría.
+      if (monto > margen) {
+        return { nivel: 'no', razon: 'Superarías tu presupuesto de ' + cat.nombre + ' por ' + formatMonto(monto - margen) + '.', sugerido: sugerido, margen: margen };
       }
-      if (monto <= sugerido && aceleracion) {
-        return { nivel: 'cautela', razon: 'Cabe en tu presupuesto, pero vas rápido esta semana.', sugerido: sugerido, margen: margen };
+      // "Con cautela": cabe en el presupuesto pero hay una señal (ritmo o ahorro de metas).
+      if (aceleracion || comeAhorro) {
+        var razonC = comeAhorro
+          ? 'Cabe en tu presupuesto, pero reduciría lo que apartas para ' + (m.metaCritica || 'tus metas') + ' este mes.'
+          : 'Cabe en tu presupuesto, pero vas rápido esta semana.';
+        return { nivel: 'cautela', razon: razonC, sugerido: sugerido, margen: margen };
       }
       return { nivel: 'recomendable', razon: 'Te alcanza. Usarías ' + Math.round((m.gastoMes + monto) / m.limite * 100) + '% de tu presupuesto de ' + cat.nombre + '.', sugerido: sugerido, margen: margen };
     }
