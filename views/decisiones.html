@@ -241,6 +241,43 @@
       renderVeredicto(dictaminar(monto, m, cat), monto, m, cat);
     });
 
+    // ── Estado general del hogar ──────────────────────────────
+    async function renderEstadoGeneral() {
+      var cats = await getCategorias('gasto');
+      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null && c.nombre !== 'Ahorro'; });
+      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
+
+      var usos = await Promise.all(conLimite.map(function (c) {
+        return getGastoCategoria(c.id, 'hogar', rMes.desde, rMes.hasta).then(function (g) {
+          return { nombre: c.nombre, pct: Number(c.limite_mensual) > 0 ? g / Number(c.limite_mensual) : 0 };
+        });
+      }));
+      var metas = await getMetas('hogar');
+      var metasRiesgo = (metas || []).filter(function (mt) {
+        if (Number(mt.monto_actual) >= Number(mt.monto_objetivo) || !mt.fecha_limite) return false;
+        var hoyD = new Date(), limD = new Date(mt.fecha_limite);
+        var meses = (limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth());
+        return meses <= 1;
+      });
+
+      var rojas = usos.filter(function (u) { return u.pct > 1; });
+      var ambar = usos.filter(function (u) { return u.pct >= 0.8 && u.pct <= 1; });
+      var salud = (rojas.length || metasRiesgo.length) ? 'riesgo' : (ambar.length ? 'ajustado' : 'sano');
+
+      var focos = [];
+      rojas.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' superó su presupuesto'); });
+      ambar.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' cerca del límite'); });
+      metasRiesgo.slice(0, 1).forEach(function (mt) { focos.push('Meta ' + mt.nombre + ' en riesgo de plazo'); });
+
+      var titulos = { sano: '🟢 Hogar sano', ajustado: '🟡 Mes ajustado', riesgo: '🔴 En riesgo' };
+      var box = $('decEstado');
+      box.setAttribute('data-salud', salud);
+      box.innerHTML = '<div class="dec-estado-titulo">' + titulos[salud] + '</div>' +
+        (focos.length ? '<ul class="dec-estado-focos"><li>' + focos.join('</li><li>') + '</li></ul>'
+                      : '<p class="dec-estado-focos">Todo dentro de presupuesto este mes.</p>');
+    }
+
     cargarCategorias();
+    renderEstadoGeneral();
   })();
 </script>
