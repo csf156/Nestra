@@ -71,6 +71,44 @@
     <span id="metasToastMsg"></span>
     <button type="button" id="metasToastAccion" class="metas-toast-btn" hidden></button>
   </div>
+
+  <!-- Mini-modal: aporte directo a meta -->
+  <div class="metas-modal-overlay" id="aporteModal" role="dialog" aria-modal="true" aria-labelledby="aporteModalTitle" hidden>
+    <div class="metas-modal">
+      <h2 class="metas-modal-title" id="aporteModalTitle">Registrar aporte</h2>
+      <p class="metas-aporte-meta" id="aporteMetaNombre"></p>
+      <form id="aporteForm" class="metas-form">
+        <label class="metas-flabel">Monto
+          <div class="metas-monto"><span aria-hidden="true">S/</span>
+            <input class="metas-input" id="aMonto" type="text" inputmode="decimal" placeholder="0.00" />
+          </div>
+        </label>
+        <label class="metas-flabel">Fecha
+          <input class="metas-input" id="aFecha" type="date" />
+        </label>
+        <label class="metas-flabel">Nota (opcional)
+          <textarea class="metas-input" id="aNota" rows="2"></textarea>
+        </label>
+        <p class="metas-form-error" id="aporteError" role="alert" hidden></p>
+        <div class="metas-modal-actions">
+          <button type="button" class="btn btn-secondary" id="aporteCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Aportar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: confirmar borrado de meta -->
+  <div class="metas-modal-overlay" id="delMetaModal" role="dialog" aria-modal="true" aria-labelledby="delMetaTitle" hidden>
+    <div class="metas-modal metas-modal--confirm">
+      <h2 class="metas-modal-title" id="delMetaTitle">Eliminar meta</h2>
+      <p class="metas-confirm-body" id="delMetaBody"></p>
+      <div class="metas-modal-actions">
+        <button type="button" class="btn btn-secondary" id="delMetaCancelar">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="delMetaConfirmar">Eliminar</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -135,6 +173,18 @@
   .metas-toast[hidden] { display: none; }
   .metas-toast-btn { background: transparent; border: none; color: var(--color-success); font-weight: var(--font-weight-semibold); cursor: pointer; }
 
+  .metas-aporte-meta { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--space-md); }
+  .metas-modal--confirm { max-width: 420px; }
+  .metas-confirm-body { color: var(--text-dark); font-size: var(--font-size-base); margin: 0 0 var(--space-lg); }
+
+  .meta-card--lograda { border-left-color: var(--color-success); background: rgba(16,185,129,0.06); }
+  .meta-felicita { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-sm); padding: var(--space-md) 0; }
+  .meta-felicita-icono { font-size: 2.5rem; line-height: 1; }
+  .meta-felicita-titulo { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-success); margin: 0; }
+  .meta-felicita-nombre { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0; }
+  .meta-felicita-monto { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--space-sm); }
+  .meta-felicita .btn { min-width: 160px; }
+
   @media (prefers-reduced-motion: reduce) { .meta-barra-fill { transition: none; } }
 </style>
 
@@ -145,7 +195,6 @@
     function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     var estadoForm = { ambito: 'hogar' };
-    var borradoPendiente = null;
 
     // ── Toast local (mensaje + acción opcional con timeout) ───
     var toastTimer = null;
@@ -161,13 +210,16 @@
     function ocultarToast() { clearTimeout(toastTimer); $('metasToast').hidden = true; }
 
     // ── Carga (render real en Tasks 2-3) ─────────────────────
+    var _metas = [];
     async function cargar() {
       var metas = await getMetas();
-      var activas = (metas || []).filter(function (m) { return m.estado === 'en_curso' || m.estado === 'vencida'; });
-      var completadas = (metas || []).filter(function (m) { return m.estado === 'lograda'; });
+      _metas = metas || [];
+      var activas = _metas.filter(function (m) { return m.estado === 'en_curso' || m.estado === 'vencida'; });
+      var completadas = _metas.filter(function (m) { return m.estado === 'lograda'; });
       renderActivas(activas);
       renderCompletadas(completadas);
     }
+    function _metaPorId(id) { return _metas.filter(function (m) { return String(m.id) === String(id); })[0]; }
     var TIPO_LBL = { ahorro: 'Ahorro', reduccion_gasto: 'Reducción', aporte_hogar: 'Aporte hogar' };
     var HOR_LBL = { corto: 'Corto plazo', mediano: 'Mediano plazo', largo: 'Largo plazo' };
     var AMB_LBL = { personal: 'Personal', hogar: 'Hogar' };
@@ -193,6 +245,11 @@
       return 'normal';
     }
 
+    function metaAlcanzada(m) {
+      var obj = Number(m.monto_objetivo) || 0;
+      return m.estado === 'en_curso' && obj > 0 && Number(m.monto_actual) >= obj;
+    }
+
     function renderActivas(activas) {
       var cont = $('metasActivas');
       if (!activas.length) {
@@ -200,6 +257,16 @@
         return;
       }
       cont.innerHTML = activas.map(function (m) {
+        if (metaAlcanzada(m)) {
+          return '<article class="meta-card meta-card--lograda" data-id="' + m.id + '">' +
+            '<div class="meta-felicita">' +
+              '<div class="meta-felicita-icono" aria-hidden="true">🎉</div>' +
+              '<h2 class="meta-felicita-titulo">¡Meta cumplida!</h2>' +
+              '<p class="meta-felicita-nombre">' + esc(m.nombre) + '</p>' +
+              '<p class="meta-felicita-monto">' + formatMonto(Number(m.monto_actual) || 0) + '</p>' +
+              '<button type="button" class="btn btn-primary" data-act="confirmar" data-id="' + m.id + '">Confirmar</button>' +
+            '</div></article>';
+        }
         var dias = diasRestantes(m.fecha_limite);
         var vis = estadoVisual(m, dias);
         var obj = Number(m.monto_objetivo) || 0;
@@ -221,7 +288,6 @@
           '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>' +
           '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
           '<div class="meta-acciones">' + aporte +
-            '<button type="button" class="btn-small" data-act="lograda" data-id="' + m.id + '">Marcar como lograda</button>' +
             '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
           '</div></article>';
       }).join('');
@@ -240,40 +306,42 @@
       if (!btn) return;
       var id = btn.getAttribute('data-id');
       var act = btn.getAttribute('data-act');
-      if (act === 'aporte') registrarAporte();
-      else if (act === 'lograda') marcarLograda(id);
-      else if (act === 'eliminar') eliminarMeta(id, btn);
+      if (act === 'aporte') registrarAporte(id);
+      else if (act === 'confirmar') confirmarLograda(id);
+      else if (act === 'eliminar') eliminarMeta(id);
     });
 
-    function registrarAporte() {
-      mostrarToast('Elige la categoría Ahorro para aportar.', null, null, 3500);
-      if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
-      else window.location.hash = '#transaccion';
+    var aportePendiente = null;
+    function registrarAporte(id) {
+      var m = _metaPorId(id);
+      if (!m) return;
+      aportePendiente = id;
+      $('aporteMetaNombre').textContent = 'Aporte a: ' + m.nombre;
+      $('aporteError').hidden = true;
+      $('aMonto').value = '';
+      $('aNota').value = '';
+      $('aFecha').value = _hoyISO();
+      $('aporteModal').hidden = false;
+      setTimeout(function () { $('aMonto').focus(); }, 50);
     }
 
-    async function marcarLograda(id) {
+    async function confirmarLograda(id) {
       try {
         await updateMeta(id, { estado: 'lograda' });
-        mostrarToast('Meta marcada como lograda 🎉', null, null, 3000);
+        mostrarToast('¡Meta guardada en cumplidas!', null, null, 3000);
         cargar();
       } catch (err) {
         mostrarToast('No se pudo actualizar. Reintenta.', null, null, 4000);
       }
     }
 
-    function eliminarMeta(id, btn) {
-      var card = btn.closest('.meta-card');
-      if (card) card.style.display = 'none';
-      if (borradoPendiente) { clearTimeout(borradoPendiente.timer); _ejecutarBorrado(borradoPendiente.id); }
-      var timer = setTimeout(function () { _ejecutarBorrado(id); borradoPendiente = null; }, 5000);
-      borradoPendiente = { id: id, timer: timer };
-      mostrarToast('Meta eliminada', 'Deshacer', function () {
-        clearTimeout(timer); borradoPendiente = null;
-        if (card) card.style.display = '';
-      }, 5000);
-    }
-    async function _ejecutarBorrado(id) {
-      try { await deleteMeta(id); } catch (err) { mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000); cargar(); }
+    var delMetaPendiente = null;
+    function eliminarMeta(id) {
+      var m = _metaPorId(id);
+      delMetaPendiente = id;
+      $('delMetaBody').textContent = '¿Seguro que quieres eliminar «' + (m ? m.nombre : 'esta meta') + '»? Esta acción no se puede deshacer.';
+      $('delMetaModal').hidden = false;
+      setTimeout(function () { $('delMetaCancelar').focus(); }, 50);
     }
 
     // ── FAB + modal (alta real en Task 4) ─────────────────────
@@ -281,6 +349,45 @@
     function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; }
     $('metasFab').addEventListener('click', abrirModal);
     $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; });
+    $('aporteCancelar').addEventListener('click', function () { $('aporteModal').hidden = true; aportePendiente = null; });
+    $('aporteModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) { $('aporteModal').hidden = true; aportePendiente = null; } });
+    $('aporteForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var err = $('aporteError');
+      function _err(msg) { err.textContent = msg; err.hidden = false; }
+      if (!aportePendiente) return;
+      var monto = parseFloat(String($('aMonto').value).replace(',', '.'));
+      if (!(monto > 0)) { return _err('El monto debe ser mayor que 0.'); }
+      var fecha = $('aFecha').value || _hoyISO();
+      var nota = $('aNota').value.trim() || null;
+      try {
+        await insertAporteDirecto(aportePendiente, monto, fecha, nota);
+        $('aporteModal').hidden = true;
+        aportePendiente = null;
+        mostrarToast('Aporte registrado', null, null, 3000);
+        cargar();
+      } catch (e2) {
+        _err('No se pudo registrar el aporte. Reintenta.');
+      }
+    });
+    $('delMetaCancelar').addEventListener('click', function () { $('delMetaModal').hidden = true; delMetaPendiente = null; });
+    $('delMetaModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) { $('delMetaModal').hidden = true; delMetaPendiente = null; } });
+    $('delMetaModal').addEventListener('keydown', function (e) { if (e.key === 'Escape') { $('delMetaModal').hidden = true; delMetaPendiente = null; } });
+    $('delMetaConfirmar').addEventListener('click', async function () {
+      if (!delMetaPendiente) return;
+      var id = delMetaPendiente;
+      try {
+        await deleteMeta(id);
+        $('delMetaModal').hidden = true;
+        delMetaPendiente = null;
+        mostrarToast('Meta eliminada', null, null, 3000);
+        cargar();
+      } catch (err) {
+        $('delMetaModal').hidden = true;
+        delMetaPendiente = null;
+        mostrarToast('No se pudo eliminar. Reintenta.', null, null, 4000);
+      }
+    });
     Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (b) {
       b.addEventListener('click', function () {
         estadoForm.ambito = b.getAttribute('data-ambito');

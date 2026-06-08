@@ -660,6 +660,7 @@
           ? '<span class="hist-badge hist-badge--hogar">Hogar</span>'
           : '<span class="hist-badge hist-badge--personal">Personal</span>',
         aporte: !!t.aporte_id,
+        directo: !!t.es_aporte_directo,
       };
     }
 
@@ -669,14 +670,15 @@
       var aporteBadge = d.aporte ? '<span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
-      var btnEditar = d.aporte ? '' :
+      var btnEditar = (d.aporte || d.directo) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
+      var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       return '<div class="hist-tx" data-id="' + esc(t.id) + '">' +
           '<div class="hist-tx-row" role="button" tabindex="0" aria-expanded="false" ' +
                'aria-label="' + esc(d.cat) + ', ' + esc(formatMonto(t.monto)) + '. Toca para ver acciones">' +
             '<div class="hist-tx-main">' +
               '<span class="hist-tx-cat">' + esc(d.cat) + '</span>' +
-              '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + nota + '</span>' +
+              '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + directoBadge + nota + '</span>' +
             '</div>' +
             '<span class="hist-tx-monto ' + d.clsM + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</span>' +
             '<span class="hist-tx-caret" aria-hidden="true">⌄</span>' +
@@ -694,11 +696,12 @@
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
-      var btnEditar = d.aporte ? '' :
+      var btnEditar = (d.aporte || d.directo) ? '' :
         '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '">✎</button>';
+      var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr;</span>' : '';
       return '<tr data-id="' + esc(t.id) + '">' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
-          '<td>' + esc(d.cat) + aporteMark + '</td>' +
+          '<td>' + esc(d.cat) + aporteMark + directoMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
           '<td class="hist-td-monto ' + d.clsTd + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</td>' +
@@ -1085,7 +1088,7 @@
     // ── Editar ────────────────────────────────────────────────
     function abrirEdicion(id) {
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
-      if (!tx || tx.aporte_id) return; // aporte vinculado no editable
+      if (!tx || tx.aporte_id || tx.es_aporte_directo) return; // aporte vinculado / directo no editable
       if (typeof abrirModalTransaccion !== 'function') { window.location.hash = '#transaccion'; return; }
       window._editTx = tx;
       abrirModalTransaccion();

@@ -143,6 +143,8 @@ async function insertTransaccion(datos) {
 // invoca el RPC distribuir_ahorro. No lanza (best-effort).
 async function _distribuirSiAhorro(tx) {
   try {
+    // Los aportes directos ya asignan su monto a mano; nunca se reparten.
+    if (tx && tx.es_aporte_directo) return;
     const cats = await getCategorias('gasto');
     const cat = cats.find((c) => c.id === tx.categoria_id);
     if (!cat || cat.nombre !== 'Ahorro') return;
@@ -722,6 +724,28 @@ async function deleteMeta(id) {
     if (error) throw error;
   } catch (err) {
     console.error('Error en deleteMeta():', err.message || err);
+    throw err;
+  }
+}
+
+// insertAporteDirecto(meta_id, monto, fecha, nota) — aporte 100% a una meta.
+// Vía RPC atómica aporte_directo_meta: crea un gasto en categoría Ahorro
+// marcado como aporte directo y lo asigna íntegro a la meta; el excedente
+// sobre el objetivo va al fondo de emergencia del ámbito de la meta. NO
+// dispara el reparto por peso ni marca la meta como lograda.
+// Returns: id (uuid) de la transacción creada. Lanza Error en fallo.
+async function insertAporteDirecto(meta_id, monto, fecha, nota) {
+  try {
+    const { data, error } = await supabase.rpc('aporte_directo_meta', {
+      p_meta_id: meta_id,
+      p_monto: monto,
+      p_fecha: fecha || null,
+      p_nota: nota || null,
+    });
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Error en insertAporteDirecto():', err.message || err);
     throw err;
   }
 }
