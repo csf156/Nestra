@@ -26,8 +26,13 @@
         <button type="button" class="dec-seg" data-ambito="personal" aria-pressed="false">Personal</button>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary dec-submit">Consultar al oráculo</button>
+    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar al oráculo</button>
   </form>
+
+  <div class="dec-cargando" id="decCargando" role="status" aria-live="polite" hidden>
+    <div class="dec-orbe" aria-hidden="true"></div>
+    <span class="dec-cargando-txt">El oráculo medita tu consulta…</span>
+  </div>
 
   <section class="dec-veredicto" id="decVeredicto" data-nivel="" aria-live="polite" hidden></section>
 </div>
@@ -60,9 +65,33 @@
   .dec-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); cursor: pointer; }
   .dec-seg--active { background: var(--color-primary); color: #fff; }
   .dec-submit { min-height: 48px; }
+  .dec-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  .dec-veredicto { margin-top: var(--space-lg); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-light); }
+  /* Spinner místico (orbe del oráculo) */
+  .dec-cargando { flex-direction: column; align-items: center; gap: var(--space-md); padding: var(--space-xl) var(--space-md); color: var(--text-secondary); }
+  .dec-cargando[hidden] { display: none; }
+  .dec-cargando:not([hidden]) { display: flex; }
+  .dec-orbe { width: 56px; height: 56px; border-radius: 50%; position: relative;
+    background: radial-gradient(circle at 32% 30%, rgba(52,211,153,0.95), rgba(5,150,105,0.45) 60%, transparent 72%);
+    box-shadow: 0 0 18px rgba(16,185,129,0.55); animation: dec-pulso 1.4s ease-in-out infinite; }
+  .dec-orbe::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--color-primary); animation: dec-giro 1s linear infinite; }
+  .dec-cargando-txt { font-size: var(--font-size-sm); font-style: italic; }
+  @keyframes dec-pulso { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.12); opacity: 1; } }
+  @keyframes dec-giro { to { transform: rotate(360deg); } }
+
+  /* Veredicto: estado inicial oculto + animación de entrada */
+  .dec-veredicto { margin-top: var(--space-lg); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-light);
+    opacity: 0; transform: translateY(10px); transition: opacity 0.3s ease, transform 0.3s ease; }
+  .dec-veredicto.visible { opacity: 1; transform: translateY(0); }
   .dec-veredicto[hidden] { display: none; }
+
+  /* Clases semánticas del veredicto (tres estados solicitados) */
+  .dec-veredicto.veredicto-ok      { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
+  .dec-veredicto.veredicto-alerta  { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
+  .dec-veredicto.veredicto-peligro { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); }
+  .dec-veredicto.veredicto-ok .dec-ver-cabecera      { color: var(--color-success); }
+  .dec-veredicto.veredicto-alerta .dec-ver-cabecera  { color: var(--color-warning); }
+  .dec-veredicto.veredicto-peligro .dec-ver-cabecera { color: var(--color-danger); }
   .dec-ver-cabecera { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-dark); }
   .dec-ver-icono { font-size: 1.6em; line-height: 1; }
   .dec-ver-razon { margin: var(--space-sm) 0 0; color: var(--text-dark); }
@@ -80,7 +109,10 @@
 
   .btn-ghost { background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); min-height: 44px; border-radius: var(--radius-md); cursor: pointer; }
 
-  @media (prefers-reduced-motion: reduce) { .dec-seg { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .dec-seg, .dec-veredicto { transition: none; }
+    .dec-orbe, .dec-orbe::after { animation: none; }
+  }
 </style>
 
 <script>
@@ -188,11 +220,28 @@
     }
 
     // ── Render de la tarjeta de veredicto ─────────────────────
-    var ICONOS = { recomendable: '✅', cautela: '🟡', no: '⚠️', 'sin-presupuesto': '⚙️', ahorro: '💰' };
+    var ICONOS = { recomendable: '✅', cautela: '⚠️', no: '⛔', 'sin-presupuesto': '⚙️', ahorro: '💰' };
     var TITULOS = { recomendable: 'Recomendable', cautela: 'Con cautela', no: 'No recomendable', 'sin-presupuesto': 'Fija un presupuesto primero', ahorro: 'Adelante' };
+    // Mapeo de los 5 niveles a las 3 clases semánticas de color.
+    var CLASE_VER = { recomendable: 'veredicto-ok', ahorro: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-presupuesto': '' };
+
+    // revelar(box) — muestra el contenedor y dispara la animación de entrada.
+    function revelar(box) {
+      box.hidden = false;
+      void box.offsetWidth; // forzar reflow para que la transición arranque desde el estado oculto
+      box.classList.add('visible');
+      box.setAttribute('tabindex', '-1');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function ocultarVeredicto() {
+      var box = $('decVeredicto');
+      box.classList.remove('visible');
+      box.hidden = true;
+    }
 
     function renderVeredicto(v, monto, m, cat) {
       var box = $('decVeredicto');
+      box.className = 'dec-veredicto' + (CLASE_VER[v.nivel] ? ' ' + CLASE_VER[v.nivel] : '');
       box.setAttribute('data-nivel', v.nivel);
       var html = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">' + ICONOS[v.nivel] + '</span>' + TITULOS[v.nivel] + '</div>' +
         '<p class="dec-ver-razon">' + v.razon + '</p>';
@@ -215,30 +264,56 @@
       }
       html += '</div>';
       box.innerHTML = html;
-      box.hidden = false;
       var reg = $('decRegistrar');
       if (reg) reg.addEventListener('click', function () {
         if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
         else window.location.hash = '#transaccion';
       });
-      box.setAttribute('tabindex', '-1');
-      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      revelar(box);
+    }
+
+    function mostrarCargando(on) {
+      $('decCargando').hidden = !on;
+      $('decSubmit').disabled = on;
+    }
+    function mostrarErrorOraculo() {
+      var box = $('decVeredicto');
+      box.className = 'dec-veredicto';
+      box.setAttribute('data-nivel', '');
+      box.innerHTML = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">🌫️</span>El oráculo está nublado</div>' +
+        '<p class="dec-ver-razon">El Oráculo está nublado en este momento. Inténtalo de nuevo.</p>';
+      revelar(box);
     }
 
     $('decForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       var monto = parseFloat(String($('decMonto').value).replace(',', '.'));
       var cat = catsPorId[$('decCat').value];
+
+      // Ocultar cualquier resultado previo antes de evaluar.
+      ocultarVeredicto();
+
       if (!cat || !(monto > 0)) {
         renderVeredicto({ nivel: 'sin-presupuesto', razon: 'Ingresa un monto y una categoría válidos.' }, 0, null, cat || { nombre: '' });
         return;
       }
+      // Casos sin consulta a Supabase (Ahorro / sin presupuesto): resolver directo.
       if (cat.nombre === 'Ahorro' || cat.limite_mensual == null) {
         renderVeredicto(dictaminar(monto, { limite: NaN }, cat), monto, null, cat);
         return;
       }
-      var m = await recolectar(cat, estado.ambito);
-      renderVeredicto(dictaminar(monto, m, cat), monto, m, cat);
+
+      // Consulta con agregación en Supabase: spinner + botón bloqueado + try/catch.
+      mostrarCargando(true);
+      try {
+        var m = await recolectar(cat, estado.ambito);
+        renderVeredicto(dictaminar(monto, m, cat), monto, m, cat);
+      } catch (err) {
+        console.error('Oráculo: fallo al consultar Supabase:', err);
+        mostrarErrorOraculo();
+      } finally {
+        mostrarCargando(false);
+      }
     });
 
     // ── Estado general del hogar ──────────────────────────────
