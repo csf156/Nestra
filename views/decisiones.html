@@ -117,8 +117,129 @@
       });
     });
 
-    // Los stubs de evaluación y estado general se completan en Tasks 3 y 4.
-    $('decForm').addEventListener('submit', function (e) { e.preventDefault(); });
+    // ── Recolecta las métricas necesarias para una consulta ───
+    async function recolectar(cat, ambito) {
+      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01',
+                   hasta: _rangoSemana().hasta };
+      var rSem = _rangoSemana();
+      var diasMes = new Date(hoy.anio, hoy.mes, 0).getDate();
+      var diaHoy = new Date().getDate();
+
+      var resultados = await Promise.all([
+        getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
+        getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
+        (ambito === 'personal' ? getBalancePersonal(hoy.mes, hoy.anio) : getBalanceHogar(hoy.mes, hoy.anio)),
+        getMetas(ambito),
+      ]);
+      var gastoMes = resultados[0], gastoSemana = resultados[1], balance = resultados[2];
+      var metasPend = (resultados[3] || []).filter(function (x) {
+        return Number(x.monto_actual) < Number(x.monto_objetivo);
+      });
+
+      var colchon = 0, metaCritica = null;
+      metasPend.forEach(function (mt) {
+        if (!mt.fecha_limite) return;
+        var hoyD = new Date();
+        var limD = new Date(mt.fecha_limite);
+        var meses = Math.max((limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth()), 1);
+        var faltante = Number(mt.monto_objetivo) - Number(mt.monto_actual);
+        colchon += faltante / meses;
+        if (!metaCritica || meses <= 2) metaCritica = mt.nombre;
+      });
+
+      return {
+        limite: Number(cat.limite_mensual),
+        gastoMes: gastoMes,
+        gastoSemana: gastoSemana,
+        diasMes: diasMes,
+        diaHoy: diaHoy,
+        diasSemana: rSem.diasTranscurridos,
+        ingresos: balance.ingresos, gastos: balance.gastos,
+        colchon: colchon, metaCritica: metaCritica,
+      };
+    }
+
+    // ── Dictamen puro a partir de monto + métricas + categoría ─
+    function dictaminar(monto, m, cat) {
+      if (cat.nombre === 'Ahorro') {
+        return { nivel: 'ahorro', razon: 'Estás ahorrando, no gastando. Adelante.' };
+      }
+      if (cat.limite_mensual == null) {
+        return { nivel: 'sin-presupuesto', razon: 'Define un presupuesto para ' + cat.nombre + ' y podré aconsejarte.' };
+      }
+      var margen = m.limite - m.gastoMes;
+      var disponible = m.ingresos - m.gastos - m.colchon;
+      var sugerido = Math.max(0, Math.min(margen, disponible));
+      var objetivoSemanal = m.limite * 7 / m.diasMes;
+      var ritmoSemanal = m.gastoSemana / Math.max(m.diasSemana, 1);
+      var aceleracion = (ritmoSemanal * 7) > objetivoSemanal;
+
+      var rompeColchon = (m.gastos + monto) > (m.ingresos - m.colchon);
+      if (monto > margen || rompeColchon) {
+        var causa = monto > margen
+          ? 'Superarías tu presupuesto de ' + cat.nombre + ' por ' + formatMonto(monto - margen) + '.'
+          : 'Comprometerías el ahorro de tu meta ' + (m.metaCritica || 'del hogar') + '.';
+        return { nivel: 'no', razon: causa, sugerido: sugerido, margen: margen };
+      }
+      if (monto <= sugerido && aceleracion) {
+        return { nivel: 'cautela', razon: 'Cabe en tu presupuesto, pero vas rápido esta semana.', sugerido: sugerido, margen: margen };
+      }
+      return { nivel: 'recomendable', razon: 'Te alcanza. Usarías ' + Math.round((m.gastoMes + monto) / m.limite * 100) + '% de tu presupuesto de ' + cat.nombre + '.', sugerido: sugerido, margen: margen };
+    }
+
+    // ── Render de la tarjeta de veredicto ─────────────────────
+    var ICONOS = { recomendable: '✅', cautela: '🟡', no: '⚠️', 'sin-presupuesto': '⚙️', ahorro: '💰' };
+    var TITULOS = { recomendable: 'Recomendable', cautela: 'Con cautela', no: 'No recomendable', 'sin-presupuesto': 'Fija un presupuesto primero', ahorro: 'Adelante' };
+
+    function renderVeredicto(v, monto, m, cat) {
+      var box = $('decVeredicto');
+      box.setAttribute('data-nivel', v.nivel);
+      var html = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">' + ICONOS[v.nivel] + '</span>' + TITULOS[v.nivel] + '</div>' +
+        '<p class="dec-ver-razon">' + v.razon + '</p>';
+      if (v.nivel === 'no' || v.nivel === 'cautela') {
+        html += '<p class="dec-ver-cifra">Te sugiero gastar hasta ' + formatMonto(v.sugerido) + '.</p>';
+      }
+      if (m && v.nivel !== 'sin-presupuesto' && v.nivel !== 'ahorro') {
+        html += '<details class="dec-ver-detalle"><summary>Ver desglose</summary><ul>' +
+          '<li>Presupuesto de ' + cat.nombre + ': ' + formatMonto(m.limite) + '</li>' +
+          '<li>Gastado este mes: ' + formatMonto(m.gastoMes) + '</li>' +
+          '<li>Margen restante: ' + formatMonto(m.limite - m.gastoMes) + '</li>' +
+          '<li>Ahorro comprometido (metas): ' + formatMonto(m.colchon) + '</li>' +
+          '</ul></details>';
+      }
+      html += '<div class="dec-ver-acciones">';
+      if (v.nivel === 'sin-presupuesto') {
+        html += '<a class="btn btn-primary" href="#configuracion">Fijar presupuesto</a>';
+      } else {
+        html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar de todos modos</button>';
+      }
+      html += '</div>';
+      box.innerHTML = html;
+      box.hidden = false;
+      var reg = $('decRegistrar');
+      if (reg) reg.addEventListener('click', function () {
+        if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+        else window.location.hash = '#transaccion';
+      });
+      box.setAttribute('tabindex', '-1');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    $('decForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var monto = parseFloat(String($('decMonto').value).replace(',', '.'));
+      var cat = catsPorId[$('decCat').value];
+      if (!cat || !(monto > 0)) {
+        renderVeredicto({ nivel: 'sin-presupuesto', razon: 'Ingresa un monto y una categoría válidos.' }, 0, null, cat || { nombre: '' });
+        return;
+      }
+      if (cat.nombre === 'Ahorro' || cat.limite_mensual == null) {
+        renderVeredicto(dictaminar(monto, { limite: NaN }, cat), monto, null, cat);
+        return;
+      }
+      var m = await recolectar(cat, estado.ambito);
+      renderVeredicto(dictaminar(monto, m, cat), monto, m, cat);
+    });
 
     cargarCategorias();
   })();
