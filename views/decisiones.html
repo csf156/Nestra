@@ -16,8 +16,8 @@
       </div>
     </div>
     <div class="dec-field">
-      <label class="dec-label" for="decCat">¿En qué categoría?</label>
-      <select class="dec-select" id="decCat"></select>
+      <span class="dec-label">¿En qué categoría?</span>
+      <div class="dec-chips" id="decFavoritas" role="group" aria-label="Categorías favoritas"></div>
     </div>
     <div class="dec-field">
       <span class="dec-label">¿Ámbito?</span>
@@ -113,6 +113,11 @@
     .dec-seg, .dec-veredicto { transition: none; }
     .dec-orbe, .dec-orbe::after { animation: none; }
   }
+  .dec-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+  .dec-chip { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; }
+  .dec-chip[aria-pressed="true"] { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .dec-chips-vacio { font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-chips-vacio a { color: var(--color-primary); }
 </style>
 
 <script>
@@ -121,20 +126,35 @@
     function $(id) { return document.getElementById(id); }
     function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
-    var estado = { ambito: 'hogar' };
+    var estado = { ambito: 'hogar', categoriaId: null };
     var catsPorId = {};   // id → categoría
     var hoy = mesActual();
 
     async function cargarCategorias() {
-      var cats = await getCategorias('gasto');
+      var cats = await getCategoriasFavoritas('gasto');
       catsPorId = {};
-      var sel = $('decCat');
-      sel.innerHTML = '';
-      (cats || []).forEach(function (c) {
+      var cont = $('decFavoritas');
+      cont.innerHTML = '';
+      if (!cats.length) {
+        cont.innerHTML = '<p class="dec-chips-vacio">Aún no tienes categorías favoritas. <a href="#configuracion">Márcalas en Configuración</a> para consultarlas.</p>';
+        $('decSubmit').disabled = true;
+        return;
+      }
+      $('decSubmit').disabled = false;
+      cats.forEach(function (c, i) {
         catsPorId[c.id] = c;
-        var opt = document.createElement('option');
-        opt.value = c.id; opt.textContent = c.nombre;
-        sel.appendChild(opt);
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'dec-chip'; b.textContent = c.nombre;
+        b.setAttribute('data-id', c.id);
+        b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+        if (i === 0) estado.categoriaId = c.id;
+        b.addEventListener('click', function () {
+          estado.categoriaId = c.id;
+          Array.prototype.forEach.call(cont.querySelectorAll('.dec-chip'), function (x) {
+            x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+          });
+        });
+        cont.appendChild(b);
       });
     }
 
@@ -291,7 +311,7 @@
     $('decForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       var monto = parseFloat(String($('decMonto').value).replace(',', '.'));
-      var cat = catsPorId[$('decCat').value];
+      var cat = catsPorId[estado.categoriaId];
 
       // Ocultar cualquier resultado previo antes de evaluar.
       ocultarVeredicto();
