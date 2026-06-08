@@ -29,6 +29,20 @@ function _rangoMes(mes, anio) {
   return { desde, hasta };
 }
 
+// _rangoSemana(ref?) — lunes 00:00 de la semana actual → hoy (hora local).
+// Semana ISO (lunes primer día). ref: Date opcional (default: hoy).
+// Retorna { desde: 'YYYY-MM-DD', hasta: 'YYYY-MM-DD', diasTranscurridos }.
+function _rangoSemana(ref) {
+  const hoy = ref ? new Date(ref) : new Date();
+  const dow = hoy.getDay();              // 0=domingo … 6=sábado
+  const offsetLunes = (dow + 6) % 7;     // días desde el lunes
+  const lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - offsetLunes);
+  const fmt = (d) => d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+  return { desde: fmt(lunes), hasta: fmt(hoy), diasTranscurridos: offsetLunes + 1 };
+}
+
 // _requireUserId() — id del usuario activo o lanza si no hay sesión.
 function _requireUserId() {
   const user = getCurrentUser();
@@ -366,6 +380,25 @@ async function getCategorias(tipo = null) {
   } catch (err) {
     console.error('Error en getCategorias():', err.message || err);
     return [];
+  }
+}
+
+// getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta) — suma de
+// GASTOS de una categoría en el rango y ámbito dados. Para el oráculo.
+// Returns: número (0 en error o sin gastos).
+async function getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta) {
+  try {
+    const txs = await getTransacciones({
+      categoria_id: categoria_id,
+      ambito: ambito,
+      tipo: 'gasto',
+      fecha_desde: fecha_desde,
+      fecha_hasta: fecha_hasta,
+    });
+    return (txs || []).reduce((acc, t) => acc + Number(t.monto), 0);
+  } catch (err) {
+    console.error('Error en getGastoCategoria():', err.message || err);
+    return 0;
   }
 }
 
