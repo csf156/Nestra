@@ -121,6 +121,18 @@ Estructura: formulario de consulta arriba (monto, categoría, ámbito) → al co
 
 Mobile-first: una columna, tarjeta de veredicto a ancho completo, tap targets ≥44px, desglose en `<details>` o acordeón. Respeta `prefers-reduced-motion`. Modo oscuro/claro vía custom properties.
 
+### Patrones UI/UX (guía de diseño aplicada)
+
+> La skill `ui-ux-pro-max` está en modo catálogo (sin librería de patrones instalada); se aplica guía de diseño por defecto.
+
+1. **Jerarquía del veredicto** (la tarjeta es el elemento héroe). Peso visual descendente: (1) palabra de veredicto + ícono — lo más grande; (2) razón en lenguaje plano, una línea; (3) el número clave (margen restante o sugerido); (4) desglose colapsable. Lidera con la respuesta humana, no con cifras.
+2. **Microcopy de confianza.** Segunda persona, tono asesor. Sentence case, **nunca MAYÚSCULAS** (evita sensación de alarma). "Te alcanza" en vez de "APROBADO". Causa concreta y cuantificada ("usarías el 95% de tu presupuesto de Comida").
+3. **Feedback emocional sin alarmismo.** No recomendable **nunca culpa**: encuadre protector ("esto retrasaría tu meta [X]") + siempre una salida (monto alternativo / esperar N días). Ícono ⚠ a tamaño moderado, rojo apagado (tinte, no saturado pleno). Con cautela = "aviso", no "advertencia".
+4. **Accesibilidad del color.** El veredicto **nunca se comunica solo por color**: siempre ícono + etiqueta de texto. Fondo = tinte sutil del color semáforo con texto de alto contraste (≥4.5:1). Región del veredicto con `aria-live="polite"` para que lectores de pantalla anuncien el resultado.
+5. **Form UX.** Monto con prefijo `S/` e `inputmode="decimal"` (teclado numérico en móvil). Categoría = `<select>` nativo. Ámbito = el mismo toggle segmentado de `graficos.html` (consistencia entre vistas). Al consultar, el resultado hace scroll-into-view y recibe foco.
+6. **Estado general** = banner compacto (tratamiento visual distinto a la tarjeta de consulta para no confundir los dos modos), con los 2-3 focos como lista breve.
+7. **"Registrar igual"** = botón fantasma (bajo énfasis), ubicado después del monto alternativo, para que el camino recomendado quede primario.
+
 ---
 
 ## Manejo de errores
