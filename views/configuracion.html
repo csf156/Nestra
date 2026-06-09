@@ -604,7 +604,14 @@
 
       async function guardar() {
         var val = inp.value.trim();
-        if (!val) { mostrarToast('El nombre no puede estar vacío', 3000); return; }
+        if (!val) {
+          var sRev = document.createElement('span');
+          sRev.className = 'cfg-cat-nombre-text';
+          sRev.textContent = cat ? cat.nombre : '';
+          inp.replaceWith(sRev);
+          mostrarToast('El nombre no puede estar vacío', 3000);
+          return;
+        }
         try {
           await updateCategoria(id, { nombre: val });
           if (cat) cat.nombre = val;
