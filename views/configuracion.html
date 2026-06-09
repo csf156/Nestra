@@ -629,12 +629,10 @@
       var ul = $(ulId);
       if (!ul) return;
 
-      ul.addEventListener('click', function (e) {
+      ul.addEventListener('click', async function (e) {
         var limSpan = e.target.closest('.cfg-cat-limite-text');
         if (limSpan) { activarEditLimite(limSpan.closest('.cfg-cat-item')); return; }
-      });
 
-      ul.addEventListener('click', async function (e) {
         var btn = e.target.closest('[data-act]');
         if (!btn) return;
         var li  = btn.closest('.cfg-cat-item');
@@ -658,36 +656,43 @@
         }
 
         if (act === 'eliminar') {
-          _delCatId = id;
-          var cat = _cats.find(function (c) { return c.id === id; });
-          var tipo = cat ? cat.tipo : null;
-          var txs  = await getTransacciones({ categoria_id: id });
-          var count = (txs || []).length;
+          btn.disabled = true;
+          try {
+            _delCatId = id;
+            var cat = _cats.find(function (c) { return c.id === id; });
+            var tipo = cat ? cat.tipo : null;
+            var txs  = await getTransacciones({ categoria_id: id });
+            var count = (txs || []).length;
 
-          $('cfgDeleteInfo').textContent = count > 0
-            ? 'Esta categoría tiene ' + count + ' transacción' + (count !== 1 ? 'es' : '') + '.'
-            : 'Esta categoría no tiene transacciones.';
+            $('cfgDeleteInfo').textContent = count > 0
+              ? 'Esta categoría tiene ' + count + ' transacción' + (count !== 1 ? 'es' : '') + '.'
+              : 'Esta categoría no tiene transacciones.';
 
-          var otros = _cats.filter(function (c) { return c.id !== id && c.tipo === tipo; });
-          var rRow  = $('cfgDeleteReasignRow');
-          var sel   = $('cfgDeleteTarget');
-          var conf  = $('cfgDeleteConfirm');
+            var otros = _cats.filter(function (c) { return c.id !== id && c.tipo === tipo; });
+            var rRow  = $('cfgDeleteReasignRow');
+            var sel   = $('cfgDeleteTarget');
+            var conf  = $('cfgDeleteConfirm');
 
-          if (otros.length > 0) {
-            sel.innerHTML = otros.map(function (c) {
-              return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
-            }).join('');
-            rRow.style.display = 'flex';
-            conf.textContent = 'Reasignar y eliminar';
-            conf.disabled = false;
-          } else {
-            rRow.style.display = 'none';
-            conf.textContent = count > 0 ? 'No se puede eliminar (sin destino)' : 'Eliminar';
-            conf.disabled = count > 0;
+            if (otros.length > 0) {
+              sel.innerHTML = otros.map(function (c) {
+                return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
+              }).join('');
+              rRow.style.display = 'flex';
+              conf.textContent = 'Reasignar y eliminar';
+              conf.disabled = false;
+            } else {
+              rRow.style.display = 'none';
+              conf.textContent = count > 0 ? 'No se puede eliminar (sin destino)' : 'Eliminar';
+              conf.disabled = count > 0;
+            }
+
+            $('cfgDeleteModal').removeAttribute('hidden');
+            setTimeout(function () { $('cfgDeleteCancelar').focus(); }, 50);
+          } catch (err) {
+            mostrarToast('No se pudo verificar la categoría', 4000);
+          } finally {
+            btn.disabled = false;
           }
-
-          $('cfgDeleteModal').removeAttribute('hidden');
-          setTimeout(function () { $('cfgDeleteCancelar').focus(); }, 50);
         }
       });
     }
