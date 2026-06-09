@@ -692,13 +692,13 @@
     // Fila de tabla (desktop).
     function rowTx(t) {
       var d = _datosTx(t);
-      var aporteMark = d.aporte ? ' <span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔</span>' : '';
+      var aporteMark = d.aporte ? ' <span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
       var btnEditar = (d.aporte || d.directo) ? '' :
         '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '">✎</button>';
-      var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr;</span>' : '';
+      var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       return '<tr data-id="' + esc(t.id) + '">' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
           '<td>' + esc(d.cat) + aporteMark + directoMark + '</td>' +

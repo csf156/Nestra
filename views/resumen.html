@@ -163,9 +163,10 @@
   .resumen .res-kpi-valor {
     font-size: 1.35rem;
     font-weight: var(--font-weight-bold);
-    color: var(--color-primary);
+    color: var(--text-dark);
     margin: 0;
   }
+  .resumen .res-kpi-valor--pos { color: var(--color-success); }
   .resumen .res-kpi-valor--neg { color: var(--res-rojo); }
 
   /* ── Delta badge ───────────────────────────────────────── */
@@ -361,11 +362,16 @@
     }
 
     /* ── KPI card ─────────────────────────────────────────── */
-    function kpiCard(label, valor, delta, invertir, esBalance) {
-      var neg = esBalance && valor < 0;
+    // tono: 'pos' (verde, ej. ingresos), 'neg' (rojo, ej. gastos),
+    //       'balance' (verde si ≥0, rojo si <0), 'neutral' (texto normal).
+    function kpiCard(label, valor, delta, invertir, tono) {
+      var cls = '';
+      if (tono === 'pos') cls = ' res-kpi-valor--pos';
+      else if (tono === 'neg') cls = ' res-kpi-valor--neg';
+      else if (tono === 'balance') cls = valor < 0 ? ' res-kpi-valor--neg' : ' res-kpi-valor--pos';
       return '<div class="res-kpi-card">' +
         '<p class="res-kpi-label">' + escHtml(label) + '</p>' +
-        '<p class="res-kpi-valor' + (neg ? ' res-kpi-valor--neg' : '') + '">' + escHtml(formatMonto(valor)) + '</p>' +
+        '<p class="res-kpi-valor' + cls + '">' + escHtml(formatMonto(valor)) + '</p>' +
         renderDelta(delta, invertir) +
       '</div>';
     }
@@ -373,9 +379,9 @@
     /* ── Render Hogar ─────────────────────────────────────── */
     function renderHogar(actual, prev) {
       $('resHogarKpis').innerHTML =
-        kpiCard('Ingresos', actual.ingresos, calcDelta(actual.ingresos, prev.ingresos), false, false) +
-        kpiCard('Gastos',   actual.gastos,   calcDelta(actual.gastos,   prev.gastos),   true,  false) +
-        kpiCard('Balance',  actual.balance,  calcDelta(actual.balance,  prev.balance),  false, true);
+        kpiCard('Ingresos', actual.ingresos, calcDelta(actual.ingresos, prev.ingresos), false, 'pos') +
+        kpiCard('Gastos',   actual.gastos,   calcDelta(actual.gastos,   prev.gastos),   true,  'neg') +
+        kpiCard('Balance',  actual.balance,  calcDelta(actual.balance,  prev.balance),  false, 'balance');
       $('resHogarSection').style.display = 'block';
       $('resHogarSection').style.opacity = '1';
     }
@@ -383,10 +389,10 @@
     /* ── Render Personal ──────────────────────────────────── */
     function renderPersonal(actual, prev) {
       $('resPersonalKpis').innerHTML =
-        kpiCard('Ingresos',        actual.ingresos,         calcDelta(actual.ingresos,         prev.ingresos),         false, false) +
-        kpiCard('Gastos',          actual.gastos,           calcDelta(actual.gastos,            prev.gastos),           true,  false) +
-        kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, false) +
-        kpiCard('Balance',         actual.balance,          calcDelta(actual.balance,           prev.balance),          false, true);
+        kpiCard('Ingresos',        actual.ingresos,         calcDelta(actual.ingresos,         prev.ingresos),         false, 'pos') +
+        kpiCard('Gastos',          actual.gastos,           calcDelta(actual.gastos,            prev.gastos),           true,  'neg') +
+        kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, 'neutral') +
+        kpiCard('Balance',         actual.balance,          calcDelta(actual.balance,           prev.balance),          false, 'balance');
       $('resPersonalSection').style.display = 'block';
       $('resPersonalSection').style.opacity = '1';
     }

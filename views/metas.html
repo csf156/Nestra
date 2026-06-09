@@ -281,11 +281,13 @@
           '<div class="meta-badges">' +
             '<span class="meta-badge meta-badge--ambito">' + AMB_LBL[m.ambito] + '</span>' +
             '<span class="meta-badge">' + (TIPO_LBL[m.tipo] || m.tipo) + '</span>' +
-            '<span class="meta-badge">' + (HOR_LBL[m.horizonte] || m.horizonte || '—') + '</span>' +
+            (m.horizonte ? '<span class="meta-badge">' + (HOR_LBL[m.horizonte] || m.horizonte) + '</span>' : '') +
           '</div>' +
           '<div class="meta-barra" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100">' +
             '<div class="meta-barra-fill" style="width:' + pct + '%"></div></div>' +
-          '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>' +
+          (obj > 0
+            ? '<div class="meta-cifras"><span>' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>'
+            : '<div class="meta-cifras"><span>' + formatMonto(act) + ' acumulado</span><span class="meta-pct">Sin objetivo</span></div>') +
           '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
           '<div class="meta-acciones">' + aporte +
             '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
