@@ -121,6 +121,22 @@ const ROUTES = {
 
 const DEFAULT_ROUTE = 'dashboard';
 
+// setActiveNav(hash) — Mark the matching nav link as active
+// Args: hash (string) — current route hash, e.g. 'dashboard', 'metas'
+// Called after each successful route load for protected (chrome-visible) routes.
+function setActiveNav(hash) {
+  var links = document.querySelectorAll('.nav-link');
+  links.forEach(function (link) {
+    var active = link.getAttribute('href') === '#' + hash;
+    link.classList.toggle('active', active);
+    if (active) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+}
+
 async function handleRouteChange() {
   try {
     // Get current hash, strip # and lowercase
@@ -157,6 +173,11 @@ async function handleRouteChange() {
 
     // Load the matching view from views/
     await loadView(route.view);
+
+    // Mark matching nav link as active (only when nav is visible)
+    if (!isPublic) {
+      setActiveNav(hash);
+    }
 
     // Actualizar chip de usuario en vistas protegidas (sesión activa)
     if (!isPublic && typeof updateUserChip === 'function') {
