@@ -68,5 +68,34 @@ var exportador = (function () {
     window.print();
   }
 
-  return { exportXLSX: exportXLSX, exportPDF: exportPDF };
+  // exportJSON(datos) — genera y descarga un archivo .json con el respaldo completo.
+  // datos: objeto { transacciones, categorias, metas, perfiles, ... }
+  // Returns: { ok: true } | { ok: false, reason: 'sin-datos'|'descarga-fallo' }
+  function exportJSON(datos) {
+    if (!datos || Object.keys(datos).length === 0) {
+      return { ok: false, reason: 'sin-datos' };
+    }
+    try {
+      var json   = JSON.stringify(datos, null, 2);
+      var blob   = new Blob([json], { type: 'application/json' });
+      var url    = URL.createObjectURL(blob);
+      var link   = document.createElement('a');
+      var hoy    = new Date();
+      var pad    = function (n) { return n < 10 ? '0' + n : String(n); };
+      var nombre = 'nestra-respaldo-' +
+                   hoy.getFullYear() + '-' + pad(hoy.getMonth() + 1) + '-' + pad(hoy.getDate()) +
+                   '.json';
+      link.href     = url;
+      link.download = nombre;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: 'descarga-fallo' };
+    }
+  }
+
+  return { exportXLSX: exportXLSX, exportPDF: exportPDF, exportJSON: exportJSON };
 })();
