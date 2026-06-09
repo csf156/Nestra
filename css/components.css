@@ -370,7 +370,8 @@ input[type="radio"] {
 /* Patrón: overlay con [hidden]; contenido animado en entrada       */
 /* ═══════════════════════════════════════════════════════════════ */
 
-/* Overlay — visible cuando NO tiene [hidden] */
+/* Overlay — oculto por defecto. Se muestra con .active (index.html,
+   historial.html) o quitando [hidden] (modales scoped por vista). */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -382,7 +383,22 @@ input[type="radio"] {
   justify-content: center;
   z-index: 1000;
   padding: var(--space-md);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+/* Mostrado vía clase .active (todos los usuarios de .modal-overlay
+   en index.html e historial.html usan este patrón). */
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
   animation: overlayFadeIn 0.18s ease-out;
+}
+
+/* [hidden] siempre oculta (defensivo) */
+.modal-overlay[hidden] {
+  display: none;
 }
 
 /* Contenedor interior */
