@@ -3,6 +3,44 @@
 /* ─────────────────────────────────────────────────────────────── */
 
 /* ─────────────────────────────────────────────────────────────── */
+/* Sidebar Width Tokens                                             */
+/* ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
+}
+
+/* Collapsed state — desktop only, driven by js/sidebar.js         */
+@media (min-width: 768px) {
+  body.sidebar-collapsed {
+    --sidebar-width: var(--sidebar-width-collapsed);
+  }
+
+  body.sidebar-collapsed .navbar-brand {
+    display: none;
+  }
+
+  body.sidebar-collapsed .nav-label {
+    display: none;
+  }
+
+  body.sidebar-collapsed .user-info {
+    display: none;
+  }
+
+  body.sidebar-collapsed .user-chip {
+    justify-content: center;
+    padding: var(--space-sm) 0;
+  }
+
+  body.sidebar-collapsed nav a {
+    justify-content: center;
+    padding: var(--space-md) var(--space-sm);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────── */
 /* Body Layout — Flex Container */
 /* ─────────────────────────────────────────────────────────────── */
 
@@ -123,8 +161,14 @@ nav a {
 }
 
 .nav-icon {
-  font-size: 1.2rem;
-  line-height: 1;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .nav-label {
@@ -160,7 +204,8 @@ nav a.active {
     top: 0;
     bottom: 0;
     right: auto;
-    width: 220px;
+    width: var(--sidebar-width);
+    transition: width 0.2s ease;
     height: 100vh;
     border-top: none;
     border-right: 1px solid var(--border-light);
@@ -208,8 +253,9 @@ nav a.active {
     padding: var(--space-md);
     font-size: var(--font-size-base);
     border-bottom: none;
-    border-left: 3px solid transparent;
-    transition: border-left 0.2s, color 0.2s;
+    border-left: none;
+    border-radius: var(--radius-md);
+    transition: background 0.2s, color 0.2s;
   }
 
   .nav-label {
@@ -218,21 +264,24 @@ nav a.active {
 
   nav a:hover {
     color: var(--color-primary);
-    border-left: 3px solid var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    text-decoration: none;
   }
 
   nav a.active {
     color: var(--color-primary);
-    border-top: none;          /* reset mobile border-top indicator */
-    border-left: 3px solid var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-top: none;
+    border-left: none;
     border-bottom: none;
   }
 
   /* Main Content — Desktop Layout */
   main {
     flex: 1;
-    margin-left: 220px;
+    margin-left: var(--sidebar-width);
     margin-bottom: 0;
+    transition: margin-left 0.2s ease;
   }
 }
 
@@ -322,4 +371,49 @@ section {
 
 *::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────── */
+/* Sidebar Toggle Button — Desktop Only                             */
+/* ─────────────────────────────────────────────────────────────── */
+
+.sidebar-toggle {
+  display: none; /* hidden on mobile */
+}
+
+@media (min-width: 768px) {
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    transition: color 0.2s, background 0.2s;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-bottom: var(--space-sm);
+  }
+
+  .sidebar-toggle:hover {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  }
+
+  .sidebar-toggle .nav-icon {
+    pointer-events: none;
+  }
+}
+
+/* Reduced motion — disable sidebar transitions */
+@media (prefers-reduced-motion: reduce) {
+  nav,
+  main {
+    transition: none;
+  }
 }
