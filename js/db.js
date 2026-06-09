@@ -813,7 +813,7 @@ async function marcarDevuelto(prestamo_id, transaccion_id) {
     // 2. Marcar el préstamo como devuelto (operación principal).
     const { data: prestamo, error: errPrestamo } = await supabase
       .from('prestamos')
-      .update({ estado: 'devuelto' })
+      .update({ estado: 'devuelto', fecha_devolucion: new Date().toISOString().split('T')[0] })
       .eq('id', prestamo_id)
       .select()
       .single();
