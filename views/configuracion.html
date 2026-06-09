@@ -1,179 +1,956 @@
-<div class="container configuracion-container">
-  <div class="header">
-    <h1>Configuración</h1>
+<div class="cfg">
+
+  <header class="cfg-header">
+    <h1 class="cfg-titulo">Configuración</h1>
+  </header>
+
+  <div id="cfgLoading" class="cfg-loading" role="status" aria-label="Cargando">
+    <div class="cfg-spinner"></div>
   </div>
 
-  <!-- Chip de usuario — visible en móvil (sidebar oculto) -->
-  <div class="card config-card">
-    <div class="config-user-chip">
-      <div class="user-avatar config-avatar" id="configAvatar">?</div>
-      <div class="user-info">
-        <span class="user-name" id="configNombre"></span>
-        <span class="text-muted config-email" id="configEmail"></span>
+  <!-- S1: Perfiles -->
+  <section class="cfg-card" id="cfgPerfilesSection" style="display:none">
+    <h2 class="cfg-section-label">Perfiles</h2>
+    <div id="cfgPerfilesCont"></div>
+  </section>
+
+  <!-- S2: Categorías -->
+  <section class="cfg-card" id="cfgCatSection" style="display:none">
+    <div class="cfg-section-header-row">
+      <h2 class="cfg-section-label">Categorías</h2>
+      <button type="button" class="cfg-btn-add" id="cfgCatAddBtn" aria-expanded="false">
+        <span aria-hidden="true">+</span> Nueva
+      </button>
+    </div>
+
+    <div id="cfgCatForm" class="cfg-cat-form" style="display:none">
+      <input id="cfgCatNombre" type="text" class="cfg-input" placeholder="Nombre de categoría" maxlength="50">
+      <select id="cfgCatTipo" class="cfg-select">
+        <option value="gasto">Gasto</option>
+        <option value="ingreso">Ingreso</option>
+      </select>
+      <input id="cfgCatLimite" type="number" class="cfg-input" placeholder="Límite mensual (opcional)" min="0" step="0.01">
+      <div class="cfg-cat-form-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cfgCatFormCancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="cfgCatFormGuardar">Guardar</button>
+      </div>
+    </div>
+
+    <div class="cfg-cat-grupo">
+      <p class="cfg-cat-tipo-label">Gastos</p>
+      <ul class="cfg-cat-lista" id="cfgCatListaGastos" role="list"></ul>
+    </div>
+    <div class="cfg-cat-grupo">
+      <p class="cfg-cat-tipo-label">Ingresos</p>
+      <ul class="cfg-cat-lista" id="cfgCatListaIngresos" role="list"></ul>
+    </div>
+  </section>
+
+  <!-- S3: Preferencias -->
+  <section class="cfg-card" id="cfgPrefSection" style="display:none">
+    <h2 class="cfg-section-label">Preferencias</h2>
+    <div class="cfg-pref-lista">
+      <div class="cfg-pref-row">
+        <span class="cfg-pref-nombre">Modo oscuro</span>
+        <button type="button" class="cfg-toggle" id="cfgDarkToggle"
+                role="switch" aria-checked="false" aria-label="Activar modo oscuro">
+          <span class="cfg-toggle-thumb"></span>
+        </button>
+      </div>
+      <div class="cfg-pref-row cfg-pref-row--readonly">
+        <span class="cfg-pref-nombre">Moneda</span>
+        <span class="cfg-pref-valor">Soles (S/)</span>
+      </div>
+      <div class="cfg-pref-row cfg-pref-row--readonly">
+        <span class="cfg-pref-nombre">Idioma</span>
+        <span class="cfg-pref-valor">Español</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- S4: Datos -->
+  <section class="cfg-card cfg-card--datos" id="cfgDatosSection" style="display:none">
+    <h2 class="cfg-section-label">Datos</h2>
+
+    <div class="cfg-datos-acciones">
+      <button type="button" class="btn btn-secondary" id="cfgBtnExportJson">Exportar respaldo JSON</button>
+      <button type="button" class="btn btn-secondary" id="cfgBtnImportJson">Importar desde respaldo</button>
+      <input type="file" id="cfgImportInput" accept=".json" style="display:none" aria-hidden="true">
+    </div>
+
+    <div class="cfg-datos-separador"></div>
+
+    <div class="cfg-datos-acciones">
+      <button type="button" class="btn btn-secondary" id="cfgBtnLogout">Cerrar sesión</button>
+    </div>
+
+    <div class="cfg-zona-peligro">
+      <p class="cfg-peligro-label">Zona de peligro</p>
+      <button type="button" class="btn btn-danger" id="cfgBtnReset">Resetear todos los datos</button>
+    </div>
+  </section>
+
+  <!-- Modal: eliminar categoría -->
+  <div class="cfg-modal-overlay" id="cfgDeleteModal"
+       role="dialog" aria-modal="true" aria-labelledby="cfgDeleteTitle" hidden>
+    <div class="cfg-modal">
+      <h2 class="cfg-modal-title" id="cfgDeleteTitle">Eliminar categoría</h2>
+      <p id="cfgDeleteInfo" class="cfg-modal-body"></p>
+      <div id="cfgDeleteReasignRow" class="cfg-delete-reasign" style="display:none">
+        <label class="cfg-label" for="cfgDeleteTarget">Reasignar transacciones a:</label>
+        <select id="cfgDeleteTarget" class="cfg-select"></select>
+      </div>
+      <div class="cfg-modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cfgDeleteCancelar">Cancelar</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="cfgDeleteArchivar">Archivar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="cfgDeleteConfirm">Eliminar</button>
       </div>
     </div>
   </div>
 
-  <!-- Preferencias -->
-  <div class="card config-card">
-    <div class="card-header">
-      <h2 class="card-title">Preferencias</h2>
-    </div>
-    <div class="empty-state config-empty">
-      <p class="empty-state-description">Más opciones disponibles próximamente.</p>
+  <!-- Modal: reset datos -->
+  <div class="cfg-modal-overlay" id="cfgResetModal"
+       role="dialog" aria-modal="true" aria-labelledby="cfgResetTitle" hidden>
+    <div class="cfg-modal">
+      <h2 class="cfg-modal-title cfg-modal-title--danger" id="cfgResetTitle">Resetear todos los datos</h2>
+      <p class="cfg-modal-body">Esta acción eliminará todas tus transacciones. <strong>Es irreversible.</strong></p>
+      <p class="cfg-modal-body">Escribe <code>CONFIRMAR</code> para continuar:</p>
+      <input type="text" id="cfgResetInput" class="cfg-input"
+             placeholder="CONFIRMAR" autocomplete="off">
+      <div class="cfg-modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="cfgResetCancelar">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="cfgResetConfirm" disabled>Resetear</button>
+      </div>
     </div>
   </div>
 
-  <!-- Categorías favoritas -->
-  <div class="card config-card">
-    <div class="card-header">
-      <h2 class="card-title">Categorías favoritas</h2>
-    </div>
-    <p class="text-muted config-fav-ayuda">Marca con ★ las categorías que consultas seguido. Aparecerán en el Oráculo.</p>
-    <ul class="config-fav-lista" id="configFavLista"><li class="config-fav-cargando">Cargando…</li></ul>
+  <!-- Toast -->
+  <div class="cfg-toast" id="cfgToast" role="status" aria-live="polite" style="display:none">
+    <span id="cfgToastMsg"></span>
   </div>
 
-  <!-- Cuenta -->
-  <div class="card config-card">
-    <div class="card-header">
-      <h2 class="card-title">Cuenta</h2>
-    </div>
-    <button class="btn btn-danger-outline" data-logout-trigger type="button">
-      <span aria-hidden="true">🔓</span> Cerrar sesión
-    </button>
-  </div>
-</div>
-
-<style>
-  .configuracion-container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: var(--space-lg);
-  }
-
-  .header {
-    margin-bottom: var(--space-xl);
-  }
-
-  .header h1 {
-    margin: 0;
-    font-size: var(--font-size-2xl);
-    color: var(--text-dark);
-  }
-
-  .config-card {
-    margin-bottom: var(--space-lg);
-  }
-
-  .config-card:hover {
-    transform: none;
-    box-shadow: var(--shadow-md);
-  }
-
-  /* Chip de usuario en móvil */
-  .config-user-chip {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-  }
-
-  .config-avatar {
-    width: 48px;
-    height: 48px;
-    font-size: var(--font-size-xl);
-  }
-
-  .config-email {
-    font-size: var(--font-size-sm);
-  }
-
-  .config-empty {
-    padding: var(--space-md) 0 0;
-  }
-
-  .config-empty .empty-state-description {
-    margin: 0;
-  }
-
-  /* Botón outline danger */
-  .btn-danger-outline {
-    background: none;
-    border: 1px solid var(--color-danger);
-    color: var(--color-danger);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .btn-danger-outline:hover:not(:disabled) {
-    background-color: var(--color-danger);
-    color: #fff;
-  }
-
-  .config-fav-ayuda { font-size: var(--font-size-sm); margin: 0 0 var(--space-md); }
-  .config-fav-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-  .config-fav-lista li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: 8px 0; border-bottom: 1px solid var(--border-light); }
-  .config-fav-nombre { color: var(--text-dark); font-size: var(--font-size-base); }
-  .config-fav-estrella { min-width: 44px; min-height: 44px; border: none; background: transparent; font-size: 22px; line-height: 1; cursor: pointer; color: var(--color-warning); }
-  .config-fav-estrella[aria-pressed="false"] { color: var(--border-light); }
-  .config-fav-cargando { color: var(--text-secondary); justify-content: flex-start; }
-</style>
-
-<script>
-  (function () {
-    try {
-      const profile = window.currentProfile;
-      const user = window.currentUser;
-
-      // Avatar e inicial
-      const nombre = ((profile && profile.nombre) || (user && user.email ? user.email.split('@')[0] : '') || '').trim();
-      const initial = nombre ? Array.from(nombre)[0].toUpperCase() : '?';
-      const avatarEl = document.getElementById('configAvatar');
-      if (avatarEl) avatarEl.textContent = initial;
-
-      // Nombre
-      const nombreEl = document.getElementById('configNombre');
-      if (nombreEl) nombreEl.textContent = nombre || '—';
-
-      // Email
-      const emailEl = document.getElementById('configEmail');
-      if (emailEl) emailEl.textContent = (user && user.email) || '';
-    } catch (err) {
-      console.error('Error cargando configuración:', err);
+  <style>
+    .cfg {
+      padding: var(--space-lg) var(--space-md);
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-xl);
     }
-  })();
+    .cfg-titulo {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      margin: 0 0 var(--space-lg);
+    }
+    .cfg-card {
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+    }
+    .cfg-section-label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin: 0 0 var(--space-md);
+    }
+    .cfg-section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-md);
+    }
+    .cfg-section-header-row .cfg-section-label { margin: 0; }
+    .cfg-loading {
+      display: flex;
+      justify-content: center;
+      padding: var(--space-xl) 0;
+    }
+    .cfg-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border-light);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: cfg-spin 0.8s linear infinite;
+    }
+    @keyframes cfg-spin { to { transform: rotate(360deg); } }
 
+    /* Perfiles */
+    .cfg-perfil {
+      padding: var(--space-md) 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .cfg-perfil:last-child { border-bottom: none; padding-bottom: 0; }
+    .cfg-perfil-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-sm);
+    }
+    .cfg-perfil-nombre { font-weight: var(--font-weight-semibold); }
+    .cfg-perfil-badge {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      background: var(--bg-light);
+      border: 1px solid var(--border-light);
+      border-radius: 9999px;
+      padding: 2px 8px;
+    }
+    .cfg-perfil-campos { display: flex; flex-direction: column; gap: var(--space-sm); }
+    .cfg-input-group { display: flex; flex-direction: column; gap: 4px; }
+    .cfg-label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+    .cfg-input {
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-light);
+      color: inherit;
+      font-size: var(--font-size-base);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .cfg-input:focus { outline: none; border-color: var(--color-primary); }
+    .cfg-perfil-readonly { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0; }
+    .cfg-perfil-acciones { display: flex; justify-content: flex-end; margin-top: var(--space-sm); }
+
+    /* Categorías */
+    .cfg-btn-add {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px var(--space-sm);
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-md);
+      background: none;
+      color: var(--color-primary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .cfg-btn-add:hover { background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+    .cfg-cat-form {
+      background: var(--bg-light);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      margin-bottom: var(--space-md);
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+    .cfg-select {
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-light);
+      color: inherit;
+      font-size: var(--font-size-base);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .cfg-cat-form-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+    .cfg-cat-grupo { margin-bottom: var(--space-md); }
+    .cfg-cat-grupo:last-of-type { margin-bottom: 0; }
+    .cfg-cat-tipo-label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-secondary);
+      margin: 0 0 var(--space-sm);
+    }
+    .cfg-cat-lista { list-style: none; padding: 0; margin: 0; }
+    .cfg-cat-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .cfg-cat-item:last-child { border-bottom: none; }
+    .cfg-cat-nombre-wrap { flex: 1; min-width: 0; }
+    .cfg-cat-nombre-text {
+      font-weight: var(--font-weight-medium);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: block;
+    }
+    .cfg-cat-nombre-input {
+      width: 100%;
+      padding: 2px var(--space-sm);
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-sm);
+      background: var(--bg-light);
+      color: inherit;
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      box-sizing: border-box;
+    }
+    .cfg-cat-limite-wrap { text-align: right; white-space: nowrap; }
+    .cfg-cat-limite-text {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: var(--radius-sm);
+      transition: background 0.1s;
+    }
+    .cfg-cat-limite-text:hover { background: var(--bg-light); }
+    .cfg-cat-limite-input {
+      width: 90px;
+      padding: 2px 4px;
+      border: 1px solid var(--color-primary);
+      border-radius: var(--radius-sm);
+      background: var(--bg-light);
+      color: inherit;
+      font-size: var(--font-size-sm);
+      text-align: right;
+    }
+    .cfg-cat-acciones { display: flex; gap: 2px; flex-shrink: 0; }
+    .cfg-icon-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: none; cursor: pointer;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      transition: background 0.15s, color 0.15s;
+      font-size: 0.85rem;
+    }
+    .cfg-icon-btn:hover { background: var(--bg-light); color: inherit; }
+    .cfg-icon-btn--danger:hover {
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    }
+
+    /* Preferencias */
+    .cfg-pref-lista { display: flex; flex-direction: column; }
+    .cfg-pref-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-md) 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .cfg-pref-row:last-child { border-bottom: none; }
+    .cfg-pref-row--readonly { opacity: 0.7; }
+    .cfg-pref-nombre { font-weight: var(--font-weight-medium); }
+    .cfg-pref-valor { font-size: var(--font-size-sm); color: var(--text-secondary); }
+
+    /* Toggle switch */
+    .cfg-toggle {
+      position: relative;
+      width: 44px; height: 24px;
+      border-radius: 12px;
+      border: none;
+      background: var(--border-light);
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .cfg-toggle[aria-checked="true"] { background: var(--color-primary); }
+    .cfg-toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s;
+      pointer-events: none;
+    }
+    .cfg-toggle[aria-checked="true"] .cfg-toggle-thumb { transform: translateX(20px); }
+
+    /* Datos */
+    .cfg-datos-acciones { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-bottom: var(--space-md); }
+    .cfg-datos-separador { border-top: 1px solid var(--border-light); margin: var(--space-md) 0; }
+    .cfg-zona-peligro {
+      margin-top: var(--space-lg);
+      padding: var(--space-md);
+      border-radius: var(--radius-md);
+      border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+      background: color-mix(in srgb, var(--color-danger) 5%, var(--bg-light-secondary));
+    }
+    .cfg-peligro-label {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-danger);
+      margin: 0 0 var(--space-sm);
+    }
+
+    /* Modal */
+    .cfg-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--space-md);
+      z-index: 200;
+    }
+    .cfg-modal-overlay[hidden] { display: none; }
+    .cfg-modal {
+      background: var(--bg-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      max-width: 420px; width: 100%;
+      display: flex; flex-direction: column; gap: var(--space-md);
+    }
+    .cfg-modal-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0; }
+    .cfg-modal-title--danger { color: var(--color-danger); }
+    .cfg-modal-body { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+    .cfg-modal-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; flex-wrap: wrap; }
+    .cfg-delete-reasign { display: flex; flex-direction: column; gap: var(--space-xs); }
+
+    /* Toast */
+    .cfg-toast {
+      position: fixed;
+      bottom: calc(var(--space-md) + 68px);
+      left: 50%; transform: translateX(-50%);
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm) var(--space-md);
+      font-size: var(--font-size-sm);
+      box-shadow: var(--shadow-md);
+      z-index: 300;
+      max-width: 90vw;
+      white-space: nowrap;
+    }
+    @media (min-width: 768px) { .cfg-toast { bottom: var(--space-lg); } }
+  </style>
+
+  <script>
   (function () {
     'use strict';
-    var lista = document.getElementById('configFavLista');
-    if (!lista) return;
 
-    function fila(c) {
-      var li = document.createElement('li');
-      var nom = document.createElement('span');
-      nom.className = 'config-fav-nombre'; nom.textContent = c.nombre;
-      var btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'config-fav-estrella';
-      btn.setAttribute('aria-pressed', c.favorita ? 'true' : 'false');
-      btn.setAttribute('aria-label', (c.favorita ? 'Quitar de favoritas: ' : 'Marcar como favorita: ') + c.nombre);
-      btn.textContent = c.favorita ? '★' : '☆';
-      btn.addEventListener('click', function () {
-        var on = btn.getAttribute('aria-pressed') !== 'true';
-        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        btn.textContent = on ? '★' : '☆';
-        toggleFavorita(c.id, on).catch(function () {
-          btn.setAttribute('aria-pressed', on ? 'false' : 'true');
-          btn.textContent = on ? '☆' : '★';
-          alert('No se pudo actualizar la favorita. Reintenta.');
-        });
-      });
-      li.appendChild(nom); li.appendChild(btn);
-      return li;
+    function $(id) { return document.getElementById(id); }
+
+    function escHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    (async function () {
-      var cats = await getCategoriasConFavorito('gasto');
-      lista.innerHTML = '';
-      if (!cats.length) { lista.innerHTML = '<li class="config-fav-cargando">No hay categorías de gasto.</li>'; return; }
-      cats.forEach(function (c) { lista.appendChild(fila(c)); });
-    })();
+    var _cats      = [];
+    var _delCatId  = null;
+    var _toastTimer = null;
+
+    /* ── Toast ──────────────────────────────────────────── */
+    function mostrarToast(msg, ms) {
+      clearTimeout(_toastTimer);
+      $('cfgToastMsg').textContent = msg;
+      $('cfgToast').style.display = 'flex';
+      _toastTimer = setTimeout(function () { $('cfgToast').style.display = 'none'; }, ms || 4000);
+    }
+
+    /* ── Perfiles ───────────────────────────────────────── */
+    function renderPerfiles(perfiles) {
+      var cont = $('cfgPerfilesCont');
+      var uid  = window.currentUser ? window.currentUser.id : null;
+
+      cont.innerHTML = (perfiles || []).map(function (p) {
+        var esActivo = p.user_id === uid;
+        if (esActivo) {
+          return '<div class="cfg-perfil" data-uid="' + escHtml(p.user_id) + '">' +
+            '<div class="cfg-perfil-header">' +
+              '<span class="cfg-perfil-nombre">' + escHtml(p.nombre || 'Tú') + '</span>' +
+              '<span class="cfg-perfil-badge">Tu perfil</span>' +
+            '</div>' +
+            '<div class="cfg-perfil-campos">' +
+              '<div class="cfg-input-group">' +
+                '<label class="cfg-label" for="cfgPNombre">Nombre</label>' +
+                '<input id="cfgPNombre" class="cfg-input" type="text" value="' + escHtml(p.nombre || '') + '" maxlength="50">' +
+              '</div>' +
+              '<div class="cfg-input-group">' +
+                '<label class="cfg-label" for="cfgPAporte">Aporte mensual esperado (S/)</label>' +
+                '<input id="cfgPAporte" class="cfg-input" type="number" value="' + escHtml(String(p.aporte_mensual_esperado != null ? p.aporte_mensual_esperado : '')) + '" min="0" step="0.01">' +
+              '</div>' +
+            '</div>' +
+            '<div class="cfg-perfil-acciones">' +
+              '<button type="button" class="btn btn-primary btn-sm" id="cfgPGuardar" style="display:none">Guardar</button>' +
+            '</div>' +
+          '</div>';
+        } else {
+          return '<div class="cfg-perfil">' +
+            '<div class="cfg-perfil-header">' +
+              '<span class="cfg-perfil-nombre">' + escHtml(p.nombre || '—') + '</span>' +
+              '<span class="cfg-perfil-badge">otro miembro</span>' +
+            '</div>' +
+            '<p class="cfg-perfil-readonly">Aporte esperado: ' + escHtml(formatMonto(p.aporte_mensual_esperado || 0)) + '</p>' +
+          '</div>';
+        }
+      }).join('');
+
+      var nInput = $('cfgPNombre');
+      var aInput = $('cfgPAporte');
+      var btnG   = $('cfgPGuardar');
+      if (!nInput) return;
+
+      var _origN = nInput.value;
+      var _origA = aInput.value;
+
+      function checkDirty() {
+        var dirty = nInput.value !== _origN || aInput.value !== _origA;
+        btnG.style.display = dirty ? 'inline-flex' : 'none';
+      }
+      nInput.addEventListener('input', checkDirty);
+      aInput.addEventListener('input', checkDirty);
+
+      btnG.addEventListener('click', async function () {
+        btnG.disabled = true;
+        try {
+          await updateProfile({
+            nombre: nInput.value.trim(),
+            aporte_mensual_esperado: parseFloat(aInput.value) || 0,
+          });
+          _origN = nInput.value;
+          _origA = aInput.value;
+          btnG.style.display = 'none';
+          mostrarToast('Perfil guardado', 3000);
+        } catch (err) {
+          mostrarToast('No se pudo guardar el perfil', 4000);
+        } finally {
+          btnG.disabled = false;
+        }
+      });
+
+      $('cfgPerfilesSection').style.display = 'block';
+    }
+
+    /* ── Categorías: render ─────────────────────────────── */
+    function renderCatItem(cat) {
+      var lim = cat.limite_mensual != null ? formatMonto(cat.limite_mensual) : '—';
+      return '<li class="cfg-cat-item" data-id="' + escHtml(cat.id) + '" data-tipo="' + escHtml(cat.tipo) + '">' +
+        '<div class="cfg-cat-nombre-wrap">' +
+          '<span class="cfg-cat-nombre-text">' + escHtml(cat.nombre) + '</span>' +
+        '</div>' +
+        '<div class="cfg-cat-limite-wrap">' +
+          '<span class="cfg-cat-limite-text" title="Editar límite">' + escHtml(lim) + '</span>' +
+        '</div>' +
+        '<div class="cfg-cat-acciones">' +
+          '<button type="button" class="cfg-icon-btn" data-act="editar-nombre" title="Editar nombre" aria-label="Editar nombre de ' + escHtml(cat.nombre) + '">✏️</button>' +
+          '<button type="button" class="cfg-icon-btn" data-act="archivar" title="Archivar" aria-label="Archivar ' + escHtml(cat.nombre) + '">📦</button>' +
+          '<button type="button" class="cfg-icon-btn cfg-icon-btn--danger" data-act="eliminar" title="Eliminar" aria-label="Eliminar ' + escHtml(cat.nombre) + '">🗑️</button>' +
+        '</div>' +
+      '</li>';
+    }
+
+    function renderCategorias(cats) {
+      _cats = cats || [];
+      var gastos   = _cats.filter(function (c) { return c.tipo === 'gasto'; });
+      var ingresos = _cats.filter(function (c) { return c.tipo === 'ingreso'; });
+      var vacia = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">';
+      $('cfgCatListaGastos').innerHTML   = gastos.length   ? gastos.map(renderCatItem).join('')   : vacia + 'Sin categorías de gasto</li>';
+      $('cfgCatListaIngresos').innerHTML = ingresos.length ? ingresos.map(renderCatItem).join('') : vacia + 'Sin categorías de ingreso</li>';
+      $('cfgCatSection').style.display = 'block';
+    }
+
+    /* ── Edición inline límite ──────────────────────────── */
+    function activarEditLimite(li) {
+      var span = li.querySelector('.cfg-cat-limite-text');
+      var id   = li.dataset.id;
+      var cat  = _cats.find(function (c) { return c.id === id; });
+      var inp  = document.createElement('input');
+      inp.type = 'number'; inp.min = '0'; inp.step = '0.01';
+      inp.className = 'cfg-cat-limite-input';
+      inp.value = cat && cat.limite_mensual != null ? cat.limite_mensual : '';
+      span.replaceWith(inp);
+      inp.focus();
+
+      function mkSpan() {
+        var s = document.createElement('span');
+        s.className = 'cfg-cat-limite-text';
+        s.title = 'Editar límite';
+        s.textContent = cat && cat.limite_mensual != null ? formatMonto(cat.limite_mensual) : '—';
+        s.addEventListener('click', function () { activarEditLimite(li); });
+        return s;
+      }
+
+      async function guardar() {
+        var val = inp.value.trim() === '' ? null : parseFloat(inp.value);
+        try {
+          await updateCategoria(id, { limite_mensual: val });
+          if (cat) cat.limite_mensual = val;
+          var s = document.createElement('span');
+          s.className = 'cfg-cat-limite-text';
+          s.title = 'Editar límite';
+          s.textContent = val != null ? formatMonto(val) : '—';
+          s.addEventListener('click', function () { activarEditLimite(li); });
+          inp.replaceWith(s);
+          mostrarToast('Límite actualizado', 3000);
+        } catch (err) {
+          inp.replaceWith(mkSpan());
+          mostrarToast('No se pudo actualizar el límite', 4000);
+        }
+      }
+
+      inp.addEventListener('blur', guardar);
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') { inp.replaceWith(mkSpan()); }
+      });
+    }
+
+    /* ── Edición inline nombre ──────────────────────────── */
+    function activarEditNombre(li) {
+      var span = li.querySelector('.cfg-cat-nombre-text');
+      var id   = li.dataset.id;
+      var cat  = _cats.find(function (c) { return c.id === id; });
+      var inp  = document.createElement('input');
+      inp.type = 'text'; inp.maxLength = 50;
+      inp.className = 'cfg-cat-nombre-input';
+      inp.value = cat ? cat.nombre : '';
+      span.replaceWith(inp);
+      inp.focus();
+
+      async function guardar() {
+        var val = inp.value.trim() || (cat ? cat.nombre : '');
+        try {
+          await updateCategoria(id, { nombre: val });
+          if (cat) cat.nombre = val;
+          var s = document.createElement('span');
+          s.className = 'cfg-cat-nombre-text';
+          s.textContent = val;
+          inp.replaceWith(s);
+          mostrarToast('Categoría renombrada', 3000);
+        } catch (err) {
+          var s2 = document.createElement('span');
+          s2.className = 'cfg-cat-nombre-text';
+          s2.textContent = cat ? cat.nombre : '';
+          inp.replaceWith(s2);
+          mostrarToast('No se pudo renombrar', 4000);
+        }
+      }
+
+      inp.addEventListener('blur', guardar);
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+      });
+    }
+
+    /* ── Delegación lista categorías ────────────────────── */
+    function delegarCats(ulId) {
+      var ul = $(ulId);
+      if (!ul) return;
+
+      ul.addEventListener('click', function (e) {
+        var limSpan = e.target.closest('.cfg-cat-limite-text');
+        if (limSpan) { activarEditLimite(limSpan.closest('.cfg-cat-item')); return; }
+      });
+
+      ul.addEventListener('click', async function (e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        var li  = btn.closest('.cfg-cat-item');
+        var id  = li.dataset.id;
+        var act = btn.dataset.act;
+
+        if (act === 'editar-nombre') { activarEditNombre(li); return; }
+
+        if (act === 'archivar') {
+          btn.disabled = true;
+          try {
+            await archivarCategoria(id);
+            li.remove();
+            _cats = _cats.filter(function (c) { return c.id !== id; });
+            mostrarToast('Categoría archivada', 3000);
+          } catch (err) {
+            btn.disabled = false;
+            mostrarToast('No se pudo archivar', 4000);
+          }
+          return;
+        }
+
+        if (act === 'eliminar') {
+          _delCatId = id;
+          var cat = _cats.find(function (c) { return c.id === id; });
+          var tipo = cat ? cat.tipo : null;
+          var txs  = await getTransacciones({ categoria_id: id });
+          var count = (txs || []).length;
+
+          $('cfgDeleteInfo').textContent = count > 0
+            ? 'Esta categoría tiene ' + count + ' transacción' + (count !== 1 ? 'es' : '') + '.'
+            : 'Esta categoría no tiene transacciones.';
+
+          var otros = _cats.filter(function (c) { return c.id !== id && c.tipo === tipo; });
+          var rRow  = $('cfgDeleteReasignRow');
+          var sel   = $('cfgDeleteTarget');
+          var conf  = $('cfgDeleteConfirm');
+
+          if (otros.length > 0) {
+            sel.innerHTML = otros.map(function (c) {
+              return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
+            }).join('');
+            rRow.style.display = 'flex';
+            conf.textContent = 'Reasignar y eliminar';
+            conf.disabled = false;
+          } else {
+            rRow.style.display = 'none';
+            conf.textContent = count > 0 ? 'No se puede eliminar (sin destino)' : 'Eliminar';
+            conf.disabled = count > 0;
+          }
+
+          $('cfgDeleteModal').removeAttribute('hidden');
+          setTimeout(function () { $('cfgDeleteCancelar').focus(); }, 50);
+        }
+      });
+    }
+
+    /* ── Modal eliminar ─────────────────────────────────── */
+    function cerrarDeleteModal() {
+      $('cfgDeleteModal').setAttribute('hidden', '');
+      $('cfgDeleteConfirm').disabled = false;
+      $('cfgDeleteArchivar').disabled = false;
+      _delCatId = null;
+    }
+
+    $('cfgDeleteCancelar').addEventListener('click', cerrarDeleteModal);
+    $('cfgDeleteModal').addEventListener('click', function (e) {
+      if (e.target === e.currentTarget) cerrarDeleteModal();
+    });
+
+    $('cfgDeleteArchivar').addEventListener('click', async function () {
+      if (!_delCatId) return;
+      var btn = $('cfgDeleteArchivar');
+      btn.disabled = true;
+      var id = _delCatId;
+      try {
+        await archivarCategoria(id);
+        cerrarDeleteModal();
+        var li = document.querySelector('.cfg-cat-item[data-id="' + id + '"]');
+        if (li) li.remove();
+        _cats = _cats.filter(function (c) { return c.id !== id; });
+        mostrarToast('Categoría archivada', 3000);
+      } catch (err) {
+        btn.disabled = false;
+        mostrarToast('No se pudo archivar', 4000);
+      }
+    });
+
+    $('cfgDeleteConfirm').addEventListener('click', async function () {
+      if (!_delCatId) return;
+      var btn = $('cfgDeleteConfirm');
+      btn.disabled = true;
+      var id = _delCatId;
+      try {
+        var rRow = $('cfgDeleteReasignRow');
+        if (rRow.style.display !== 'none') {
+          await reasignarCategoria(id, $('cfgDeleteTarget').value);
+        }
+        await deleteCategoria(id);
+        cerrarDeleteModal();
+        var li = document.querySelector('.cfg-cat-item[data-id="' + id + '"]');
+        if (li) li.remove();
+        _cats = _cats.filter(function (c) { return c.id !== id; });
+        mostrarToast('Categoría eliminada', 3000);
+      } catch (err) {
+        btn.disabled = false;
+        mostrarToast('No se pudo eliminar la categoría', 4000);
+      }
+    });
+
+    /* ── Nueva categoría ────────────────────────────────── */
+    $('cfgCatAddBtn').addEventListener('click', function () {
+      var open = $('cfgCatForm').style.display !== 'none';
+      $('cfgCatForm').style.display = open ? 'none' : 'flex';
+      $('cfgCatAddBtn').setAttribute('aria-expanded', open ? 'false' : 'true');
+      if (!open) $('cfgCatNombre').focus();
+    });
+
+    $('cfgCatFormCancelar').addEventListener('click', function () {
+      $('cfgCatForm').style.display = 'none';
+      $('cfgCatAddBtn').setAttribute('aria-expanded', 'false');
+      $('cfgCatNombre').value = '';
+      $('cfgCatLimite').value = '';
+    });
+
+    $('cfgCatFormGuardar').addEventListener('click', async function () {
+      var nombre = $('cfgCatNombre').value.trim();
+      if (!nombre) { $('cfgCatNombre').focus(); return; }
+      var tipo = $('cfgCatTipo').value;
+      var lim  = $('cfgCatLimite').value.trim();
+      var datos = { nombre: nombre, tipo: tipo };
+      if (lim) datos.limite_mensual = parseFloat(lim);
+
+      var btn = $('cfgCatFormGuardar');
+      btn.disabled = true;
+      try {
+        var nueva = await insertCategoria(datos);
+        _cats.push(nueva);
+        var ulId = tipo === 'gasto' ? 'cfgCatListaGastos' : 'cfgCatListaIngresos';
+        var ul = $(ulId);
+        var empty = ul.querySelector('li:not(.cfg-cat-item)');
+        if (empty) empty.remove();
+        ul.insertAdjacentHTML('beforeend', renderCatItem(nueva));
+        $('cfgCatNombre').value = '';
+        $('cfgCatLimite').value = '';
+        $('cfgCatForm').style.display = 'none';
+        $('cfgCatAddBtn').setAttribute('aria-expanded', 'false');
+        mostrarToast('Categoría creada', 3000);
+      } catch (err) {
+        mostrarToast('No se pudo crear la categoría', 4000);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* ── Dark mode ──────────────────────────────────────── */
+    function leerTema() {
+      var stored = null;
+      try { stored = localStorage.getItem('nestra-theme'); } catch (e) {}
+      if (stored === 'dark' || stored === 'light') return stored;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function aplicarTema(tema) {
+      document.documentElement.classList.remove('dark', 'light');
+      document.documentElement.classList.add(tema);
+      try { localStorage.setItem('nestra-theme', tema); } catch (e) {}
+      var t = $('cfgDarkToggle');
+      t.setAttribute('aria-checked', tema === 'dark' ? 'true' : 'false');
+      t.setAttribute('aria-label', tema === 'dark' ? 'Desactivar modo oscuro' : 'Activar modo oscuro');
+    }
+
+    $('cfgDarkToggle').addEventListener('click', function () {
+      aplicarTema(leerTema() === 'dark' ? 'light' : 'dark');
+    });
+
+    function initPreferencias() {
+      aplicarTema(leerTema());
+      $('cfgPrefSection').style.display = 'block';
+    }
+
+    /* ── Export JSON ────────────────────────────────────── */
+    $('cfgBtnExportJson').addEventListener('click', async function () {
+      var btn = $('cfgBtnExportJson');
+      btn.disabled = true;
+      mostrarToast('Preparando respaldo…', 3000);
+      try {
+        var res = await Promise.all([
+          getTransacciones({}),
+          getCategorias(),
+          getMetas(),
+          getProfiles(),
+        ]);
+        var datos = {
+          version: 1,
+          fecha: new Date().toISOString(),
+          transacciones: res[0],
+          categorias:    res[1],
+          metas:         res[2],
+          perfiles:      res[3],
+        };
+        var resultado = exportador.exportJSON(datos);
+        mostrarToast(resultado.ok ? 'Respaldo descargado' : 'Error al exportar: ' + (resultado.reason || 'desconocido'), resultado.ok ? 4000 : 5000);
+      } catch (err) {
+        mostrarToast('No se pudo exportar el respaldo', 5000);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* ── Import JSON ────────────────────────────────────── */
+    $('cfgBtnImportJson').addEventListener('click', function () {
+      $('cfgImportInput').value = '';
+      $('cfgImportInput').click();
+    });
+
+    $('cfgImportInput').addEventListener('change', async function () {
+      var file = this.files && this.files[0];
+      if (!file) return;
+      var btn = $('cfgBtnImportJson');
+      btn.disabled = true;
+      mostrarToast('Leyendo archivo…', 3000);
+      try {
+        var texto = await file.text();
+        var datos = JSON.parse(texto);
+        var txs = datos.transacciones;
+        if (!Array.isArray(txs)) { mostrarToast('Archivo inválido: sin campo transacciones', 5000); return; }
+        if (!txs.length)          { mostrarToast('El archivo no tiene transacciones', 4000); return; }
+        var ok = 0; var fail = 0;
+        for (var i = 0; i < txs.length; i++) {
+          try {
+            await insertTransaccion({
+              tipo:         txs[i].tipo,
+              ambito:       txs[i].ambito,
+              categoria_id: txs[i].categoria_id,
+              monto:        txs[i].monto,
+              fecha:        txs[i].fecha,
+              nota:         txs[i].nota,
+            });
+            ok++;
+          } catch (e) { fail++; }
+        }
+        mostrarToast('Importadas ' + ok + ' transacciones' + (fail ? ' (' + fail + ' errores)' : ''), 5000);
+      } catch (err) {
+        mostrarToast('Archivo inválido o error al leer', 5000);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    /* ── Logout ─────────────────────────────────────────── */
+    $('cfgBtnLogout').addEventListener('click', function () { logout(); });
+
+    /* ── Reset modal ────────────────────────────────────── */
+    $('cfgResetInput').addEventListener('input', function () {
+      $('cfgResetConfirm').disabled = this.value !== 'CONFIRMAR';
+    });
+
+    $('cfgBtnReset').addEventListener('click', function () {
+      $('cfgResetInput').value = '';
+      $('cfgResetConfirm').disabled = true;
+      $('cfgResetModal').removeAttribute('hidden');
+      setTimeout(function () { $('cfgResetInput').focus(); }, 50);
+    });
+
+    $('cfgResetCancelar').addEventListener('click', function () {
+      $('cfgResetModal').setAttribute('hidden', '');
+    });
+
+    $('cfgResetModal').addEventListener('click', function (e) {
+      if (e.target === e.currentTarget) $('cfgResetModal').setAttribute('hidden', '');
+    });
+
+    $('cfgResetConfirm').addEventListener('click', async function () {
+      var ok  = $('cfgResetConfirm');
+      var can = $('cfgResetCancelar');
+      ok.disabled = true; can.disabled = true;
+      try {
+        await resetearDatosUsuario();
+        mostrarToast('Datos eliminados. Cerrando sesión…', 3000);
+        setTimeout(function () { logout(); }, 3000);
+      } catch (err) {
+        ok.disabled = false; can.disabled = false;
+        mostrarToast('No se pudo resetear los datos', 5000);
+      }
+    });
+
+    /* ── Escape global ──────────────────────────────────── */
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!$('cfgDeleteModal').hasAttribute('hidden')) cerrarDeleteModal();
+      if (!$('cfgResetModal').hasAttribute('hidden'))  $('cfgResetModal').setAttribute('hidden', '');
+    });
+
+    /* ── Init ───────────────────────────────────────────── */
+    async function cargar() {
+      $('cfgLoading').style.display = 'flex';
+      try {
+        var res = await Promise.all([getProfiles(), getCategorias()]);
+        renderPerfiles(res[0]);
+        renderCategorias(res[1]);
+        delegarCats('cfgCatListaGastos');
+        delegarCats('cfgCatListaIngresos');
+        initPreferencias();
+        $('cfgDatosSection').style.display = 'block';
+      } catch (err) {
+        console.error('cfg cargar:', err);
+        mostrarToast('No se pudieron cargar los datos', 5000);
+      } finally {
+        $('cfgLoading').style.display = 'none';
+      }
+    }
+
+    cargar();
+
   })();
-</script>
+  </script>
+
+</div>
