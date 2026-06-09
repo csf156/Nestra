@@ -1,0 +1,596 @@
+<div class="prest">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="prest-header">
+    <h1 class="prest-title">Préstamos</h1>
+    <p class="prest-sub">Dinero prestado pendiente de devolución</p>
+  </header>
+
+  <!-- ── Loading ─────────────────────────────────────────────── -->
+  <div id="prestLoading" class="prest-loading" role="status" aria-label="Cargando">
+    <div class="prest-spinner-big"></div>
+  </div>
+
+  <!-- ── Sección: Total pendiente (card resumen, arriba de lista) -->
+  <section id="prestTotalSection" style="display:none;">
+    <div class="prest-total-card">
+      <p class="prest-total-label">Total pendiente</p>
+      <p class="prest-total-monto" id="prestTotalMonto">S/ 0.00</p>
+      <div class="prest-total-desglose" id="prestTotalDesglose"></div>
+    </div>
+  </section>
+
+  <!-- ── Sección 1: Préstamos pendientes ─────────────────────── -->
+  <section id="prestPendientesSection" style="display:none;">
+    <h2 class="prest-section-title">Pendientes</h2>
+    <ul class="prest-lista" id="prestLista" role="list"></ul>
+    <p class="prest-vacio" id="prestVacio" style="display:none;">
+      No tienes préstamos pendientes.
+      <span class="prest-vacio-hint">Registra préstamos desde la sección Transacción.</span>
+    </p>
+  </section>
+
+  <!-- ── Sección 3: Historial de devueltos (colapsado) ────────── -->
+  <section class="prest-devueltos-section">
+    <button type="button" class="prest-dev-toggle" id="prestDevToggle"
+            aria-expanded="false" aria-controls="prestDevPanel">
+      <span id="prestDevLabel">Historial de devueltos</span>
+      <span class="prest-dev-caret" aria-hidden="true">⌄</span>
+    </button>
+    <div class="prest-dev-panel" id="prestDevPanel" style="display:none;">
+      <ul class="prest-lista prest-lista--devueltos" id="prestDevLista" role="list"></ul>
+      <p class="prest-vacio" id="prestDevVacio" style="display:none;">
+        Sin préstamos devueltos aún.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Modal: confirmar devolución ─────────────────────────── -->
+  <div class="prest-modal-overlay" id="prestConfirmModal"
+       role="dialog" aria-modal="true" aria-labelledby="prestConfirmTitle" hidden>
+    <div class="prest-modal">
+      <h2 class="prest-modal-title" id="prestConfirmTitle">Confirmar devolución</h2>
+      <p class="prest-confirm-body" id="prestConfirmBody"></p>
+      <div class="prest-modal-actions">
+        <button type="button" class="btn btn-secondary" id="prestConfirmCancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="prestConfirmOk">
+          <span id="prestConfirmText">Marcar devuelto</span>
+          <span id="prestConfirmSpinner" class="spinner" role="status"
+                aria-label="Procesando" style="display:none;"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toast ───────────────────────────────────────────────── -->
+  <div class="prest-toast" id="prestToast"
+       role="status" aria-live="polite" style="display:none;">
+    <span id="prestToastMsg"></span>
+  </div>
+
+  <!-- ── Estilos ─────────────────────────────────────────────── -->
+  <style>
+    /* Layout */
+    .prest {
+      padding: var(--space-lg) var(--space-md);
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .prest-header { margin-bottom: var(--space-xl); }
+    .prest-title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      margin: 0;
+    }
+    .prest-sub {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin: var(--space-xs) 0 0;
+    }
+
+    /* Loading */
+    .prest-loading {
+      display: flex;
+      justify-content: center;
+      padding: var(--space-xl) 0;
+    }
+    .prest-spinner-big {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border-light);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: prest-spin 0.8s linear infinite;
+    }
+    @keyframes prest-spin { to { transform: rotate(360deg); } }
+
+    /* Total card */
+    .prest-total-card {
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      margin-bottom: var(--space-xl);
+      text-align: center;
+    }
+    .prest-total-label {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin: 0 0 var(--space-xs);
+    }
+    .prest-total-monto {
+      font-size: 1.75rem;
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary);
+      margin: 0 0 var(--space-sm);
+    }
+    .prest-total-desglose {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-md);
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      flex-wrap: wrap;
+    }
+    .prest-desglose-sep { opacity: 0.4; }
+
+    /* Section title */
+    .prest-section-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      margin: 0 0 var(--space-md);
+    }
+
+    /* Cards list */
+    .prest-lista {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 var(--space-xl);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+    .prest-lista--devueltos { margin-top: var(--space-md); }
+
+    /* Card */
+    .prest-card {
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+    }
+    .prest-card--alerta {
+      border-color: #f59e0b;
+      background: color-mix(in srgb, #f59e0b 5%, var(--bg-light-secondary));
+    }
+    .prest-card--devuelto { opacity: 0.7; }
+
+    .prest-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-sm);
+    }
+    .prest-card-deudor {
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-base);
+    }
+    .prest-card-monto {
+      font-weight: var(--font-weight-bold);
+      color: var(--color-primary);
+      white-space: nowrap;
+    }
+    .prest-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      margin-bottom: var(--space-sm);
+    }
+    .prest-card-nota {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      font-style: italic;
+      margin: var(--space-xs) 0 var(--space-sm);
+    }
+    .prest-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-sm);
+      flex-wrap: wrap;
+      margin-top: var(--space-sm);
+    }
+    .prest-card-dias { font-size: var(--font-size-sm); color: var(--text-secondary); }
+    .prest-card-dias--alerta {
+      color: #f59e0b;
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Badge ámbito */
+    .prest-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px var(--space-sm);
+      border-radius: 9999px;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+    .prest-badge--ambito {
+      background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+      color: var(--color-primary);
+    }
+
+    /* Button devolver — full-width on mobile */
+    .prest-btn-devolver { width: 100%; }
+
+    /* Empty state */
+    .prest-vacio {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: var(--space-xl) var(--space-md);
+      margin: 0;
+    }
+    .prest-vacio-hint {
+      display: block;
+      font-size: var(--font-size-sm);
+      margin-top: var(--space-xs);
+      opacity: 0.7;
+    }
+
+    /* Devueltos toggle */
+    .prest-devueltos-section { margin-bottom: var(--space-xl); }
+    .prest-dev-toggle {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: none;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      color: inherit;
+      transition: background 0.2s;
+    }
+    .prest-dev-toggle:hover { background: var(--bg-light-secondary); }
+    .prest-dev-caret { font-size: 1.2rem; color: var(--text-secondary); }
+    .prest-dev-panel { padding-top: var(--space-md); }
+
+    /* Modal */
+    .prest-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-md);
+      z-index: 200;
+    }
+    .prest-modal-overlay[hidden] { display: none; }
+    .prest-modal {
+      background: var(--bg-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      max-width: 420px;
+      width: 100%;
+    }
+    .prest-modal-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      margin: 0 0 var(--space-md);
+    }
+    .prest-confirm-body {
+      color: var(--text-secondary);
+      margin: 0 0 var(--space-lg);
+      line-height: 1.5;
+    }
+    .prest-modal-actions {
+      display: flex;
+      gap: var(--space-sm);
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    /* Toast — above mobile bottom nav */
+    .prest-toast {
+      position: fixed;
+      bottom: calc(var(--space-md) + 68px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: var(--space-sm) var(--space-md);
+      font-size: var(--font-size-sm);
+      box-shadow: var(--shadow-md);
+      z-index: 300;
+      max-width: 90vw;
+      white-space: nowrap;
+    }
+
+    /* Desktop adjustments */
+    @media (min-width: 768px) {
+      .prest-btn-devolver { width: auto; min-width: 180px; }
+      .prest-total-monto { font-size: 2rem; }
+      .prest-toast { bottom: var(--space-lg); }
+    }
+  </style>
+
+  <!-- ── Script ──────────────────────────────────────────────── -->
+  <script>
+    (function () {
+      'use strict';
+
+      function $(id) { return document.getElementById(id); }
+
+      var _devueltoId = null;
+      var _devueltoTxId = null;
+      var _toastTimer = null;
+
+      /* ── Helpers ──────────────────────────────────────────── */
+
+      function escHtml(str) {
+        return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function diasDesde(fechaIso) {
+        var p = String(fechaIso).split('T')[0].split('-');
+        var fechaMs = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getTime();
+        var hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        return Math.floor((hoy.getTime() - fechaMs) / 86400000);
+      }
+
+      function nombrePor(userId, perfiles) {
+        var p = (perfiles || []).find(function (x) { return x.user_id === userId; });
+        return p && p.nombre ? p.nombre : '—';
+      }
+
+      function mostrarToast(msg, ms) {
+        var toast = $('prestToast');
+        $('prestToastMsg').textContent = msg;
+        clearTimeout(_toastTimer);
+        toast.style.display = 'flex';
+        _toastTimer = setTimeout(function () { toast.style.display = 'none'; }, ms || 4000);
+      }
+
+      /* ── Render pendientes ────────────────────────────────── */
+
+      function renderPendientes(lista, perfiles) {
+        var ul = $('prestLista');
+        var seccion = $('prestPendientesSection');
+        var vacio = $('prestVacio');
+
+        seccion.style.display = 'block';
+
+        if (!lista.length) {
+          ul.innerHTML = '';
+          vacio.style.display = 'block';
+          return;
+        }
+
+        vacio.style.display = 'none';
+
+        var ordenados = lista.slice().sort(function (a, b) {
+          return diasDesde(b.transacciones.fecha) - diasDesde(a.transacciones.fecha);
+        });
+
+        ul.innerHTML = ordenados.map(function (p) {
+          var tx = p.transacciones;
+          var dias = diasDesde(tx.fecha);
+          var alerta = dias > 30;
+          var ambitoLabel = tx.ambito === 'hogar' ? 'Hogar' : 'Personal';
+          var quien = nombrePor(tx.user_id, perfiles);
+
+          return '<li class="prest-card' + (alerta ? ' prest-card--alerta' : '') + '">' +
+            '<div class="prest-card-header">' +
+              '<span class="prest-card-deudor">' + escHtml(p.deudor) + '</span>' +
+              '<span class="prest-card-monto">' + escHtml(formatMonto(tx.monto)) + '</span>' +
+            '</div>' +
+            '<div class="prest-card-meta">' +
+              '<span class="prest-badge prest-badge--ambito">' + ambitoLabel + '</span>' +
+              '<span class="prest-card-fecha">' + escHtml(formatFecha(tx.fecha)) + '</span>' +
+              '<span class="prest-card-quien">Prestó: ' + escHtml(quien) + '</span>' +
+            '</div>' +
+            (tx.nota ? '<p class="prest-card-nota">' + escHtml(tx.nota) + '</p>' : '') +
+            '<div class="prest-card-footer">' +
+              (alerta
+                ? '<span class="prest-card-dias prest-card-dias--alerta">⚠️ Vencido (' + dias + ' días)</span>'
+                : '<span class="prest-card-dias">Hace ' + dias + ' día' + (dias === 1 ? '' : 's') + '</span>') +
+              '<button type="button" class="btn btn-secondary btn-sm prest-btn-devolver"' +
+                ' data-act="devolver"' +
+                ' data-id="' + p.id + '"' +
+                ' data-tx="' + p.transaccion_id + '"' +
+                ' data-deudor="' + escHtml(p.deudor) + '"' +
+                ' data-monto="' + escHtml(formatMonto(tx.monto)) + '">' +
+                'Marcar como devuelto' +
+              '</button>' +
+            '</div>' +
+          '</li>';
+        }).join('');
+      }
+
+      /* ── Render total ─────────────────────────────────────── */
+
+      function renderTotal(lista) {
+        var totalHogar = 0;
+        var totalPersonal = 0;
+
+        lista.forEach(function (p) {
+          var m = Number(p.transacciones.monto) || 0;
+          if (p.transacciones.ambito === 'hogar') {
+            totalHogar += m;
+          } else {
+            totalPersonal += m;
+          }
+        });
+
+        $('prestTotalMonto').textContent = formatMonto(totalHogar + totalPersonal);
+        $('prestTotalDesglose').innerHTML =
+          '<span>Hogar: ' + escHtml(formatMonto(totalHogar)) + '</span>' +
+          '<span class="prest-desglose-sep">·</span>' +
+          '<span>Personal: ' + escHtml(formatMonto(totalPersonal)) + '</span>';
+        $('prestTotalSection').style.display = 'block';
+      }
+
+      /* ── Render devueltos ─────────────────────────────────── */
+
+      function renderDevueltos(lista) {
+        var ul = $('prestDevLista');
+        var vacio = $('prestDevVacio');
+        var label = $('prestDevLabel');
+
+        label.textContent = 'Historial de devueltos' + (lista.length ? ' (' + lista.length + ')' : '');
+
+        if (!lista.length) {
+          ul.innerHTML = '';
+          vacio.style.display = 'block';
+          return;
+        }
+
+        vacio.style.display = 'none';
+
+        var ordenados = lista.slice().sort(function (a, b) {
+          var fa = a.fecha_devolucion || a.transacciones.fecha;
+          var fb = b.fecha_devolucion || b.transacciones.fecha;
+          return fb > fa ? 1 : fb < fa ? -1 : 0;
+        });
+
+        ul.innerHTML = ordenados.map(function (p) {
+          var tx = p.transacciones;
+          var fechaDev = p.fecha_devolucion ? escHtml(formatFecha(p.fecha_devolucion)) : '—';
+          return '<li class="prest-card prest-card--devuelto">' +
+            '<div class="prest-card-header">' +
+              '<span class="prest-card-deudor">' + escHtml(p.deudor) + '</span>' +
+              '<span class="prest-card-monto">' + escHtml(formatMonto(tx.monto)) + '</span>' +
+            '</div>' +
+            '<div class="prest-card-meta">' +
+              '<span>Prestado: ' + escHtml(formatFecha(tx.fecha)) + '</span>' +
+              '<span class="prest-desglose-sep">·</span>' +
+              '<span>Devuelto: ' + fechaDev + '</span>' +
+            '</div>' +
+          '</li>';
+        }).join('');
+      }
+
+      /* ── Cargar datos ─────────────────────────────────────── */
+
+      async function cargar() {
+        $('prestLoading').style.display = 'flex';
+        $('prestTotalSection').style.display = 'none';
+        $('prestPendientesSection').style.display = 'none';
+
+        try {
+          var res = await Promise.all([
+            getPrestamos('pendiente'),
+            getPrestamos('devuelto'),
+            getProfiles(),
+          ]);
+          var pendientes = res[0];
+          var devueltos  = res[1];
+          var perfiles   = res[2];
+
+          renderTotal(pendientes);
+          renderPendientes(pendientes, perfiles);
+          renderDevueltos(devueltos);
+        } catch (err) {
+          console.error('prestamos cargar:', err);
+          mostrarToast('No se pudieron cargar los préstamos.', 5000);
+        } finally {
+          $('prestLoading').style.display = 'none';
+        }
+      }
+
+      /* ── Delegación: botón "Marcar como devuelto" ─────────── */
+
+      $('prestLista').addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-act="devolver"]');
+        if (!btn) return;
+        _devueltoId   = btn.dataset.id;
+        _devueltoTxId = btn.dataset.tx;
+        $('prestConfirmBody').textContent =
+          '¿Confirmar que ' + btn.dataset.deudor + ' devolvió ' + btn.dataset.monto + '? ' +
+          'Se registrará un ingreso de devolución automáticamente.';
+        $('prestConfirmModal').removeAttribute('hidden');
+        setTimeout(function () { $('prestConfirmCancelar').focus(); }, 50);
+      });
+
+      /* ── Modal: cerrar ────────────────────────────────────── */
+
+      function cerrarConfirm() {
+        $('prestConfirmModal').setAttribute('hidden', '');
+        $('prestConfirmOk').disabled = false;
+        $('prestConfirmCancelar').disabled = false;
+        $('prestConfirmText').style.display = 'inline';
+        $('prestConfirmSpinner').style.display = 'none';
+        _devueltoId   = null;
+        _devueltoTxId = null;
+      }
+
+      $('prestConfirmCancelar').addEventListener('click', cerrarConfirm);
+
+      $('prestConfirmModal').addEventListener('click', function (e) {
+        if (e.target === e.currentTarget) cerrarConfirm();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !$('prestConfirmModal').hasAttribute('hidden')) {
+          cerrarConfirm();
+        }
+      });
+
+      /* ── Modal: confirmar devolución ──────────────────────── */
+
+      $('prestConfirmOk').addEventListener('click', async function () {
+        if (!_devueltoId) return;
+        var okBtn     = $('prestConfirmOk');
+        var cancelBtn = $('prestConfirmCancelar');
+        okBtn.disabled     = true;
+        cancelBtn.disabled = true;
+        $('prestConfirmText').style.display    = 'none';
+        $('prestConfirmSpinner').style.display = 'inline-block';
+
+        try {
+          await marcarDevuelto(_devueltoId, _devueltoTxId);
+          cerrarConfirm();
+          mostrarToast('Préstamo marcado como devuelto.', 4000);
+          await cargar();
+        } catch (err) {
+          okBtn.disabled     = false;
+          cancelBtn.disabled = false;
+          $('prestConfirmText').style.display    = 'inline';
+          $('prestConfirmSpinner').style.display = 'none';
+          mostrarToast('No se pudo marcar como devuelto. Reintenta.', 5000);
+        }
+      });
+
+      /* ── Toggle sección historial ─────────────────────────── */
+
+      $('prestDevToggle').addEventListener('click', function () {
+        var panel    = $('prestDevPanel');
+        var expanded = $('prestDevToggle').getAttribute('aria-expanded') === 'true';
+        $('prestDevToggle').setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        panel.style.display = expanded ? 'none' : 'block';
+        $('prestDevToggle').querySelector('.prest-dev-caret').textContent = expanded ? '⌄' : '⌃';
+      });
+
+      /* ── Init ─────────────────────────────────────────────── */
+      cargar();
+
+    })();
+  </script>
+
+</div>
