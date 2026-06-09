@@ -621,7 +621,7 @@
 
     /* ── Export ───────────────────────────────────────────── */
     $('resBtnPdf').addEventListener('click', function () {
-      exportador.exportPDF();
+      exportador.exportPDF({ mes: _mes, anio: _anio });
     });
 
     $('resBtnXlsx').addEventListener('click', async function () {
