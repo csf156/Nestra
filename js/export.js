@@ -61,5 +61,12 @@ var exportador = (function () {
     }
   }
 
-  return { exportXLSX: exportXLSX };
+  // exportPDF() — abre diálogo de impresión del navegador.
+  // views/resumen.html incluye @media print CSS para layout limpio.
+  // Returns: undefined (el navegador maneja el flujo).
+  function exportPDF() {
+    window.print();
+  }
+
+  return { exportXLSX: exportXLSX, exportPDF: exportPDF };
 })();
