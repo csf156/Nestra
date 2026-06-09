@@ -603,7 +603,8 @@
       inp.focus();
 
       async function guardar() {
-        var val = inp.value.trim() || (cat ? cat.nombre : '');
+        var val = inp.value.trim();
+        if (!val) { mostrarToast('El nombre no puede estar vacío', 3000); return; }
         try {
           await updateCategoria(id, { nombre: val });
           if (cat) cat.nombre = val;
@@ -747,7 +748,9 @@
       try {
         var rRow = $('cfgDeleteReasignRow');
         if (rRow.style.display !== 'none') {
-          await reasignarCategoria(id, $('cfgDeleteTarget').value);
+          var targetId = $('cfgDeleteTarget').value;
+          if (!targetId) { btn.disabled = false; mostrarToast('Selecciona una categoría destino', 3000); return; }
+          await reasignarCategoria(id, targetId);
         }
         await deleteCategoria(id);
         cerrarDeleteModal();
