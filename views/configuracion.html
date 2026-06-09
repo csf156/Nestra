@@ -853,14 +853,18 @@
           getCategorias(),
           getMetas(),
           getProfiles(),
+          getPrestamos(),
+          getAllAportesMeta(),
         ]);
         var datos = {
           version: 1,
           fecha: new Date().toISOString(),
-          transacciones: res[0],
-          categorias:    res[1],
-          metas:         res[2],
-          perfiles:      res[3],
+          transacciones:  res[0],
+          categorias:     res[1],
+          metas:          res[2],
+          perfiles:       res[3],
+          prestamos:      res[4],
+          aportes_meta:   res[5],
         };
         var resultado = exportador.exportJSON(datos);
         mostrarToast(resultado.ok ? 'Respaldo descargado' : 'Error al exportar: ' + (resultado.reason || 'desconocido'), resultado.ok ? 4000 : 5000);

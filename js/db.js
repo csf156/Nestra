@@ -645,6 +645,23 @@ async function getAportesDeMeta(meta_id) {
   }
 }
 
+// getAllAportesMeta() — todos los aportes_meta del usuario activo (RLS aplica).
+// Usado para exportación de respaldo completo.
+// Returns: array de filas. Vacío en fallo (no lanza).
+async function getAllAportesMeta() {
+  try {
+    const { data, error } = await supabase
+      .from('aportes_meta')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error en getAllAportesMeta():', err.message || err);
+    return [];
+  }
+}
+
 // getAporteMetaMes(meta_id, mes, anio) — suma de aportes a una meta en el mes dado.
 // Usado para la variación porcentual mensual del fondo de emergencia.
 // Returns: número (0 en error o sin aportes).
