@@ -6,9 +6,9 @@
 
   <!-- Selector mes -->
   <div class="res-nav-mes" role="navigation" aria-label="Selector de mes">
-    <button id="resMesAnterior" class="res-mes-btn" type="button" aria-label="Mes anterior">&#8249;</button>
+    <button id="resMesAnterior" class="res-mes-btn" type="button" aria-label="Mes anterior">&#9664;</button>
     <span id="resMesLabel" class="res-mes-label">Junio 2026</span>
-    <button id="resMesSiguiente" class="res-mes-btn" type="button" aria-label="Mes siguiente">&#8250;</button>
+    <button id="resMesSiguiente" class="res-mes-btn" type="button" aria-label="Mes siguiente">&#9654;</button>
   </div>
 
   <!-- Loading -->
@@ -632,7 +632,7 @@
         } else if (resultado.reason === 'sin-datos') {
           mostrarToast('Sin transacciones en ' + MESES[_mes - 1] + ' ' + _anio, 4000);
         } else {
-          mostrarToast('Error al exportar: ' + escHtml(resultado.reason || 'desconocido'), 5000);
+          mostrarToast('Error al exportar: ' + (resultado.reason || 'desconocido'), 5000);
         }
       } catch (err) {
         mostrarToast('No se pudo exportar.', 5000);
