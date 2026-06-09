@@ -493,10 +493,12 @@
       aInput.addEventListener('input', checkDirty);
 
       btnG.addEventListener('click', async function () {
+        var nombre = nInput.value.trim();
+        if (!nombre) { mostrarToast('El nombre no puede estar vacío', 3000); return; }
         btnG.disabled = true;
         try {
           await updateProfile({
-            nombre: nInput.value.trim(),
+            nombre: nombre,
             aporte_mensual_esperado: parseFloat(aInput.value) || 0,
           });
           _origN = nInput.value;
@@ -580,10 +582,11 @@
         }
       }
 
-      inp.addEventListener('blur', guardar);
+      var _editCancelado = false;
+      inp.addEventListener('blur', function () { if (!_editCancelado) guardar(); });
       inp.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-        if (e.key === 'Escape') { inp.replaceWith(mkSpan()); }
+        if (e.key === 'Escape') { _editCancelado = true; inp.replaceWith(mkSpan()); }
       });
     }
 
@@ -618,9 +621,17 @@
         }
       }
 
-      inp.addEventListener('blur', guardar);
+      var _nomCancelado = false;
+      inp.addEventListener('blur', function () { if (!_nomCancelado) guardar(); });
       inp.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+        if (e.key === 'Escape') {
+          _nomCancelado = true;
+          var s = document.createElement('span');
+          s.className = 'cfg-cat-nombre-text';
+          s.textContent = cat ? cat.nombre : '';
+          inp.replaceWith(s);
+        }
       });
     }
 
@@ -928,7 +939,7 @@
     });
 
     /* ── Escape global ──────────────────────────────────── */
-    document.addEventListener('keydown', function (e) {
+    document.querySelector('.cfg').addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
       if (!$('cfgDeleteModal').hasAttribute('hidden')) cerrarDeleteModal();
       if (!$('cfgResetModal').hasAttribute('hidden'))  $('cfgResetModal').setAttribute('hidden', '');
