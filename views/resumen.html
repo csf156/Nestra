@@ -442,7 +442,7 @@
             '<span class="res-cat-nombre">' + escHtml(it.nombre) + '</span>' +
             '<span class="res-cat-monto">' + escHtml(formatMonto(it.total)) + '</span>' +
           '</div>' +
-          (it.limite !== null ?
+          (it.pct !== null ?
             '<div class="res-cat-bar-track"><div class="res-cat-bar-fill res-cat-bar--' + it.nivel + '" style="width:' + pctClamped.toFixed(1) + '%"></div></div>' +
             '<div class="res-cat-card-footer">' +
               '<span class="res-cat-badge res-cat-badge--' + it.nivel + '">' + NIVEL_LABEL[it.nivel] + ' ' + it.pct.toFixed(0) + '%</span>' +
@@ -471,7 +471,7 @@
             '<td class="res-td-num">' + escHtml(formatMonto(it.total)) + '</td>' +
             '<td class="res-td-num">' + (it.limite !== null ? escHtml(formatMonto(it.limite)) : '—') + '</td>' +
             '<td>' +
-              (it.limite !== null ?
+              (it.pct !== null ?
                 '<div class="res-tabla-bar-wrap">' +
                   '<div class="res-cat-bar-track res-cat-bar-track--tabla"><div class="res-cat-bar-fill res-cat-bar--' + it.nivel + '" style="width:' + pctClamped.toFixed(1) + '%"></div></div>' +
                   '<span class="res-cat-badge res-cat-badge--' + it.nivel + '">' + NIVEL_LABEL[it.nivel] + ' ' + it.pct.toFixed(0) + '%</span>' +
@@ -529,7 +529,8 @@
       });
       var vencidas = (metas || []).filter(function (m) {
         return m.estado !== 'completada' && m.fecha_limite &&
-               m.fecha_limite >= desde && m.fecha_limite <= hasta;
+               m.fecha_limite >= desde && m.fecha_limite <= hasta &&
+               m.fecha_limite <= hoyIso;
       });
 
       var ambosVacios = !completadas.length && !vencidas.length;
