@@ -986,6 +986,7 @@ async function reasignarCategoria(fromId, toId) {
       .from('transacciones')
       .update({ categoria_id: toId })
       .eq('categoria_id', fromId)
+      .eq('user_id', _requireUserId())
       .select('id');
     if (error) throw error;
     return { count: (data || []).length };
