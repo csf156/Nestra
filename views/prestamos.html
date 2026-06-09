@@ -23,7 +23,7 @@
   <!-- ── Sección 1: Préstamos pendientes ─────────────────────── -->
   <section id="prestPendientesSection" style="display:none;">
     <h2 class="prest-section-title">Pendientes</h2>
-    <ul class="prest-lista" id="prestLista" role="list"></ul>
+    <ul class="prest-lista" id="prestLista" role="list" tabindex="-1"></ul>
     <p class="prest-vacio" id="prestVacio" style="display:none;">
       No tienes préstamos pendientes.
       <span class="prest-vacio-hint">Registra préstamos desde la sección Transacción.</span>
@@ -415,7 +415,7 @@
                 ' data-id="' + p.id + '"' +
                 ' data-tx="' + p.transaccion_id + '"' +
                 ' data-deudor="' + escHtml(p.deudor) + '"' +
-                ' data-monto="' + escHtml(formatMonto(tx.monto)) + '">' +
+                ' data-monto="' + formatMonto(tx.monto) + '">' +
                 'Marcar como devuelto' +
               '</button>' +
             '</div>' +
@@ -568,6 +568,8 @@
           cerrarConfirm();
           mostrarToast('Préstamo marcado como devuelto.', 4000);
           await cargar();
+          var listaEl = $('prestLista');
+          if (listaEl) { listaEl.focus(); }
         } catch (err) {
           okBtn.disabled     = false;
           cancelBtn.disabled = false;
