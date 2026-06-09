@@ -970,3 +970,44 @@ async function getResumenMensual(mes, anio) {
     };
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════════════
+// REASIGNACIÓN Y RESET
+// ═══════════════════════════════════════════════════════════════════
+
+// reasignarCategoria(fromId, toId) — Cambia la categoría de todas las
+// transacciones que usan fromId por toId.
+// Usado antes de eliminar una categoría con historial.
+// Returns: { count: N } donde N = filas actualizadas. Lanza Error en fallo.
+async function reasignarCategoria(fromId, toId) {
+  try {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .update({ categoria_id: toId })
+      .eq('categoria_id', fromId)
+      .select('id');
+    if (error) throw error;
+    return { count: (data || []).length };
+  } catch (err) {
+    console.error('Error en reasignarCategoria():', err.message || err);
+    throw err;
+  }
+}
+
+// resetearDatosUsuario() — Elimina todas las transacciones del usuario activo.
+// Cascades en Supabase borran prestamos y aportes_meta asociados.
+// IRREVERSIBLE. Returns: undefined. Lanza Error en fallo.
+async function resetearDatosUsuario() {
+  try {
+    const userId = _requireUserId();
+    const { error } = await supabase
+      .from('transacciones')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  } catch (err) {
+    console.error('Error en resetearDatosUsuario():', err.message || err);
+    throw err;
+  }
+}
