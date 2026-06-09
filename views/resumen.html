@@ -314,7 +314,8 @@
     var _hoy  = new Date();
     var _mes  = _hoy.getMonth() + 1;
     var _anio = _hoy.getFullYear();
-    var _txExp = null;
+    var _txExp  = null;
+    var _cargarGen = 0;
 
     function $(id) { return document.getElementById(id); }
 
@@ -341,7 +342,6 @@
       $('resMesLabel').textContent = MESES[_mes - 1] + ' ' + _anio;
       var sig = $('resMesSiguiente');
       sig.disabled = esMesActual();
-      sig.setAttribute('aria-disabled', esMesActual() ? 'true' : 'false');
     }
 
     /* ── Delta ────────────────────────────────────────────── */
@@ -528,7 +528,8 @@
         return m.estado === 'completada' && m.fecha_limite >= desde && m.fecha_limite <= hasta;
       });
       var vencidas = (metas || []).filter(function (m) {
-        return m.estado !== 'completada' && m.fecha_limite && m.fecha_limite <= hasta && m.fecha_limite <= hoyIso;
+        return m.estado !== 'completada' && m.fecha_limite &&
+               m.fecha_limite >= desde && m.fecha_limite <= hasta;
       });
 
       var ambosVacios = !completadas.length && !vencidas.length;
@@ -552,6 +553,8 @@
 
     /* ── Cargar ───────────────────────────────────────────── */
     async function cargar() {
+      _cargarGen++;
+      var _gen = _cargarGen;
       $('resLoading').style.display = 'flex';
       ['resHogarSection','resPersonalSection','resCatSection','resMetasSection','resExport'].forEach(function (id) {
         var el = $(id);
@@ -568,10 +571,15 @@
           getMetas(),
         ]);
 
-        renderHogar(res[0].hogar, res[1].hogar);
-        renderPersonal(res[0].personal, res[1].personal);
-        renderCategorias(res[0].porCategoria, res[2], res[1].porCategoria);
-        renderMetas(res[3], _mes, _anio);
+        if (_gen !== _cargarGen) return;
+        var _HOGAR0  = { ingresos: 0, gastos: 0, balance: 0 };
+        var _PERS0   = { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 };
+        var actual   = res[0] || {};
+        var anterior = res[1] || {};
+        renderHogar(actual.hogar    || _HOGAR0, anterior.hogar    || _HOGAR0);
+        renderPersonal(actual.personal || _PERS0, anterior.personal || _PERS0);
+        renderCategorias(actual.porCategoria || [], res[2], (anterior.porCategoria) || []);
+        renderMetas(res[3] || [], _mes, _anio);
 
         var exportEl = $('resExport');
         exportEl.style.display = 'flex';
