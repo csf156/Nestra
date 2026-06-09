@@ -415,7 +415,7 @@
                 ' data-id="' + p.id + '"' +
                 ' data-tx="' + p.transaccion_id + '"' +
                 ' data-deudor="' + escHtml(p.deudor) + '"' +
-                ' data-monto="' + formatMonto(tx.monto) + '">' +
+                ' data-monto="' + escHtml(formatMonto(tx.monto)) + '">' +
                 'Marcar como devuelto' +
               '</button>' +
             '</div>' +
