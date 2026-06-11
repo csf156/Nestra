@@ -13,22 +13,9 @@
   var _nombres = [];      // [nombre, ...]
   var _listoPromise = null;
 
-  // Inyecta el sprite oculto una vez para que <use href="#tabler-x"> resuelva
-  // incluso si el navegador no soporta <use href="archivo.svg#id"> externo.
-  function inyectarSprite() {
-    if (document.getElementById('tabler-sprite-host')) return Promise.resolve();
-    return fetch(SPRITE_URL)
-      .then(function (r) { return r.text(); })
-      .then(function (svg) {
-        var div = document.createElement('div');
-        div.id = 'tabler-sprite-host';
-        div.setAttribute('aria-hidden', 'true');
-        div.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
-        div.innerHTML = svg;
-        document.body.appendChild(div);
-      });
-  }
-
+  // Solo carga el índice de tags para la búsqueda. Los íconos se renderizan con
+  // <use href="archivo.svg#id"> externo: el navegador descarga el sprite una vez
+  // y lo cachea; no inyectamos los 2MB al DOM (evita bloat y carreras de timing).
   function cargarTags() {
     return fetch(TAGS_URL)
       .then(function (r) { return r.json(); })
@@ -37,7 +24,7 @@
 
   function asegurarCargado() {
     if (!_listoPromise) {
-      _listoPromise = Promise.all([inyectarSprite(), cargarTags()])
+      _listoPromise = cargarTags()
         .catch(function (e) { console.error('iconos: carga falló', e); });
     }
     return _listoPromise;
