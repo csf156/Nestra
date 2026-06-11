@@ -200,6 +200,10 @@ function setupAuthStateListener() {
     if (event === 'SIGNED_OUT' || ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && !session)) {
       handleSessionExpired();
     }
+    // Password recovery link clicked — redirect to reset form
+    if (event === 'PASSWORD_RECOVERY') {
+      window.location.hash = '#reset-password';
+    }
   });
 }
 

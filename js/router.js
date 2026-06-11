@@ -108,6 +108,7 @@ const ROUTES = {
   login: { view: 'login', public: true },
   register: { view: 'register', public: true },
   'forgot-password': { view: 'forgot-password', public: true },
+  'reset-password': { view: 'reset-password', public: true },
   dashboard: { view: 'dashboard' },
   historial: { view: 'historial' },
   transaccion: { view: 'transaccion' },
