@@ -71,10 +71,7 @@
 
 </div>
 
-<!-- ── Botón flotante "+" ───────────────────────────────────── -->
-<button type="button" class="dash-fab" id="dashFab" aria-label="Nueva transacción">
-  <span aria-hidden="true">+</span>
-</button>
+<!-- FAB global en index.html — eliminado del scope de esta vista -->
 
 <style>
   .dash {
@@ -332,30 +329,6 @@
 
   .dash-empty { color: var(--text-secondary); text-align: center; padding: var(--space-md) 0; font-size: var(--font-size-sm); }
 
-  /* ── FAB ────────────────────────────────────────────────── */
-  .dash-fab {
-    position: fixed;
-    right: var(--space-lg);
-    bottom: var(--space-lg);
-    width: 56px; height: 56px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: #fff;
-    border: none;
-    font-size: 2rem; line-height: 1;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: var(--shadow-lg);
-    cursor: pointer;
-    z-index: 900;
-    transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .dash-fab:hover  { transform: scale(1.08); }
-  .dash-fab:active { transform: scale(0.96); }
-  .dash-fab:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
-  @media (min-width: 600px) {
-    .dash-fab { right: var(--space-xl); bottom: var(--space-xl); width: 60px; height: 60px; }
-  }
-
   /* ── Skeletons de carga ─────────────────────────────────── */
   .sk {
     display: block; height: 14px; border-radius: var(--radius-sm);
@@ -374,7 +347,6 @@
   @media (prefers-reduced-motion: reduce) {
     .sk { animation: none; }
     .dash-meta-bar-fill { transition: none; }
-    .dash-fab { transition: none; }
   }
 </style>
 
@@ -566,14 +538,7 @@
       });
     }
 
-    // ── FAB → modal de transacción ────────────────────────────
-    $('dashFab').addEventListener('click', () => {
-      if (typeof abrirModalTransaccion === 'function') {
-        abrirModalTransaccion();
-      } else {
-        window.location.hash = '#transaccion';
-      }
-    });
+    // FAB global (index.html) ya maneja abrirModalTransaccion — no se registra aquí
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {

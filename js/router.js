@@ -172,6 +172,13 @@ async function handleRouteChange() {
     // Hide navbar on public views, show it inside the app
     setChromeVisible(!isPublic);
 
+    // Show/hide global FAB based on route type
+    if (isPublic) {
+      if (typeof hideFab === 'function') hideFab();
+    } else {
+      if (typeof showFab === 'function') showFab();
+    }
+
     // Load the matching view from views/
     await loadView(route.view);
 

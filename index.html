@@ -95,6 +95,17 @@
         <!-- Router injects vistas here -->
     </main>
 
+    <!-- Global FAB — nueva transacción, visible en vistas autenticadas -->
+    <button type="button" class="fab" id="globalFab"
+            aria-label="Nueva transacción" hidden>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+             stroke-linejoin="round" fill="none">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+    </button>
+
     <!-- Supabase SDK (jsDelivr CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.0"
             integrity="sha384-p3ppjAbdEPObbT9B8J3Jc/6aBp2Gl54cFACgyZjDVLaR3+KwIc+eeU9V6vqHa/Ml"
@@ -260,6 +271,25 @@
       // Cubre sidebar (static) y vistas inyectadas dinámicamente (configuracion)
       document.addEventListener('click', function (e) {
         if (e.target.closest('[data-logout-trigger]')) showLogoutModal();
+      });
+
+      // ── Global FAB ────────────────────────────────────────────────
+      // Rutas públicas donde el FAB no debe mostrarse
+      var _FAB_HIDDEN_ROUTES = ['login', 'register', 'forgot-password', 'reset-password'];
+
+      // showFab / hideFab — llamados por el router al cambiar de vista
+      function showFab() {
+        var fab = document.getElementById('globalFab');
+        if (fab) fab.hidden = false;
+      }
+      function hideFab() {
+        var fab = document.getElementById('globalFab');
+        if (fab) fab.hidden = true;
+      }
+
+      // El FAB abre el modal de nueva transacción
+      document.getElementById('globalFab').addEventListener('click', function () {
+        if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
       });
 
       // Cancelar
