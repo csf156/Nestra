@@ -108,6 +108,27 @@
     </div>
   </div>
 
+  <!-- Modal: acciones de categoría (centrado) -->
+  <div class="cfg-modal-overlay" id="cfgAccModal"
+       role="dialog" aria-modal="true" aria-labelledby="cfgAccTitle" hidden>
+    <div class="cfg-modal cfg-acc-modal">
+      <div class="cfg-acc-head">
+        <span class="cfg-acc-icono" id="cfgAccIcono"></span>
+        <span class="cfg-acc-nombre" id="cfgAccTitle"></span>
+      </div>
+      <button type="button" class="cfg-acc-btn" id="cfgAccEditar">
+        <span aria-hidden="true">✏️</span> Editar categoría
+      </button>
+      <button type="button" class="cfg-acc-btn" id="cfgAccArchivar">
+        <span aria-hidden="true">📦</span> <span id="cfgAccArchivarTxt">Archivar categoría</span>
+      </button>
+      <button type="button" class="cfg-acc-btn cfg-acc-btn--danger" id="cfgAccEliminar">
+        <span aria-hidden="true">🗑️</span> Eliminar categoría
+      </button>
+      <button type="button" class="cfg-acc-btn cfg-acc-btn--cancel" id="cfgAccCancelar">Cancelar</button>
+    </div>
+  </div>
+
   <!-- Modal: reset datos -->
   <div class="cfg-modal-overlay" id="cfgResetModal"
        role="dialog" aria-modal="true" aria-labelledby="cfgResetTitle" hidden>
@@ -424,6 +445,31 @@
     .cfg-modal-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; flex-wrap: wrap; }
     .cfg-delete-reasign { display: flex; flex-direction: column; gap: var(--space-xs); }
 
+    /* Acciones modal */
+    .cfg-acc-modal { padding: 0; max-width: 320px; gap: 0; }
+    .cfg-acc-head {
+      display: flex; flex-direction: column; align-items: center; gap: var(--space-sm);
+      padding: var(--space-lg) var(--space-md) var(--space-md);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .cfg-acc-icono {
+      width: 44px; height: 44px; border-radius: var(--radius-md);
+      background: var(--bg-light-secondary);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cfg-acc-icono .cat-icono { width: 22px; height: 22px; }
+    .cfg-acc-nombre { font-weight: var(--font-weight-semibold); font-size: var(--font-size-base); }
+    .cfg-acc-btn {
+      display: flex; align-items: center; gap: var(--space-sm);
+      width: 100%; padding: var(--space-md) var(--space-lg);
+      border: none; border-bottom: 1px solid var(--border-light);
+      background: transparent; color: var(--text-dark);
+      font-size: var(--font-size-base); text-align: left; cursor: pointer;
+    }
+    .cfg-acc-btn:hover { background: var(--bg-light-secondary); }
+    .cfg-acc-btn--danger { color: var(--color-danger); }
+    .cfg-acc-btn--cancel { justify-content: center; color: var(--text-secondary); border-bottom: none; font-weight: var(--font-weight-medium); }
+
     /* Toast */
     .cfg-toast {
       position: fixed;
@@ -456,6 +502,7 @@
 
     var _cats      = [];
     var _delCatId  = null;
+    var _accCatId  = null;
     var _toastTimer = null;
 
     /* ── Toast ──────────────────────────────────────────── */
@@ -603,6 +650,60 @@
       }
     }
 
+    /* ── Acciones modal ─────────────────────────────────── */
+    function abrirAcciones(id) {
+      var cat = _cats.find(function (c) { return c.id === id; });
+      if (!cat) return;
+      _accCatId = id;
+      var esArch = cat.estado === 'archivada';
+      $('cfgAccIcono').innerHTML = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
+      $('cfgAccTitle').textContent = cat.nombre;
+      $('cfgAccArchivarTxt').textContent = esArch ? 'Desarchivar categoría' : 'Archivar categoría';
+      $('cfgAccModal').removeAttribute('hidden');
+      setTimeout(function () { $('cfgAccEditar').focus(); }, 50);
+    }
+    function cerrarAcciones() {
+      $('cfgAccModal').setAttribute('hidden', '');
+      _accCatId = null;
+    }
+
+    $('cfgAccCancelar').addEventListener('click', cerrarAcciones);
+    $('cfgAccModal').addEventListener('click', function (e) {
+      if (e.target === e.currentTarget) cerrarAcciones();
+    });
+
+    $('cfgAccEditar').addEventListener('click', function () {
+      var id = _accCatId;
+      cerrarAcciones();
+      abrirEdicion(id); // definido en Task 6 (aún no existe; no lo implementes)
+    });
+
+    $('cfgAccArchivar').addEventListener('click', async function () {
+      if (!_accCatId) return;
+      var id = _accCatId;
+      var cat = _cats.find(function (c) { return c.id === id; });
+      var esArch = cat && cat.estado === 'archivada';
+      var btn = $('cfgAccArchivar');
+      btn.disabled = true;
+      try {
+        if (esArch) { await desarchivarCategoria(id); cat.estado = 'activa'; }
+        else        { await archivarCategoria(id);    if (cat) cat.estado = 'archivada'; }
+        cerrarAcciones();
+        renderCategorias(_cats);
+        mostrarToast(esArch ? 'Categoría desarchivada' : 'Categoría archivada', 3000);
+      } catch (err) {
+        mostrarToast(esArch ? 'No se pudo desarchivar' : 'No se pudo archivar', 4000);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    $('cfgAccEliminar').addEventListener('click', function () {
+      var id = _accCatId;
+      cerrarAcciones();
+      pedirEliminacion(id);
+    });
+
     /* ── Delegación lista categorías ────────────────────── */
     function delegarCats(ulId) {
       var ul = $(ulId);
@@ -672,6 +773,43 @@
         mostrarToast('No se pudo eliminar la categoría', 4000);
       }
     });
+
+    /* ── Pedir eliminación ──────────────────────────────── */
+    async function pedirEliminacion(id) {
+      try {
+        _delCatId = id;
+        var cat = _cats.find(function (c) { return c.id === id; });
+        var tipo = cat ? cat.tipo : null;
+        var txs  = await getTransacciones({ categoria_id: id });
+        var count = (txs || []).length;
+
+        $('cfgDeleteInfo').textContent = count > 0
+          ? 'Esta categoría tiene ' + count + ' transacción' + (count !== 1 ? 'es' : '') + '.'
+          : 'Esta categoría no tiene transacciones.';
+
+        var otros = _cats.filter(function (c) { return c.id !== id && c.tipo === tipo && c.estado !== 'archivada'; });
+        var rRow  = $('cfgDeleteReasignRow');
+        var sel   = $('cfgDeleteTarget');
+        var conf  = $('cfgDeleteConfirm');
+
+        if (otros.length > 0) {
+          sel.innerHTML = otros.map(function (c) {
+            return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
+          }).join('');
+          rRow.style.display = 'flex';
+          conf.textContent = 'Reasignar y eliminar';
+          conf.disabled = false;
+        } else {
+          rRow.style.display = 'none';
+          conf.textContent = count > 0 ? 'No se puede eliminar (sin destino)' : 'Eliminar';
+          conf.disabled = count > 0;
+        }
+        $('cfgDeleteModal').removeAttribute('hidden');
+        setTimeout(function () { $('cfgDeleteCancelar').focus(); }, 50);
+      } catch (err) {
+        mostrarToast('No se pudo verificar la categoría', 4000);
+      }
+    }
 
     /* ── Nueva categoría ────────────────────────────────── */
     $('cfgCatAddBtn').addEventListener('click', function () {
@@ -839,6 +977,7 @@
     /* ── Escape global ──────────────────────────────────── */
     document.querySelector('.cfg').addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
+      if (!$('cfgAccModal').hasAttribute('hidden')) { cerrarAcciones(); return; }
       if (!$('cfgDeleteModal').hasAttribute('hidden')) cerrarDeleteModal();
       if (!$('cfgResetModal').hasAttribute('hidden'))  $('cfgResetModal').setAttribute('hidden', '');
     });
