@@ -361,6 +361,56 @@ async function getBalancePersonal(mes, anio) {
 }
 
 
+// getSaldoAcumuladoHogar() — balance del hogar sumando todos los tiempos (sin filtro de mes).
+// Returns: { ingresos, gastos, balance }. Ceros en error.
+async function getSaldoAcumuladoHogar() {
+  try {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('tipo, monto')
+      .eq('ambito', 'hogar');
+    if (error) throw error;
+    let ingresos = 0, gastos = 0;
+    (data || []).forEach((t) => {
+      if (t.tipo === 'ingreso') ingresos += Number(t.monto);
+      else if (t.tipo === 'gasto') gastos += Number(t.monto);
+    });
+    return { ingresos, gastos, balance: ingresos - gastos };
+  } catch (err) {
+    console.error('Error en getSaldoAcumuladoHogar():', err.message || err);
+    return { ingresos: 0, gastos: 0, balance: 0 };
+  }
+}
+
+// getSaldoAcumuladoPersonal() — balance personal acumulado (todos los tiempos).
+// Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
+async function getSaldoAcumuladoPersonal() {
+  try {
+    const userId = _requireUserId();
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('tipo, monto, aporte_id')
+      .eq('ambito', 'personal')
+      .eq('user_id', userId);
+    if (error) throw error;
+    let ingresos = 0, gastos = 0, aporte_realizado = 0;
+    (data || []).forEach((t) => {
+      const monto = Number(t.monto);
+      if (t.tipo === 'ingreso') {
+        ingresos += monto;
+      } else if (t.tipo === 'gasto') {
+        gastos += monto;
+        if (t.aporte_id) aporte_realizado += monto;
+      }
+    });
+    return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos };
+  } catch (err) {
+    console.error('Error en getSaldoAcumuladoPersonal():', err.message || err);
+    return { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 };
+  }
+}
+
+
 // ═══════════════════════════════════════════════════════════════════
 // CATEGORÍAS
 // ═══════════════════════════════════════════════════════════════════
