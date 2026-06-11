@@ -140,9 +140,15 @@
 
   /* Mobile-first overrides — al final para ganar por orden de fuente */
   @media (max-width: 719px) {
+    .graf { padding: var(--space-md) var(--space-sm) var(--space-xl); }
     .graf-header { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
     .graf-month { justify-content: center; }
     .graf-month-nav { width: 44px; height: 44px; }
+    /* Reducir altura de canvas en mobile — más compacto sin perder info */
+    .graf-canvas-wrap { height: 190px; }
+    .graf-card--wide .graf-canvas-wrap { height: 220px; }
+    /* Legend del donut: scroll si hay muchas categorías */
+    .graf-legend { max-height: 160px; overflow-y: auto; }
   }
 </style>
 
@@ -158,6 +164,16 @@
 
     function cssVar(nombre) {
       return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+    }
+    // _mob() — true cuando el viewport es de mobile (<720px)
+    function _mob() { return window.innerWidth < 720; }
+    // Opciones de ticks para ejes en mobile: fuente pequeña, menos densidad
+    function _tickOpts(color) {
+      return { color: color, font: { size: _mob() ? 10 : 12 }, maxTicksLimit: _mob() ? 7 : 15 };
+    }
+    // Opciones de legend para mobile: fuente pequeña, caja pequeña
+    function _legendOpts(color) {
+      return { labels: { color: color, font: { size: _mob() ? 10 : 12 }, boxWidth: _mob() ? 10 : 14, padding: _mob() ? 8 : 12 } };
     }
     function setEstado(n, est) {
       var card = $('card' + n);
@@ -281,16 +297,16 @@
         data: {
           labels: labels,
           datasets: [
-            { label: 'Gastos', data: gastos, borderColor: cssVar('--color-danger'), backgroundColor: 'transparent', tension: 0.25 },
-            { label: 'Ingresos', data: ingresos, borderColor: cssVar('--color-success'), backgroundColor: 'transparent', tension: 0.25 },
+            { label: 'Gastos', data: gastos, borderColor: cssVar('--color-danger'), backgroundColor: 'transparent', tension: 0.25, pointRadius: _mob() ? 0 : 3 },
+            { label: 'Ingresos', data: ingresos, borderColor: cssVar('--color-success'), backgroundColor: 'transparent', tension: 0.25, pointRadius: _mob() ? 0 : 3 },
           ],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          plugins: { legend: _legendOpts(cssVar('--text-dark')) },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
           },
         },
       });
@@ -361,10 +377,10 @@
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          plugins: { legend: _legendOpts(cssVar('--text-dark')) },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, beginAtZero: true },
           },
         },
       });
@@ -389,10 +405,10 @@
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          plugins: { legend: _legendOpts(cssVar('--text-dark')) },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
           },
         },
       });
@@ -487,8 +503,18 @@
             tooltip: { filter: function (item) { return item.dataset.label !== '_base'; } },
           },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false }, stacked: true },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, stacked: true },
+            x: {
+              ticks: Object.assign(_tickOpts(cssVar('--text-secondary')), {
+                maxRotation: _mob() ? 30 : 45,
+                callback: function (val, i) {
+                  // Truncar labels largas en mobile
+                  var lbl = this.getLabelForValue(val);
+                  return _mob() && lbl.length > 8 ? lbl.slice(0, 7) + '…' : lbl;
+                }
+              }),
+              grid: { display: false }, stacked: true
+            },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, stacked: true },
           },
         },
       });
@@ -518,10 +544,19 @@
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          plugins: { legend: _legendOpts(cssVar('--text-dark')) },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { display: false } },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+            x: {
+              ticks: Object.assign(_tickOpts(cssVar('--text-secondary')), {
+                maxRotation: _mob() ? 30 : 45,
+                callback: function (val, i) {
+                  var lbl = this.getLabelForValue(val);
+                  return _mob() && lbl.length > 8 ? lbl.slice(0, 7) + '…' : lbl;
+                }
+              }),
+              grid: { display: false }
+            },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, beginAtZero: true },
           },
         },
       });
@@ -611,10 +646,19 @@
         data: { labels: labelsSet, datasets: datasets },
         options: {
           responsive: true, maintainAspectRatio: false, spanGaps: true,
-          plugins: { legend: { labels: { color: cssVar('--text-dark') } } },
+          plugins: {
+            legend: Object.assign(_legendOpts(cssVar('--text-dark')), {
+              // En mobile ocultar líneas de proyección del legend — solo mostrar las reales
+              labels: Object.assign(_legendOpts(cssVar('--text-dark')).labels, {
+                filter: function (item) {
+                  return !(_mob() && item.text.includes('(proyección)'));
+                }
+              })
+            })
+          },
           scales: {
-            x: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') } },
-            y: { ticks: { color: cssVar('--text-secondary') }, grid: { color: cssVar('--border-light') }, beginAtZero: true },
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, beginAtZero: true },
           },
         },
       });
