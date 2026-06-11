@@ -926,6 +926,8 @@ html.dark .badge-personal {
 /* Positioned fixed. Sube sobre el nav móvil.                      */
 /* ═══════════════════════════════════════════════════════════════ */
 
+.fab[hidden] { display: none !important; }
+
 .fab {
   position: fixed;
   bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
