@@ -461,6 +461,7 @@
 
     const btnTipoGasto    = document.getElementById('btnTipoGasto');
     const btnTipoIngreso  = document.getElementById('btnTipoIngreso');
+    const btnTipoAhorro   = document.getElementById('btnTipoAhorro');
     const btnAmbitoPersonal = document.getElementById('btnAmbitoPersonal');
     const btnAmbitoHogar    = document.getElementById('btnAmbitoHogar');
 
@@ -526,6 +527,8 @@
       btnTipoGasto.setAttribute('aria-pressed', String(val === 'gasto'));
       btnTipoIngreso.classList.toggle('tx-active', val === 'ingreso');
       btnTipoIngreso.setAttribute('aria-pressed', String(val === 'ingreso'));
+      btnTipoAhorro.classList.toggle('tx-active', val === 'ahorro');
+      btnTipoAhorro.setAttribute('aria-pressed', String(val === 'ahorro'));
       cargarCategorias();
       _mostrarAporteHogar();
     }
@@ -540,6 +543,7 @@
 
     btnTipoGasto.addEventListener('click',   () => _setTipo('gasto'));
     btnTipoIngreso.addEventListener('click',  () => _setTipo('ingreso'));
+    btnTipoAhorro.addEventListener('click',   () => _setTipo('ahorro'));
     btnAmbitoPersonal.addEventListener('click', () => _setAmbito('personal'));
     btnAmbitoHogar.addEventListener('click',    () => _setAmbito('hogar'));
 
@@ -573,7 +577,8 @@
       _ocultarNuevaCat();
       _ocultarPrestamo();
       try {
-        const cats = await getCategorias(tipo);
+        const catTipo = tipo === 'ahorro' ? 'gasto' : tipo;
+        const cats = await getCategorias(catTipo);
         if (!cats.length) {
           categoriaEl.innerHTML = '<option value="">Sin categorías</option>';
           return;
@@ -637,7 +642,7 @@
       nuevaCatCancelar.disabled = true;
       ocultar(nuevaCatError);
       try {
-        const cat = await insertCategoria({ nombre, tipo: tipoEl.value });
+        const cat = await insertCategoria({ nombre, tipo: tipoEl.value === 'ahorro' ? 'gasto' : tipoEl.value });
         await cargarCategorias(cat.id);
         if (categoriaEl.value !== cat.id) {
           mostrar(nuevaCatError, 'Categoría creada, pero no se pudo recargar la lista. Recarga la página.');
@@ -805,6 +810,8 @@
       btnTipoGasto.setAttribute('aria-pressed', String(editTx.tipo === 'gasto'));
       btnTipoIngreso.classList.toggle('tx-active', editTx.tipo === 'ingreso');
       btnTipoIngreso.setAttribute('aria-pressed', String(editTx.tipo === 'ingreso'));
+      btnTipoAhorro.classList.toggle('tx-active', editTx.tipo === 'ahorro');
+      btnTipoAhorro.setAttribute('aria-pressed', String(editTx.tipo === 'ahorro'));
 
       ambitoEl.value = editTx.ambito;
       btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
