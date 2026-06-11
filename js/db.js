@@ -65,7 +65,7 @@ async function getTransacciones(filtros = {}) {
   try {
     let query = supabase
       .from('transacciones')
-      .select('*, categorias(nombre, tipo, color)')
+      .select('*, categorias(nombre, tipo, color, icono)')
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false });
 
@@ -90,7 +90,7 @@ async function getUltimasTransacciones(limite = 5) {
   try {
     const { data, error } = await supabase
       .from('transacciones')
-      .select('*, categorias(nombre, tipo, color)')
+      .select('*, categorias(nombre, tipo, color, icono)')
       .order('fecha', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limite);
@@ -367,13 +367,13 @@ async function getBalancePersonal(mes, anio) {
 
 // getCategorias(tipo) — categorías activas. tipo opcional: 'gasto'|'ingreso'.
 // Returns: array ordenado por nombre o [].
-async function getCategorias(tipo = null) {
+async function getCategorias(tipo = null, incluirArchivadas = false) {
   try {
     let query = supabase
       .from('categorias')
       .select('*')
-      .eq('estado', 'activa')
       .order('nombre', { ascending: true });
+    if (!incluirArchivadas) query = query.eq('estado', 'activa');
     if (tipo) query = query.eq('tipo', tipo);
 
     const { data, error } = await query;
@@ -388,9 +388,9 @@ async function getCategorias(tipo = null) {
 // getCategoriasConFavorito(tipo?) — todas las categorías activas (de `tipo` si se da)
 // + bandera `favorita` para el usuario activo. Para la gestión en Configuración.
 // Returns: [{ ...categoria, favorita: bool }] o [].
-async function getCategoriasConFavorito(tipo = null) {
+async function getCategoriasConFavorito(tipo = null, incluirArchivadas = false) {
   try {
-    const cats = await getCategorias(tipo);
+    const cats = await getCategorias(tipo, incluirArchivadas);
     const { data: favs, error } = await supabase
       .from('categorias_favoritas')
       .select('categoria_id'); // RLS lo acota al usuario activo
@@ -519,6 +519,24 @@ async function archivarCategoria(id) {
     return data;
   } catch (err) {
     console.error('Error en archivarCategoria():', err.message || err);
+    throw err;
+  }
+}
+
+// desarchivarCategoria(id) — reactiva una categoría archivada (estado='activa').
+// Returns: fila actualizada. Lanza Error en fallo.
+async function desarchivarCategoria(id) {
+  try {
+    const { data, error } = await supabase
+      .from('categorias')
+      .update({ estado: 'activa' })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error('Error en desarchivarCategoria():', err.message || err);
     throw err;
   }
 }
