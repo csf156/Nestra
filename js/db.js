@@ -779,7 +779,7 @@ async function getPrestamos(estado = null) {
   try {
     let query = supabase
       .from('prestamos')
-      .select('*, transacciones(fecha, monto, ambito, nota, user_id)');
+      .select('*, transacciones(fecha, monto, ambito, nota, user_id, tipo)');
     if (estado) query = query.eq('estado', estado);
 
     const { data, error } = await query;
