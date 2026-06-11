@@ -456,7 +456,7 @@
 
   /* ── FAB ────────────────────────────────────────────────── */
   .hist-fab {
-    position: fixed; right: var(--space-lg); bottom: var(--space-lg);
+    position: fixed; right: var(--space-lg); bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
     width: 56px; height: 56px; border-radius: 50%;
     background: var(--color-primary); color: #fff; border: none;
     font-size: 2rem; line-height: 1;

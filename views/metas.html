@@ -149,12 +149,14 @@
   .metas-comp-lista li { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--font-size-sm); color: var(--text-secondary); }
   .metas-comp-lista li::before { content: "✓"; color: var(--color-success); margin-right: 6px; }
 
-  .metas-fab { position: fixed; right: var(--space-lg); bottom: var(--space-lg); width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--color-primary); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 20; }
+  /* FAB: misma lógica que dash-fab — debe quedar por encima del nav (60px) */
+  .metas-fab { position: fixed; right: var(--space-lg); bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm)); width: 56px; height: 56px; border-radius: 50%; border: none; background: var(--color-primary); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-lg); z-index: 90; }
+  @media (min-width: 768px) { .metas-fab { bottom: var(--space-xl); right: var(--space-xl); } }
 
-  .metas-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 40; padding: 0; }
+  /* Modal: z-index por encima del nav (100), centrado en todas las pantallas */
+  .metas-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-md); }
   .metas-modal-overlay[hidden] { display: none; }
-  .metas-modal { background: var(--bg-light); width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: var(--space-lg); }
-  @media (min-width: 600px) { .metas-modal-overlay { align-items: center; } .metas-modal { border-radius: var(--radius-lg); } }
+  .metas-modal { background: var(--bg-light); width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; border-radius: var(--radius-lg); padding: var(--space-lg); }
   .metas-modal-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0 0 var(--space-md); }
   .metas-form { display: flex; flex-direction: column; gap: var(--space-md); }
   .metas-flabel { display: flex; flex-direction: column; gap: 4px; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-dark); }
@@ -290,7 +292,8 @@
             : '<div class="meta-cifras"><span>' + formatMonto(act) + ' acumulado</span><span class="meta-pct">Sin objetivo</span></div>') +
           '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
           '<div class="meta-acciones">' + aporte +
-            '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>' +
+            (m.es_fondo_emergencia ? '' :
+              '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>') +
           '</div></article>';
       }).join('');
     }
