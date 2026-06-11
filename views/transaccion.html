@@ -65,6 +65,7 @@
         <select id="categoria" name="categoria" required>
           <option value="">Cargando categorías...</option>
         </select>
+        <span id="categoriaIcono" class="tx-cat-icono" aria-hidden="true"></span>
         <span id="categoriaError" class="form-error" role="alert" style="display:none;"></span>
       </div>
 
@@ -437,6 +438,8 @@
     from { opacity: 0; transform: scale(0.5); }
     to   { opacity: 1; transform: scale(1); }
   }
+  .tx-cat-icono { display: inline-flex; align-items: center; margin-left: var(--space-xs); }
+  .tx-cat-icono .cat-icono { width: 18px; height: 18px; color: var(--text-secondary); }
 </style>
 
 <script>
@@ -570,7 +573,7 @@
         }
         categoriaEl.innerHTML =
           '<option value="">Selecciona una categoría</option>' +
-          cats.map((c) => `<option value="${c.id}">${esc(c.nombre)}</option>`).join('') +
+          cats.map((c) => `<option value="${c.id}" data-icono="${esc(c.icono || '')}">${esc(c.nombre)}</option>`).join('') +
           '<option value="__nueva__">+ Nueva categoría</option>';
         if (autoSelectId) categoriaEl.value = autoSelectId;
         if (_esPrestamo() && !editTx) _mostrarPrestamo();
@@ -592,6 +595,13 @@
         _ocultarNuevaCat();
         if (_esPrestamo() && !editTx) { _mostrarPrestamo(); } else { _ocultarPrestamo(); }
       }
+      (function () {
+        var icoEl = document.getElementById('categoriaIcono');
+        if (!icoEl) return;
+        var opt = categoriaEl.selectedOptions[0];
+        var icono = opt ? opt.getAttribute('data-icono') : null;
+        icoEl.innerHTML = (categoriaEl.value && typeof iconoCategoria === 'function') ? iconoCategoria(icono) : '';
+      })();
     });
 
     // ── Nueva categoría al vuelo ──────────────────────────────

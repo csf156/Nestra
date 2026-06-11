@@ -448,7 +448,7 @@
         const badgeTxt = t.ambito === 'hogar' ? 'Hogar' : 'Personal';
         return `<div class="dash-tx">
           <div class="dash-tx-main">
-            <span class="dash-tx-cat">${esc(cat)}</span>
+            <span class="dash-tx-cat">${(typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : ''}${esc(cat)}</span>
             <span class="dash-tx-meta">
               <span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>
               ${esc(formatFecha(t.fecha))}
