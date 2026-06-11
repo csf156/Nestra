@@ -1231,3 +1231,13 @@ hr, .divider {
   .btn,
   .card-interactive { transition: none; }
 }
+
+/* Ícono de categoría (sprite Tabler) */
+.cat-icono {
+  width: 1.1em;
+  height: 1.1em;
+  stroke: currentColor;
+  fill: none;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
