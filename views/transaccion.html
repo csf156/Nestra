@@ -1,7 +1,20 @@
 <div class="container tx-container">
   <div class="tx-header">
-    <h1 id="transaccionModalTitle">Nueva transacción</h1>
-    <p>Registra un ingreso o gasto</p>
+    <div class="tx-header-row">
+      <div>
+        <h1 id="transaccionModalTitle">Nueva transacción</h1>
+        <p>Registra un ingreso o gasto</p>
+      </div>
+      <!-- Botón X: solo visible en modo modal; siempre accesible aunque el
+           teclado virtual reduzca el viewport y el Cancel inferior quede bajo el fold -->
+      <button type="button" id="txCloseBtn" class="tx-close-btn"
+              aria-label="Cerrar" style="display:none">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" fill="none" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
   <div class="card tx-card">
@@ -157,6 +170,12 @@
   .tx-header {
     margin-bottom: var(--space-lg);
   }
+  .tx-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-sm);
+  }
   .tx-header h1 {
     margin: 0 0 var(--space-xs);
     font-size: var(--font-size-2xl);
@@ -167,6 +186,24 @@
     margin: 0;
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
+  }
+  .tx-close-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-light-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .tx-close-btn:hover {
+    background: var(--border-light);
+    color: var(--text-dark);
   }
 
   .tx-card:hover {
@@ -677,6 +714,14 @@
     });
 
     cancelarBtn.addEventListener('click', _salir);
+
+    // Botón X en header — solo en modo modal (teclado virtual reduce viewport
+    // y el Cancel inferior puede quedar bajo el fold inaccesible).
+    var txCloseBtn = document.getElementById('txCloseBtn');
+    if (window._modalMode && txCloseBtn) {
+      txCloseBtn.style.display = 'flex';
+      txCloseBtn.addEventListener('click', _salir);
+    }
 
     // ── Submit ────────────────────────────────────────────────
     form.addEventListener('submit', async function (e) {

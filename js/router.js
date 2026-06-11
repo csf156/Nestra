@@ -158,6 +158,7 @@ async function handleRouteChange() {
     // Protected route without a session → login
     if (!isPublic && !isAuthenticated()) {
       console.warn(`Redirect: ${hash} requires authentication`);
+      if (typeof hideFab === 'function') hideFab();
       window.location.hash = '#login';
       return;
     }
