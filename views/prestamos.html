@@ -63,8 +63,7 @@
   </div>
 
   <!-- ── FAB: nuevo préstamo ─────────────────────────────────── -->
-  <button type="button" class="prest-fab" id="prestFab"
-          aria-label="Nuevo préstamo">
+  <button type="button" class="prest-fab" id="prestFab">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"
          stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
          stroke-linejoin="round" fill="none">
@@ -148,7 +147,7 @@
 
         <!-- Ámbito -->
         <div class="prest-field">
-          <label class="prest-label">Ámbito</label>
+          <span class="prest-label">Ámbito</span>
           <div class="prest-ambito-toggle" role="group" aria-label="Ámbito">
             <button type="button" class="prest-ambito-btn prest-ambito-btn--active"
                     id="prestAmbitoPersonal" data-ambito="personal">Personal</button>
@@ -841,7 +840,7 @@
             ambito:       _ambitoNuevo,
             categoria_id: catId,
             monto:        monto,
-            fecha:        fecha || undefined,
+            fecha:        fecha || (function () { var d = new Date(); var p = function (n) { return n < 10 ? '0' + n : '' + n; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); })(),
             nota:         nota || null,
           });
 
