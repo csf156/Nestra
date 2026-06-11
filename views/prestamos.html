@@ -62,17 +62,6 @@
     </div>
   </div>
 
-  <!-- ── FAB: nuevo préstamo ─────────────────────────────────── -->
-  <button type="button" class="prest-fab" id="prestFab">
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"
-         stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-         stroke-linejoin="round" fill="none">
-      <line x1="12" y1="5" x2="12" y2="19"/>
-      <line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-    <span class="prest-fab-label">Nuevo préstamo</span>
-  </button>
-
   <!-- ── Modal: nuevo préstamo ───────────────────────────────── -->
   <div class="prest-modal-overlay prest-nuevo-overlay" id="prestNuevoModal"
        role="dialog" aria-modal="true" aria-labelledby="prestNuevoTitle" hidden>
@@ -465,38 +454,6 @@
       color: #34d399;
     }
 
-    /* ── View FAB ────────────────────────────────────────────── */
-    .prest-fab {
-      position: fixed;
-      bottom: calc(60px + env(safe-area-inset-bottom) + 8px);
-      right: var(--space-lg);
-      z-index: 90;
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      background: var(--color-primary);
-      color: #fff;
-      border: none;
-      border-radius: 9999px;
-      padding: 0 var(--space-lg) 0 var(--space-md);
-      height: 48px;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-semibold);
-      cursor: pointer;
-      box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 35%, transparent);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .prest-fab:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px color-mix(in srgb, var(--color-primary) 45%, transparent);
-    }
-    .prest-fab:active { transform: translateY(0); }
-    .prest-fab-label { white-space: nowrap; }
-
-    @media (min-width: 768px) {
-      .prest-fab { bottom: var(--space-xl); }
-    }
-
     /* ── Nuevo préstamo modal ────────────────────────────────── */
     .prest-nuevo-overlay {
       align-items: flex-end;
@@ -786,7 +743,7 @@
         document.getElementById('prestAmbitoPersonal').classList.remove('prest-ambito-btn--active');
       });
 
-      document.getElementById('prestFab').addEventListener('click', abrirNuevo);
+      window._abrirNuevoPrestamo = abrirNuevo;
       document.getElementById('prestNuevoClose').addEventListener('click', cerrarNuevo);
       document.getElementById('prestNuevoCancelar').addEventListener('click', cerrarNuevo);
 
@@ -1091,7 +1048,6 @@
       });
 
       /* ── Init ─────────────────────────────────────────────── */
-      if (typeof hideFab === 'function') hideFab();
       cargar();
 
     })();

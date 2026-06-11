@@ -89,7 +89,7 @@
         <!-- Router injects vistas here -->
     </main>
 
-    <!-- Global FAB — nueva transacción, visible en vistas autenticadas -->
+    <!-- Global FAB — acción contextual según vista -->
     <button type="button" class="fab" id="globalFab"
             aria-label="Nueva transacción" hidden>
         <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"
@@ -98,6 +98,7 @@
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
+        <span id="globalFabLabel" style="display:none;"></span>
     </button>
 
     <!-- Supabase SDK (jsDelivr CDN) -->
@@ -267,23 +268,51 @@
         if (e.target.closest('[data-logout-trigger]')) showLogoutModal();
       });
 
-      // ── Global FAB ────────────────────────────────────────────────
-      // Rutas públicas donde el FAB no debe mostrarse
-      var _FAB_HIDDEN_ROUTES = ['login', 'register', 'forgot-password', 'reset-password'];
+      // ── Global FAB — acción y visibilidad por ruta ─────────────────
+      var _FAB_CONFIG = {
+        dashboard:     { show: true,  label: '' },
+        historial:     { show: true,  label: '' },
+        graficos:      { show: false, label: '' },
+        metas:         { show: true,  label: 'Nueva meta' },
+        decisiones:    { show: false, label: '' },
+        resumen:       { show: false, label: '' },
+        prestamos:     { show: true,  label: 'Nuevo préstamo' },
+        configuracion: { show: false, label: '' },
+      };
 
-      // showFab / hideFab — llamados por el router al cambiar de vista
-      function showFab() {
+      function updateFabForRoute(hash) {
         var fab = document.getElementById('globalFab');
-        if (fab) fab.hidden = false;
+        var labelEl = document.getElementById('globalFabLabel');
+        if (!fab) return;
+        var cfg = _FAB_CONFIG[hash];
+        if (!cfg || !cfg.show) {
+          fab.hidden = true;
+          return;
+        }
+        fab.hidden = false;
+        var hasLabel = !!cfg.label;
+        fab.classList.toggle('fab--extended', hasLabel);
+        labelEl.textContent = cfg.label;
+        labelEl.style.display = hasLabel ? 'inline' : 'none';
+        fab.setAttribute('aria-label', cfg.label || 'Nueva transacción');
       }
+
+      // hideFab mantiene compatibilidad con código heredado
       function hideFab() {
         var fab = document.getElementById('globalFab');
         if (fab) fab.hidden = true;
       }
 
-      // El FAB abre el modal de nueva transacción
+      // El FAB delega según la ruta activa
       document.getElementById('globalFab').addEventListener('click', function () {
-        if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+        var hash = window.location.hash.slice(1).toLowerCase() || 'dashboard';
+        if (hash === 'metas') {
+          if (typeof window._abrirNuevaMeta === 'function') window._abrirNuevaMeta();
+        } else if (hash === 'prestamos') {
+          if (typeof window._abrirNuevoPrestamo === 'function') window._abrirNuevoPrestamo();
+        } else {
+          if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+        }
       });
 
       // Cancelar
