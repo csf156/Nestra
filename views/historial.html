@@ -346,6 +346,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 160px; font-style: italic;
   }
+  .hist-tx-usuario {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
   .hist-badge {
     display: inline-block; padding: 1px var(--space-sm);
     border-radius: var(--radius-sm); font-size: 0.68rem;
@@ -647,6 +653,28 @@
       renderActivos();
     }
 
+    // ── Perfiles del hogar ────────────────────────────────────
+    var _perfiles = {}; // userId → nombre
+
+    (async function cargarPerfiles() {
+      try {
+        var lista = await getProfiles();
+        lista.forEach(function (p) { _perfiles[p.user_id] = p.nombre; });
+      } catch (e) { /* silencioso — fallback a email */ }
+    })();
+
+    function _nombreUsuario(userId) {
+      if (!userId) return '—';
+      if (_perfiles[userId]) return _perfiles[userId];
+      // fallback: derivar del email si es el usuario actual
+      var cu = window.currentUser;
+      if (cu && String(userId) === String(cu.id)) {
+        var parte = (cu.email || '').split('@')[0];
+        return parte.charAt(0).toUpperCase() + parte.slice(1);
+      }
+      return 'Usuario ' + String(userId).slice(0, 4);
+    }
+
     // ── Construcción de filas ─────────────────────────────────
     function _datosTx(t) {
       var cat = t.categorias ? t.categorias.nombre : 'Sin categoría';
@@ -661,6 +689,7 @@
           : '<span class="hist-badge hist-badge--personal">Personal</span>',
         aporte: !!t.aporte_id,
         directo: !!t.es_aporte_directo,
+        usuario: _nombreUsuario(t.user_id),
       };
     }
 
@@ -673,12 +702,13 @@
       var btnEditar = (d.aporte || d.directo) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
       var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
+      var usuarioBadge = '<span class="hist-tx-usuario">👤 ' + esc(d.usuario) + '</span>';
       return '<div class="hist-tx" data-id="' + esc(t.id) + '">' +
           '<div class="hist-tx-row" role="button" tabindex="0" aria-expanded="false" ' +
                'aria-label="' + esc(d.cat) + ', ' + esc(formatMonto(t.monto)) + '. Toca para ver acciones">' +
             '<div class="hist-tx-main">' +
               '<span class="hist-tx-cat">' + esc(d.cat) + '</span>' +
-              '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + directoBadge + nota + '</span>' +
+              '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + directoBadge + usuarioBadge + nota + '</span>' +
             '</div>' +
             '<span class="hist-tx-monto ' + d.clsM + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</span>' +
             '<span class="hist-tx-caret" aria-hidden="true">⌄</span>' +
@@ -704,6 +734,7 @@
           '<td>' + esc(d.cat) + aporteMark + directoMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
+          '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);">👤 ' + esc(d.usuario) + '</td>' +
           '<td class="hist-td-monto ' + d.clsTd + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</td>' +
           '<td class="hist-td-acc">' + btnEditar +
             '<button type="button" class="hist-iconbtn hist-iconbtn--del" data-act="eliminar" aria-label="Eliminar ' + esc(d.cat) + '">🗑</button>' +
@@ -769,6 +800,7 @@
         thOrden('categoria', 'Categoría') +
         '<th class="hist-th">Nota</th>' +
         '<th class="hist-th">Ámbito</th>' +
+        '<th class="hist-th">Usuario</th>' +
         thOrden('monto', 'Monto', 'hist-th--num') +
         '<th class="hist-th"></th>' +
         '</tr></thead>';
