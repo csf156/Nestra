@@ -75,7 +75,7 @@ nav {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 0 var(--space-md);
+  padding: 0;                   /* mobile: no padding — list scrolls edge-to-edge */
   z-index: 100;
   box-shadow: var(--shadow-md);
 }
@@ -129,21 +129,31 @@ html.light .brand-logo--dark {
   height: auto;
 }
 
-/* Nav Links Container — Mobile Flex Row */
+/* Nav Links Container — Mobile Flex Row (scrollable) */
 nav ul {
   display: flex;
   flex-direction: row;
   list-style: none;
   width: 100%;
   height: 100%;
-  gap: var(--space-md);
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* IE/Edge */
+  -webkit-overflow-scrolling: touch;
+}
+
+nav ul::-webkit-scrollbar {
+  display: none;                /* Chrome/Safari */
 }
 
 nav li {
   display: flex;
   align-items: center;
-  flex: 1;
+  flex: 0 0 auto;               /* no shrink — keeps tap target size */
   justify-content: center;
+  min-width: 64px;
 }
 
 nav a {
@@ -153,7 +163,7 @@ nav a {
   justify-content: center;
   gap: 2px;
   height: 60px;
-  width: 100%;
+  width: 64px;                /* fixed width per item on mobile */
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
