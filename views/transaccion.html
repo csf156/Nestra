@@ -3,7 +3,7 @@
     <div class="tx-header-row">
       <div>
         <h1 id="transaccionModalTitle">Nueva transacción</h1>
-        <p>Registra un ingreso o gasto</p>
+        <p>Registra un ingreso, gasto o ahorro</p>
       </div>
       <!-- Botón X: solo visible en modo modal; siempre accesible aunque el
            teclado virtual reduzca el viewport y el Cancel inferior quede bajo el fold -->
@@ -42,6 +42,10 @@
           <button type="button" class="tx-toggle-btn tx-toggle-btn--ingreso"
                   id="btnTipoIngreso" aria-pressed="false">
             <span class="tx-toggle-icon" aria-hidden="true">↓</span> Ingreso
+          </button>
+          <button type="button" class="tx-toggle-btn tx-toggle-btn--ahorro"
+                  id="btnTipoAhorro" aria-pressed="false">
+            <span class="tx-toggle-icon" aria-hidden="true">🐷</span> Ahorro
           </button>
         </div>
         <input type="hidden" id="tipo" value="gasto">
