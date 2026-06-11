@@ -928,7 +928,7 @@ html.dark .badge-personal {
 
 .fab {
   position: fixed;
-  bottom: calc(60px + var(--space-lg));
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
   right: var(--space-lg);
   width: 52px;
   height: 52px;

@@ -57,7 +57,7 @@ body {
 main {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 60px;
+  margin-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -69,13 +69,13 @@ nav {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
   background-color: var(--bg-light);
   border-top: 1px solid var(--border-light);
   display: flex;
   flex-direction: row;
-  align-items: center;
-  padding: 0;                   /* mobile: no padding — list scrolls edge-to-edge */
+  align-items: flex-start;      /* links align to top 60px; safe-area below is padding */
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
   z-index: 100;
   box-shadow: var(--shadow-md);
 }
