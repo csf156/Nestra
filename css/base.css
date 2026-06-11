@@ -148,6 +148,14 @@ input, textarea, select {
   font-size: var(--font-size-base);
 }
 
+/* iOS auto-zoom prevention: any input < 16px triggers zoom on focus.
+   .input uses --font-size-sm (14px). Force 16px on iOS only. */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select, .input {
+    font-size: 1rem !important;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────── */
 /* Utility Classes */
 /* ─────────────────────────────────────────────────────────────── */
