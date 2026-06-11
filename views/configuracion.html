@@ -319,6 +319,33 @@
       color: var(--color-danger);
       background: color-mix(in srgb, var(--color-danger) 10%, transparent);
     }
+    .cfg-cat-icono-wrap {
+      width: 32px; height: 32px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm);
+      background: var(--bg-light);
+      color: var(--text-secondary);
+    }
+    .cfg-cat-icono-wrap .cat-icono { width: 18px; height: 18px; }
+    .cfg-cat-limite-static { font-size: var(--font-size-sm); color: var(--text-secondary); white-space: nowrap; }
+    .cfg-cat-item--archivada { opacity: 0.5; }
+    .cfg-cat-badge-arch {
+      display: inline-block; margin-left: var(--space-sm);
+      font-size: var(--font-size-xs); color: var(--text-secondary);
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm); padding: 0 6px;
+    }
+    .cfg-cat-star, .cfg-cat-gear {
+      width: 32px; height: 32px; border: none; background: none; cursor: pointer;
+      border-radius: var(--radius-sm); font-size: 1rem; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-secondary); transition: background 0.15s, color 0.15s;
+    }
+    .cfg-cat-star:hover, .cfg-cat-gear:hover { background: var(--bg-light); }
+    .cfg-cat-star--on { color: #f5b301; }
+    .cfg-cat-star:focus-visible, .cfg-cat-gear:focus-visible {
+      outline: 2px solid var(--color-primary); outline-offset: 1px;
+    }
 
     /* Preferencias */
     .cfg-pref-lista { display: flex; flex-direction: column; }
@@ -518,201 +545,76 @@
     /* ── Categorías: render ─────────────────────────────── */
     function renderCatItem(cat) {
       var lim = cat.limite_mensual != null ? formatMonto(cat.limite_mensual) : '—';
-      return '<li class="cfg-cat-item" data-id="' + escHtml(cat.id) + '" data-tipo="' + escHtml(cat.tipo) + '">' +
+      var esArch = cat.estado === 'archivada';
+      var icono = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
+      var starCls = cat.favorita ? 'cfg-cat-star cfg-cat-star--on' : 'cfg-cat-star';
+      var starLabel = cat.favorita ? 'Quitar de favoritas' : 'Marcar como favorita';
+      var badge = esArch ? '<span class="cfg-cat-badge-arch">archivada</span>' : '';
+      return '<li class="cfg-cat-item' + (esArch ? ' cfg-cat-item--archivada' : '') +
+          '" data-id="' + escHtml(cat.id) + '" data-tipo="' + escHtml(cat.tipo) + '">' +
+        '<span class="cfg-cat-icono-wrap">' + icono + '</span>' +
         '<div class="cfg-cat-nombre-wrap">' +
-          '<span class="cfg-cat-nombre-text">' + escHtml(cat.nombre) + '</span>' +
+          '<span class="cfg-cat-nombre-text">' + escHtml(cat.nombre) + '</span>' + badge +
         '</div>' +
         '<div class="cfg-cat-limite-wrap">' +
-          '<span class="cfg-cat-limite-text" title="Editar límite">' + escHtml(lim) + '</span>' +
+          '<span class="cfg-cat-limite-static">' + escHtml(lim) + '</span>' +
         '</div>' +
         '<div class="cfg-cat-acciones">' +
-          '<button type="button" class="cfg-icon-btn" data-act="editar-nombre" title="Editar nombre" aria-label="Editar nombre de ' + escHtml(cat.nombre) + '">✏️</button>' +
-          '<button type="button" class="cfg-icon-btn" data-act="archivar" title="Archivar" aria-label="Archivar ' + escHtml(cat.nombre) + '">📦</button>' +
-          '<button type="button" class="cfg-icon-btn cfg-icon-btn--danger" data-act="eliminar" title="Eliminar" aria-label="Eliminar ' + escHtml(cat.nombre) + '">🗑️</button>' +
+          '<button type="button" class="' + starCls + '" data-act="favorita" ' +
+            'aria-pressed="' + (cat.favorita ? 'true' : 'false') + '" ' +
+            'title="' + starLabel + '" aria-label="' + starLabel + ' ' + escHtml(cat.nombre) + '">★</button>' +
+          '<button type="button" class="cfg-cat-gear" data-act="opciones" ' +
+            'title="Opciones" aria-label="Opciones de ' + escHtml(cat.nombre) + '">⚙️</button>' +
         '</div>' +
       '</li>';
     }
 
     function renderCategorias(cats) {
       _cats = cats || [];
-      var gastos   = _cats.filter(function (c) { return c.tipo === 'gasto'; });
-      var ingresos = _cats.filter(function (c) { return c.tipo === 'ingreso'; });
+      function porGrupo(tipo) {
+        var grupo = _cats.filter(function (c) { return c.tipo === tipo; });
+        var activas = grupo.filter(function (c) { return c.estado !== 'archivada'; });
+        var arch    = grupo.filter(function (c) { return c.estado === 'archivada'; });
+        return activas.concat(arch);
+      }
+      var gastos   = porGrupo('gasto');
+      var ingresos = porGrupo('ingreso');
       var vacia = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">';
       $('cfgCatListaGastos').innerHTML   = gastos.length   ? gastos.map(renderCatItem).join('')   : vacia + 'Sin categorías de gasto</li>';
       $('cfgCatListaIngresos').innerHTML = ingresos.length ? ingresos.map(renderCatItem).join('') : vacia + 'Sin categorías de ingreso</li>';
       $('cfgCatSection').style.display = 'block';
     }
 
-    /* ── Edición inline límite ──────────────────────────── */
-    function activarEditLimite(li) {
-      var span = li.querySelector('.cfg-cat-limite-text');
-      var id   = li.dataset.id;
-      var cat  = _cats.find(function (c) { return c.id === id; });
-      var inp  = document.createElement('input');
-      inp.type = 'number'; inp.min = '0'; inp.step = '0.01';
-      inp.className = 'cfg-cat-limite-input';
-      inp.value = cat && cat.limite_mensual != null ? cat.limite_mensual : '';
-      span.replaceWith(inp);
-      inp.focus();
-
-      function mkSpan() {
-        var s = document.createElement('span');
-        s.className = 'cfg-cat-limite-text';
-        s.title = 'Editar límite';
-        s.textContent = cat && cat.limite_mensual != null ? formatMonto(cat.limite_mensual) : '—';
-        s.addEventListener('click', function () { activarEditLimite(li); });
-        return s;
+    /* ── Favorita toggle ────────────────────────────────── */
+    async function toggleFavoritaUI(li, btn, id) {
+      var cat = _cats.find(function (c) { return c.id === id; });
+      if (!cat) return;
+      var nuevo = !cat.favorita;
+      cat.favorita = nuevo;
+      btn.classList.toggle('cfg-cat-star--on', nuevo);
+      btn.setAttribute('aria-pressed', nuevo ? 'true' : 'false');
+      try {
+        await toggleFavorita(id, nuevo);
+      } catch (err) {
+        cat.favorita = !nuevo;
+        btn.classList.toggle('cfg-cat-star--on', !nuevo);
+        btn.setAttribute('aria-pressed', !nuevo ? 'true' : 'false');
+        mostrarToast('No se pudo actualizar el favorito', 4000);
       }
-
-      async function guardar() {
-        var val = inp.value.trim() === '' ? null : parseFloat(inp.value);
-        try {
-          await updateCategoria(id, { limite_mensual: val });
-          if (cat) cat.limite_mensual = val;
-          var s = document.createElement('span');
-          s.className = 'cfg-cat-limite-text';
-          s.title = 'Editar límite';
-          s.textContent = val != null ? formatMonto(val) : '—';
-          s.addEventListener('click', function () { activarEditLimite(li); });
-          inp.replaceWith(s);
-          mostrarToast('Límite actualizado', 3000);
-        } catch (err) {
-          inp.replaceWith(mkSpan());
-          mostrarToast('No se pudo actualizar el límite', 4000);
-        }
-      }
-
-      var _editCancelado = false;
-      inp.addEventListener('blur', function () { if (!_editCancelado) guardar(); });
-      inp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-        if (e.key === 'Escape') { _editCancelado = true; inp.replaceWith(mkSpan()); }
-      });
-    }
-
-    /* ── Edición inline nombre ──────────────────────────── */
-    function activarEditNombre(li) {
-      var span = li.querySelector('.cfg-cat-nombre-text');
-      var id   = li.dataset.id;
-      var cat  = _cats.find(function (c) { return c.id === id; });
-      var inp  = document.createElement('input');
-      inp.type = 'text'; inp.maxLength = 50;
-      inp.className = 'cfg-cat-nombre-input';
-      inp.value = cat ? cat.nombre : '';
-      span.replaceWith(inp);
-      inp.focus();
-
-      async function guardar() {
-        var val = inp.value.trim();
-        if (!val) {
-          var sRev = document.createElement('span');
-          sRev.className = 'cfg-cat-nombre-text';
-          sRev.textContent = cat ? cat.nombre : '';
-          inp.replaceWith(sRev);
-          mostrarToast('El nombre no puede estar vacío', 3000);
-          return;
-        }
-        try {
-          await updateCategoria(id, { nombre: val });
-          if (cat) cat.nombre = val;
-          var s = document.createElement('span');
-          s.className = 'cfg-cat-nombre-text';
-          s.textContent = val;
-          inp.replaceWith(s);
-          mostrarToast('Categoría renombrada', 3000);
-        } catch (err) {
-          var s2 = document.createElement('span');
-          s2.className = 'cfg-cat-nombre-text';
-          s2.textContent = cat ? cat.nombre : '';
-          inp.replaceWith(s2);
-          mostrarToast('No se pudo renombrar', 4000);
-        }
-      }
-
-      var _nomCancelado = false;
-      inp.addEventListener('blur', function () { if (!_nomCancelado) guardar(); });
-      inp.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
-        if (e.key === 'Escape') {
-          _nomCancelado = true;
-          var s = document.createElement('span');
-          s.className = 'cfg-cat-nombre-text';
-          s.textContent = cat ? cat.nombre : '';
-          inp.replaceWith(s);
-        }
-      });
     }
 
     /* ── Delegación lista categorías ────────────────────── */
     function delegarCats(ulId) {
       var ul = $(ulId);
       if (!ul) return;
-
-      ul.addEventListener('click', async function (e) {
-        var limSpan = e.target.closest('.cfg-cat-limite-text');
-        if (limSpan) { activarEditLimite(limSpan.closest('.cfg-cat-item')); return; }
-
+      ul.addEventListener('click', function (e) {
         var btn = e.target.closest('[data-act]');
         if (!btn) return;
         var li  = btn.closest('.cfg-cat-item');
         var id  = li.dataset.id;
         var act = btn.dataset.act;
-
-        if (act === 'editar-nombre') { activarEditNombre(li); return; }
-
-        if (act === 'archivar') {
-          btn.disabled = true;
-          try {
-            await archivarCategoria(id);
-            li.remove();
-            _cats = _cats.filter(function (c) { return c.id !== id; });
-            mostrarToast('Categoría archivada', 3000);
-          } catch (err) {
-            btn.disabled = false;
-            mostrarToast('No se pudo archivar', 4000);
-          }
-          return;
-        }
-
-        if (act === 'eliminar') {
-          btn.disabled = true;
-          try {
-            _delCatId = id;
-            var cat = _cats.find(function (c) { return c.id === id; });
-            var tipo = cat ? cat.tipo : null;
-            var txs  = await getTransacciones({ categoria_id: id });
-            var count = (txs || []).length;
-
-            $('cfgDeleteInfo').textContent = count > 0
-              ? 'Esta categoría tiene ' + count + ' transacción' + (count !== 1 ? 'es' : '') + '.'
-              : 'Esta categoría no tiene transacciones.';
-
-            var otros = _cats.filter(function (c) { return c.id !== id && c.tipo === tipo; });
-            var rRow  = $('cfgDeleteReasignRow');
-            var sel   = $('cfgDeleteTarget');
-            var conf  = $('cfgDeleteConfirm');
-
-            if (otros.length > 0) {
-              sel.innerHTML = otros.map(function (c) {
-                return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
-              }).join('');
-              rRow.style.display = 'flex';
-              conf.textContent = 'Reasignar y eliminar';
-              conf.disabled = false;
-            } else {
-              rRow.style.display = 'none';
-              conf.textContent = count > 0 ? 'No se puede eliminar (sin destino)' : 'Eliminar';
-              conf.disabled = count > 0;
-            }
-
-            $('cfgDeleteModal').removeAttribute('hidden');
-            setTimeout(function () { $('cfgDeleteCancelar').focus(); }, 50);
-          } catch (err) {
-            mostrarToast('No se pudo verificar la categoría', 4000);
-          } finally {
-            btn.disabled = false;
-          }
-        }
+        if (act === 'favorita') { toggleFavoritaUI(li, btn, id); return; }
+        if (act === 'opciones') { abrirAcciones(id); return; }
       });
     }
 
@@ -945,7 +847,7 @@
     async function cargar() {
       $('cfgLoading').style.display = 'flex';
       try {
-        var res = await Promise.all([getProfiles(), getCategorias()]);
+        var res = await Promise.all([getProfiles(), getCategoriasConFavorito(null, true)]);
         renderPerfiles(res[0]);
         renderCategorias(res[1]);
         delegarCats('cfgCatListaGastos');
