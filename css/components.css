@@ -1273,19 +1273,26 @@ hr, .divider {
 /* ═══════════════════════════════════════════════════════════════ */
 
 .meta-categoria {
-  margin-top: var(--space-xs);
-  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-md);
+}
+
+.meta-cat-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
 
 .meta-cat-icono {
-  width: 14px;
-  height: 14px;
-  vertical-align: -2px;
-  margin-right: var(--space-xs);
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
 .meta-cat-nombre {
+  color: var(--text-dark);
   font-weight: var(--font-weight-medium);
 }
 
