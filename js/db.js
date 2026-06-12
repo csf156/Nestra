@@ -410,6 +410,48 @@ async function getSaldoAcumuladoPersonal() {
   }
 }
 
+// getAhorrosHogar(mes, anio) — total de ahorros (tipo='ahorro') del hogar en el mes.
+// Returns: número (0 en error o sin ahorros).
+async function getAhorrosHogar(mes, anio) {
+  try {
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('monto')
+      .eq('ambito', 'hogar')
+      .eq('tipo', 'ahorro')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (error) throw error;
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
+  } catch (err) {
+    console.error('Error en getAhorrosHogar():', err.message || err);
+    return 0;
+  }
+}
+
+// getAhorrosPersonal(mes, anio) — total de ahorros (tipo='ahorro') personales del usuario en el mes.
+// Returns: número (0 en error o sin ahorros).
+async function getAhorrosPersonal(mes, anio) {
+  try {
+    const userId = _requireUserId();
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('monto')
+      .eq('ambito', 'personal')
+      .eq('user_id', userId)
+      .eq('tipo', 'ahorro')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (error) throw error;
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
+  } catch (err) {
+    console.error('Error en getAhorrosPersonal():', err.message || err);
+    return 0;
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════
 // CATEGORÍAS
