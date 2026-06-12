@@ -737,6 +737,62 @@ html.dark .badge-personal {
 
 
 /* ═══════════════════════════════════════════════════════════════ */
+/* HISTORIAL BADGES & MONTO                                         */
+/* Estilos específicos para el historial de transacciones           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.hist-badge {
+  display: inline-block;
+  padding: 1px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.hist-badge--hogar {
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--color-primary);
+}
+
+.hist-badge--personal {
+  background: rgba(107, 114, 128, 0.15);
+  color: var(--text-secondary);
+}
+
+.hist-badge--aporte {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--color-warning);
+}
+
+.hist-badge--ahorro {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.hist-tx-monto {
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hist-tx-monto--ingreso {
+  color: var(--color-success);
+}
+
+.hist-tx-monto--gasto {
+  color: var(--color-danger);
+}
+
+.hist-tx-monto--ahorro {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════ */
 /* BARRAS DE PROGRESO                                               */
 /* Uso: <div class="progress"><div class="progress-bar"            */
 /*   style="width:65%;--progress-color:#f59e0b"></div></div>       */
