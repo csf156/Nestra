@@ -120,6 +120,10 @@
   .meta-card[data-estado="urgente"] { border-left-color: var(--color-warning); background: rgba(245,158,11,0.06); }
   .meta-card[data-estado="vencida"] { border-left-color: var(--color-danger); background: rgba(239,68,68,0.06); }
   .meta-nombre { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); margin: 0 0 var(--space-sm); }
+  .meta-categoria { margin-bottom: var(--space-md); }
+  .meta-cat-content { display: flex; align-items: center; gap: 6px; font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .meta-cat-icono { width: 18px; height: 18px; color: var(--text-secondary); }
+  .meta-cat-nombre { color: var(--text-dark); font-weight: var(--font-weight-medium); }
   .meta-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-md); }
   .meta-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--bg-light-secondary); color: var(--text-secondary); }
   .meta-badge--ambito { background: var(--color-primary); color: #fff; font-weight: var(--font-weight-semibold); }
@@ -244,6 +248,31 @@
       return m.estado === 'en_curso' && obj > 0 && Number(m.monto_actual) >= obj;
     }
 
+    var _categoriasCache = null;
+    async function _getCategoriasCached() {
+      if (!_categoriasCache) {
+        _categoriasCache = await getCategorias('gasto');
+      }
+      return _categoriasCache;
+    }
+
+    async function _renderCategoriaMeta(m) {
+      if (!m.categoria_id) return;
+      try {
+        var cats = await _getCategoriasCached();
+        var cat = cats.find(function (c) { return c.id === m.categoria_id; });
+        if (cat) {
+          var catEl = document.getElementById('meta-cat-' + m.id);
+          if (catEl) {
+            var icono = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono, { clase: 'meta-cat-icono' }) : '';
+            catEl.innerHTML = icono + '<span class="meta-cat-nombre">' + esc(cat.nombre) + '</span>';
+          }
+        }
+      } catch (err) {
+        console.error('Error cargando categoría para meta:', err);
+      }
+    }
+
     function renderActivas(activas) {
       var cont = $('metasActivas');
       if (!activas.length) {
@@ -272,6 +301,11 @@
           : '<span class="meta-nota-info">El progreso se actualiza con tus movimientos.</span>';
         return '<article class="meta-card" data-estado="' + vis + '" data-id="' + m.id + '">' +
           '<h2 class="meta-nombre">' + esc(m.nombre) + '</h2>' +
+          '<div class="meta-categoria">' +
+            '<span id="meta-cat-' + esc(m.id) + '" class="meta-cat-content">' +
+              '<!-- icono + nombre se renderizará vía JS -->' +
+            '</span>' +
+          '</div>' +
           '<div class="meta-badges">' +
             '<span class="meta-badge meta-badge--ambito">' + AMB_LBL[m.ambito] + '</span>' +
             '<span class="meta-badge">' + (TIPO_LBL[m.tipo] || m.tipo) + '</span>' +
@@ -288,6 +322,10 @@
               '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>') +
           '</div></article>';
       }).join('');
+      // Renderizar categoría para cada meta (async, sin bloquear)
+      activas.forEach(function (m) {
+        _renderCategoriaMeta(m);
+      });
     }
 
     function renderCompletadas(comp) {
