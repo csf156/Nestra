@@ -192,6 +192,7 @@
 
   .dash-line-value--ingreso { color: var(--color-success); }
   .dash-line-value--gasto   { color: var(--color-danger); }
+  .dash-line-value--ahorro  { color: #3b82f6; }
   .dash-line--aporte { font-size: var(--font-size-xs); }
   .dash-line--aporte .dash-line-label { font-style: italic; }
 
@@ -395,7 +396,7 @@
     $('personalPeriodo').textContent = periodo;
 
     // ── Render: balance del hogar ─────────────────────────────
-    function renderHogar(b, acum) {
+    function renderHogar(b, acum, ahorros) {
       const body = $('hogarBody');
       body.setAttribute('aria-busy', 'false');
       body.innerHTML = `
@@ -407,6 +408,10 @@
           <span class="dash-line-label">Gastos</span>
           <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(b.gastos))}</span>
         </div>
+        <div class="dash-line">
+          <span class="dash-line-label">Ahorros</span>
+          <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorros))}</span>
+        </div>
         <div class="dash-neto">
           <div>
             <span class="dash-neto-label">Balance acumulado</span>
@@ -417,7 +422,7 @@
     }
 
     // ── Render: balance personal (incluye aporte al hogar) ────
-    function renderPersonal(b, acum) {
+    function renderPersonal(b, acum, ahorros) {
       const body = $('personalBody');
       body.setAttribute('aria-busy', 'false');
       body.innerHTML = `
@@ -428,6 +433,10 @@
         <div class="dash-line">
           <span class="dash-line-label">Gastos</span>
           <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(b.gastos))}</span>
+        </div>
+        <div class="dash-line">
+          <span class="dash-line-label">Ahorros</span>
+          <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorros))}</span>
         </div>
         <div class="dash-line dash-line--aporte">
           <span class="dash-line-label">↳ de eso, aporte al hogar</span>
@@ -564,7 +573,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -572,13 +581,17 @@
         getMetas(),
         getSaldoAcumuladoHogar(),
         getSaldoAcumuladoPersonal(),
+        getAhorrosHogar(mes, anio),
+        getAhorrosPersonal(mes, anio),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
       const acumP = acumPersonal.status === 'fulfilled' ? acumPersonal.value : (personal.status === 'fulfilled' ? personal.value : { balance: 0 });
+      const ahorH = ahorrosHogar.status === 'fulfilled' ? ahorrosHogar.value : 0;
+      const ahorP = ahorrosPersonal.status === 'fulfilled' ? ahorrosPersonal.value : 0;
 
-      if (hogar.status === 'fulfilled')    renderHogar(hogar.value, acumH);
-      if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP);
+      if (hogar.status === 'fulfilled')    renderHogar(hogar.value, acumH, ahorH);
+      if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
