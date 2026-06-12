@@ -370,7 +370,8 @@ async function getSaldoAcumuladoHogar() {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .eq('ambito', 'hogar');
+      .eq('ambito', 'hogar')
+      .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0;
     (data || []).forEach((t) => {
@@ -393,7 +394,8 @@ async function getSaldoAcumuladoPersonal() {
       .from('transacciones')
       .select('tipo, monto, aporte_id')
       .eq('ambito', 'personal')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0, aporte_realizado = 0;
     (data || []).forEach((t) => {
