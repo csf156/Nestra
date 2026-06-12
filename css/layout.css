@@ -80,7 +80,14 @@ nav {
   box-shadow: var(--shadow-md);
 }
 
-/* Theme-aware brand logo — show light wordmark on light bg, light-text on dark */
+/* .navbar-logo display:block must come BEFORE brand-logo hide rules so the
+   hide rules (same specificity, later in file) win the cascade */
+.navbar-logo {
+  display: block;
+  height: auto;
+}
+
+/* Theme-aware brand logo */
 .brand-logo--dark {
   display: none;
 }
@@ -122,11 +129,6 @@ html.light .brand-logo--dark {
 
 .navbar-brand {
   display: none;
-}
-
-.navbar-logo {
-  display: block;
-  height: auto;
 }
 
 /* Nav Links Container — Mobile Flex Row (scrollable) */
@@ -250,6 +252,8 @@ nav a.active .nav-icon {
     width: var(--sidebar-width);
     transition: width 0.2s ease;
     height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
     border-top: none;
     border-right: 1px solid var(--border-light);
     flex-direction: column;
@@ -281,6 +285,8 @@ nav a.active .nav-icon {
     width: 100%;
     height: auto;
     gap: 0;
+    overflow-x: unset;
+    overflow-y: unset;
   }
 
   nav li {

@@ -54,6 +54,14 @@
     margin: 0 auto var(--space-sm);
   }
 
+  .login-logo.brand-logo--dark { display: none !important; }
+  html.dark .login-logo.brand-logo--light { display: none !important; }
+  html.dark .login-logo.brand-logo--dark  { display: block !important; }
+  @media (prefers-color-scheme: dark) {
+    html:not(.light) .login-logo.brand-logo--light { display: none !important; }
+    html:not(.light) .login-logo.brand-logo--dark  { display: block !important; }
+  }
+
   .login-subtitle {
     text-align: center;
     margin-bottom: var(--space-lg);

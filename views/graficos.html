@@ -467,23 +467,21 @@
       if (ingresos <= 0 && !cats.length) { setEstado(6, 'vacio'); return; }
 
       var labels = ['Ingresos'];
-      var base = [0];
-      var visible = [ingresos];
+      var floatData = [[0, ingresos]];
       var colores = [cssVar('--color-success')];
 
       var corriente = ingresos;
       cats.forEach(function (c) {
         labels.push(c.nombre);
         var monto = Number(c.total);
+        var antes = corriente;
         corriente -= monto;
-        base.push(corriente);
-        visible.push(monto);
+        floatData.push([corriente, antes]);
         colores.push(cssVar('--color-danger'));
       });
 
       labels.push('Balance');
-      base.push(0);
-      visible.push(corriente);
+      floatData.push([0, corriente]);
       colores.push(corriente >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'));
 
       setEstado(6, 'ok');
@@ -491,30 +489,38 @@
         type: 'bar',
         data: {
           labels: labels,
-          datasets: [
-            { label: '_base', data: base, backgroundColor: 'transparent', stack: 'cf' },
-            { label: 'Flujo', data: visible, backgroundColor: colores, stack: 'cf' },
-          ],
+          datasets: [{
+            label: 'Flujo',
+            data: floatData,
+            backgroundColor: colores,
+          }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
-            tooltip: { filter: function (item) { return item.dataset.label !== '_base'; } },
+            tooltip: {
+              callbacks: {
+                label: function (item) {
+                  var d = item.raw;
+                  var val = Array.isArray(d) ? Math.abs(d[1] - d[0]) : Math.abs(d);
+                  return ' S/ ' + val.toFixed(2);
+                },
+              },
+            },
           },
           scales: {
             x: {
               ticks: Object.assign(_tickOpts(cssVar('--text-secondary')), {
                 maxRotation: _mob() ? 30 : 45,
                 callback: function (val, i) {
-                  // Truncar labels largas en mobile
                   var lbl = this.getLabelForValue(val);
                   return _mob() && lbl.length > 8 ? lbl.slice(0, 7) + '…' : lbl;
-                }
+                },
               }),
-              grid: { display: false }, stacked: true
+              grid: { display: false },
             },
-            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, stacked: true },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
           },
         },
       });
