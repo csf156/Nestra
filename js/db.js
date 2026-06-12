@@ -309,6 +309,7 @@ async function getBalanceHogar(mes, anio) {
       .from('transacciones')
       .select('tipo, monto')
       .eq('ambito', 'hogar')
+      .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (error) throw error;
@@ -339,6 +340,7 @@ async function getBalancePersonal(mes, anio) {
       .select('tipo, monto, aporte_id')
       .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (error) throw error;
