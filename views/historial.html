@@ -359,6 +359,9 @@
     font-weight: var(--font-weight-semibold); text-transform: uppercase;
     letter-spacing: 0.03em;
   }
+  .hist-badge--gasto    { background: rgba(239,68,68,0.12); color: var(--color-danger); }
+  .hist-badge--ingreso  { background: rgba(34,197,94,0.12); color: var(--color-success); }
+  .hist-badge--ahorro   { background: rgba(59,130,246,0.12); color: #2563eb; }
   .hist-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
   .hist-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
   .hist-badge--aporte   { background: rgba(245,158,11,0.15); color: var(--color-warning); }
@@ -368,6 +371,7 @@
   }
   .hist-tx-monto--ingreso { color: var(--color-success); }
   .hist-tx-monto--gasto   { color: var(--color-danger); }
+  .hist-tx-monto--ahorro  { color: #2563eb; }
   .hist-tx-caret {
     flex-shrink: 0; color: var(--text-secondary); font-size: 0.9rem;
     transition: transform 0.2s;
@@ -679,15 +683,45 @@
     // ── Construcción de filas ─────────────────────────────────
     function _datosTx(t) {
       var cat = t.categorias ? t.categorias.nombre : 'Sin categoría';
-      var esIngreso = t.tipo === 'ingreso';
+      var tipo = t.tipo;
+
+      // Badge para tipo (Gasto/Ingreso/Ahorro)
+      var badge, badgeClass;
+      if (tipo === 'gasto') {
+        badge = 'Gasto';
+        badgeClass = 'hist-badge--gasto';
+      } else if (tipo === 'ingreso') {
+        badge = 'Ingreso';
+        badgeClass = 'hist-badge--ingreso';
+      } else if (tipo === 'ahorro') {
+        badge = 'Ahorro';
+        badgeClass = 'hist-badge--ahorro';
+      } else {
+        badge = tipo;
+        badgeClass = '';
+      }
+
+      // Clase para monto (color según tipo)
+      var montoClass;
+      if (tipo === 'gasto') {
+        montoClass = 'hist-tx-monto--gasto';
+      } else if (tipo === 'ingreso') {
+        montoClass = 'hist-tx-monto--ingreso';
+      } else if (tipo === 'ahorro') {
+        montoClass = 'hist-tx-monto--ahorro';
+      } else {
+        montoClass = '';
+      }
+
       return {
         cat: cat,
-        signo: esIngreso ? '+' : '−',
-        clsM: esIngreso ? 'hist-tx-monto--ingreso' : 'hist-tx-monto--gasto',
-        clsTd: esIngreso ? 'hist-tx-monto--ingreso' : 'hist-tx-monto--gasto',
-        badge: t.ambito === 'hogar'
-          ? '<span class="hist-badge hist-badge--hogar">Hogar</span>'
-          : '<span class="hist-badge hist-badge--personal">Personal</span>',
+        signo: tipo === 'ingreso' ? '+' : (tipo === 'ahorro' ? '→ ' : '−'),
+        clsM: montoClass,
+        clsTd: montoClass,
+        badge: '<span class="hist-badge ' + badgeClass + '">' + badge + '</span>' +
+               (t.ambito === 'hogar'
+                 ? ' <span class="hist-badge hist-badge--hogar">Hogar</span>'
+                 : ' <span class="hist-badge hist-badge--personal">Personal</span>'),
         aporte: !!t.aporte_id,
         directo: !!t.es_aporte_directo,
         usuario: _nombreUsuario(t.user_id),
