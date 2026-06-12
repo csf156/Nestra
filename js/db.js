@@ -755,7 +755,7 @@ async function getAporteMetaMes(meta_id, mes, anio) {
 
 // insertMeta(datos) — crea meta.
 // datos: { nombre, tipo, horizonte, ambito, monto_objetivo,
-//          fecha_limite, monto_actual?, fecha_inicio?, nota? }
+//          fecha_limite, monto_actual?, fecha_inicio?, nota?, categoria_id? }
 // Para ambito 'personal' se fuerza user_id al usuario activo; para
 // 'hogar' se fuerza user_id NULL (RLS exige esta atribución).
 // Returns: fila insertada. Lanza Error en fallo.
@@ -780,7 +780,7 @@ async function insertMeta(datos) {
   }
 }
 
-// updateMeta(id, datos) — actualiza meta.
+// updateMeta(id, datos) — actualiza meta. Soporta cualquier campo: nombre, tipo, categoria_id, etc.
 // Returns: fila actualizada. Lanza Error en fallo.
 async function updateMeta(id, datos) {
   try {
