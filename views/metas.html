@@ -343,9 +343,29 @@
 
     // ── FAB + modal (alta real en Task 4) ─────────────────────
     function _hoyISO() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
-    function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; }
+    async function cargarCategoriasMeta() {
+      var catEl = $('mCategoria');
+      catEl.disabled = true;
+      catEl.innerHTML = '<option value="">Cargando...</option>';
+      try {
+        var cats = await getCategorias('gasto');
+        if (!cats.length) {
+          catEl.innerHTML = '<option value="">Sin categorías</option>';
+          return;
+        }
+        catEl.innerHTML = '<option value="">Selecciona una categoría</option>' +
+          cats.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.nombre) + '</option>'; }).join('') +
+          '<option value="__nueva__">+ Nueva categoría</option>';
+      } catch (err) {
+        console.error('Error cargando categorías:', err);
+        catEl.innerHTML = '<option value="">Error al cargar</option>';
+      } finally {
+        catEl.disabled = false;
+      }
+    }
+    function abrirModal() { $('metaError').hidden = true; $('mInicio').value = _hoyISO(); $('metaModal').hidden = false; cargarCategoriasMeta(); }
     window._abrirNuevaMeta = abrirModal;
-    $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; });
+    $('metaCancelar').addEventListener('click', function () { $('metaModal').hidden = true; $('mCategoria').value = ''; });
     $('aporteCancelar').addEventListener('click', function () { $('aporteModal').hidden = true; aportePendiente = null; });
     $('aporteModal').addEventListener('click', function (e) { if (e.target === e.currentTarget) { $('aporteModal').hidden = true; aportePendiente = null; } });
     $('aporteForm').addEventListener('submit', async function (e) {
@@ -409,7 +429,8 @@
 
       var datos = {
         nombre: nombre,
-        tipo: $('mTipo').value,
+        tipo: 'ahorro',
+        categoria_id: $('mCategoria').value || null,
         horizonte: $('mHorizonte').value,
         ambito: estadoForm.ambito,
         monto_objetivo: objetivo,
@@ -421,6 +442,7 @@
         await insertMeta(datos);
         $('metaModal').hidden = true;
         $('metaForm').reset();
+        $('mCategoria').value = '';
         mostrarToast('Meta creada', null, null, 3000);
         cargar();
       } catch (e2) {
