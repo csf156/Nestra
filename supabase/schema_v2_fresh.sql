@@ -64,7 +64,7 @@ create table public.metas (
   ambito               text not null check (ambito in ('personal', 'hogar')),
   user_id              uuid references auth.users (id) on delete cascade,
   monto_objetivo       numeric(10,2),
-  monto_actual         numeric(10,2) not null default 0 check (monto_actual >= 0),
+  monto_actual         numeric(10,2) not null default 0,
   fecha_inicio         date not null default current_date,
   fecha_limite         date,
   estado               text not null default 'en_curso' check (estado in ('en_curso', 'lograda', 'vencida')),
