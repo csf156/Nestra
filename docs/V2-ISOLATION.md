@@ -63,3 +63,21 @@ Las siguientes cosas son de **v1 producción** y no deben modificarse desde la r
 | `supabase/schema_v2_fresh.sql` | Schema completo para aplicar en proyecto v2 |
 | `supabase/schema.sql` | Schema base original de v1 (referencia histórica) |
 | `supabase/migrations/` | Historial de migraciones de v1 (ya consolidadas en schema_v2_fresh.sql) |
+
+---
+
+## Google OAuth setup (proyecto v2)
+
+Pasos manuales en el dashboard (los hace el dueño de la cuenta):
+
+1. **Google Cloud Console** → crear proyecto (o reusar) → APIs & Services →
+   Credentials → Create Credentials → OAuth client ID → Web application.
+2. Authorized redirect URI: `https://ombnhxueclqfeyjzhroz.supabase.co/auth/v1/callback`.
+3. Copiar **Client ID** y **Client Secret**.
+4. **Supabase v2** → Authentication → Providers → Google → Enable → pegar
+   Client ID + Secret → Save.
+5. **Authentication → URL Configuration** → Site URL = la URL de la app
+   (local: `http://localhost:<puerto>/`; prod futura: el dominio de v2).
+   Añadir esa misma URL a **Redirect URLs**.
+6. Verificar que los emails de Google de Christian y Darling coinciden con sus
+   cuentas email/password actuales (Supabase vincula por email).
