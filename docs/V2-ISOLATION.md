@@ -72,7 +72,8 @@ Pasos manuales en el dashboard (los hace el dueño de la cuenta):
 
 1. **Google Cloud Console** → crear proyecto (o reusar) → APIs & Services →
    Credentials → Create Credentials → OAuth client ID → Web application.
-2. Authorized redirect URI: `https://ombnhxueclqfeyjzhroz.supabase.co/auth/v1/callback`.
+2. Authorized redirect URI (sin ruta): `https://ombnhxueclqfeyjzhroz.supabase.co`
+   (Google Cloud solo acepta base URL, sin `/auth/v1/callback`).
 3. Copiar **Client ID** y **Client Secret**.
 4. **Supabase v2** → Authentication → Providers → Google → Enable → pegar
    Client ID + Secret → Save.
