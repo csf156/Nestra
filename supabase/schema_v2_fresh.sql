@@ -23,6 +23,7 @@ create table public.profiles (
 -- 1.2 categorias (incluye columna icono de migración 20260611)
 create table public.categorias (
   id              uuid primary key default gen_random_uuid(),
+  user_id         uuid references auth.users (id) on delete cascade,
   nombre          text not null,
   tipo            text not null check (tipo in ('gasto', 'ingreso')),
   limite_mensual  numeric(10,2),
@@ -49,6 +50,7 @@ create table public.transacciones (
 -- 1.4 prestamos (incluye fecha_devolucion de migración 20260608)
 create table public.prestamos (
   id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references auth.users (id) on delete cascade,
   transaccion_id   uuid not null references public.transacciones (id) on delete cascade,
   deudor           text not null,
   estado           text not null default 'pendiente' check (estado in ('pendiente', 'devuelto')),
@@ -62,7 +64,7 @@ create table public.metas (
   tipo                 text not null check (tipo in ('ahorro', 'reduccion_gasto', 'aporte_hogar')),
   horizonte            text check (horizonte in ('corto', 'mediano', 'largo')),
   ambito               text not null check (ambito in ('personal', 'hogar')),
-  user_id              uuid references auth.users (id) on delete cascade,
+  user_id              uuid not null references auth.users (id) on delete cascade,
   monto_objetivo       numeric(10,2),
   monto_actual         numeric(10,2) not null default 0,
   fecha_inicio         date not null default current_date,
@@ -87,6 +89,7 @@ create table public.metas (
 -- 1.6 aportes_meta
 create table public.aportes_meta (
   id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users (id) on delete cascade,
   meta_id         uuid not null references public.metas (id)         on delete cascade,
   transaccion_id  uuid not null references public.transacciones (id) on delete cascade,
   monto           numeric(10,2) not null check (monto > 0),
@@ -100,12 +103,21 @@ create table public.desafios (
   titulo         text not null,
   descripcion    text,
   ambito         text not null check (ambito in ('personal', 'hogar')),
-  user_id        uuid references auth.users (id) on delete cascade,
+  user_id        uuid not null references auth.users (id) on delete cascade,
   duracion_dias  integer not null check (duracion_dias > 0),
   fecha_inicio   date not null default current_date,
   fecha_fin      date generated always as (fecha_inicio + duracion_dias) stored,
   estado         text not null default 'activo' check (estado in ('activo', 'completado', 'abandonado')),
   categoria_id   uuid references public.categorias (id) on delete set null
+);
+
+
+-- 1.8 categorias_favoritas (user-scoped favorites, Fase 0)
+create table public.categorias_favoritas (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  categoria_id uuid not null references public.categorias (id) on delete cascade,
+  unique (user_id, categoria_id)
 );
 
 
@@ -133,6 +145,7 @@ create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
 create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
 create index idx_desafios_user_id            on public.desafios (user_id);
 create index idx_desafios_categoria_id       on public.desafios (categoria_id);
+create index idx_categorias_favoritas_user_id on public.categorias_favoritas (user_id);
 
 
 -- =====================================================================
@@ -173,17 +186,18 @@ grant select on public.aportes_meta        to authenticated;
 -- 4. ROW LEVEL SECURITY
 -- =====================================================================
 
-alter table public.profiles      enable row level security;
-alter table public.categorias    enable row level security;
-alter table public.transacciones enable row level security;
-alter table public.prestamos     enable row level security;
-alter table public.metas         enable row level security;
-alter table public.aportes_meta  enable row level security;
-alter table public.desafios      enable row level security;
+alter table public.profiles               enable row level security;
+alter table public.categorias             enable row level security;
+alter table public.transacciones          enable row level security;
+alter table public.prestamos              enable row level security;
+alter table public.metas                  enable row level security;
+alter table public.aportes_meta           enable row level security;
+alter table public.desafios               enable row level security;
+alter table public.categorias_favoritas   enable row level security;
 
 -- profiles
-create policy "profiles_select_autenticados" on public.profiles for select
-  to authenticated using (true);
+create policy "profiles_select_propio" on public.profiles for select
+  to authenticated using ((select auth.uid()) = user_id);
 
 create policy "profiles_insert_propio" on public.profiles for insert
   to authenticated with check ((select auth.uid()) = user_id);
@@ -194,105 +208,67 @@ create policy "profiles_update_propio" on public.profiles for update
   with check ((select auth.uid()) = user_id);
 
 -- categorias
-create policy "categorias_todo_autenticados" on public.categorias for all
-  to authenticated using (true) with check (true);
+create policy "categorias_select" on public.categorias for select
+  to authenticated using (user_id is null or (select auth.uid()) = user_id);
+create policy "categorias_insert" on public.categorias for insert
+  to authenticated with check ((select auth.uid()) = user_id);
+create policy "categorias_update" on public.categorias for update
+  to authenticated using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy "categorias_delete" on public.categorias for delete
+  to authenticated using ((select auth.uid()) = user_id);
+
+-- categorias_favoritas
+create policy "categorias_favoritas_acceso" on public.categorias_favoritas for all
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 -- transacciones
 create policy "transacciones_select" on public.transacciones for select
-  to authenticated using (ambito = 'hogar' or (select auth.uid()) = user_id);
-
+  to authenticated using ((select auth.uid()) = user_id);
 create policy "transacciones_insert" on public.transacciones for insert
   to authenticated with check ((select auth.uid()) = user_id);
-
 create policy "transacciones_update" on public.transacciones for update
-  to authenticated
-  using (ambito = 'hogar' or (select auth.uid()) = user_id)
-  with check (ambito = 'hogar' or (select auth.uid()) = user_id);
-
+  to authenticated using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "transacciones_delete" on public.transacciones for delete
-  to authenticated using (ambito = 'hogar' or (select auth.uid()) = user_id);
+  to authenticated using ((select auth.uid()) = user_id);
 
 -- prestamos
 create policy "prestamos_acceso" on public.prestamos for all
   to authenticated
-  using (
-    exists (
-      select 1 from public.transacciones t
-      where t.id = prestamos.transaccion_id
-        and (t.ambito = 'hogar' or (select auth.uid()) = t.user_id)
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.transacciones t
-      where t.id = prestamos.transaccion_id
-        and (t.ambito = 'hogar' or (select auth.uid()) = t.user_id)
-    )
-  );
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 -- metas
 create policy "metas_select" on public.metas for select
-  to authenticated using (ambito = 'hogar' or (select auth.uid()) = user_id);
-
+  to authenticated using ((select auth.uid()) = user_id);
 create policy "metas_insert" on public.metas for insert
-  to authenticated
-  with check (
-    (ambito = 'hogar' and user_id is null)
-    or (ambito = 'personal' and (select auth.uid()) = user_id)
-  );
-
+  to authenticated with check ((select auth.uid()) = user_id);
 create policy "metas_update" on public.metas for update
-  to authenticated
-  using (ambito = 'hogar' or (select auth.uid()) = user_id)
-  with check (
-    (ambito = 'hogar' and user_id is null)
-    or (ambito = 'personal' and (select auth.uid()) = user_id)
-  );
-
--- El fondo de emergencia no se puede borrar.
+  to authenticated using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "metas_delete" on public.metas for delete
   to authenticated
-  using ((ambito = 'hogar' or (select auth.uid()) = user_id) and es_fondo_emergencia = false);
+  using ((select auth.uid()) = user_id and es_fondo_emergencia = false);
 
 -- aportes_meta
 create policy "aportes_meta_acceso" on public.aportes_meta for all
   to authenticated
-  using (
-    exists (
-      select 1 from public.metas m
-      where m.id = aportes_meta.meta_id
-        and (m.ambito = 'hogar' or (select auth.uid()) = m.user_id)
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.metas m
-      where m.id = aportes_meta.meta_id
-        and (m.ambito = 'hogar' or (select auth.uid()) = m.user_id)
-    )
-  );
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 -- desafios
 create policy "desafios_select" on public.desafios for select
-  to authenticated using (ambito = 'hogar' or (select auth.uid()) = user_id);
-
+  to authenticated using ((select auth.uid()) = user_id);
 create policy "desafios_insert" on public.desafios for insert
-  to authenticated
-  with check (
-    (ambito = 'hogar' and user_id is null)
-    or (ambito = 'personal' and (select auth.uid()) = user_id)
-  );
-
+  to authenticated with check ((select auth.uid()) = user_id);
 create policy "desafios_update" on public.desafios for update
-  to authenticated
-  using (ambito = 'hogar' or (select auth.uid()) = user_id)
-  with check (
-    (ambito = 'hogar' and user_id is null)
-    or (ambito = 'personal' and (select auth.uid()) = user_id)
-  );
-
+  to authenticated using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "desafios_delete" on public.desafios for delete
-  to authenticated using (ambito = 'hogar' or (select auth.uid()) = user_id);
+  to authenticated using ((select auth.uid()) = user_id);
 
 
 -- =====================================================================
@@ -439,8 +415,8 @@ begin
     if v_asignado > v_restante then v_asignado := v_restante; end if;
 
     if v_asignado > 0 then
-      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-      values (r.id, v_tx.id, v_asignado, v_peso);
+      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+      values (r.id, v_tx.id, v_asignado, v_peso, v_tx.user_id);
       v_repartido := v_repartido + v_asignado;
     end if;
   end loop;
@@ -448,8 +424,8 @@ begin
   select importancia into v_peso from public.metas where id = v_fondo_id;
   v_aporte_fondo := v_total - v_repartido;
   if v_aporte_fondo > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso, v_tx.user_id);
   end if;
 end;
 $$;
@@ -508,8 +484,7 @@ begin
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
     from public.metas m
-    where m.ambito = 'hogar' and m.user_id is null
-      and m.es_fondo_emergencia = false and m.estado = 'en_curso'
+    where m.ambito = 'hogar' and m.es_fondo_emergencia = false and m.estado = 'en_curso'
       and m.fecha_limite >= current_date
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
   loop
@@ -534,8 +509,7 @@ begin
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
     from public.metas m
-    where m.ambito = 'hogar' and m.user_id is null
-      and m.es_fondo_emergencia = false and m.estado = 'en_curso'
+    where m.ambito = 'hogar' and m.es_fondo_emergencia = false and m.estado = 'en_curso'
       and m.fecha_limite >= current_date
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
   loop
@@ -554,8 +528,8 @@ begin
     if v_asignado > v_restante then v_asignado := v_restante; end if;
 
     if v_asignado > 0 then
-      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-      values (r.id, v_ingreso.id, v_asignado, v_peso);
+      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+      values (r.id, v_ingreso.id, v_asignado, v_peso, v_ingreso.user_id);
       v_repartido := v_repartido + v_asignado;
     end if;
   end loop;
@@ -563,8 +537,8 @@ begin
   select importancia into v_peso from public.metas where id = v_fondo_id;
   v_aporte_fondo := v_total - v_repartido;
   if v_aporte_fondo > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (v_fondo_id, v_ingreso.id, v_aporte_fondo, v_peso);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (v_fondo_id, v_ingreso.id, v_aporte_fondo, v_peso, v_ingreso.user_id);
   end if;
 end;
 $$;
@@ -623,8 +597,8 @@ begin
   from public.aportes_meta a where a.meta_id = p_meta_id;
 
   if v_meta.es_fondo_emergencia or v_meta.monto_objetivo is null then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (p_meta_id, v_tx_id, p_monto, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (p_meta_id, v_tx_id, p_monto, null, v_uid);
     return v_tx_id;
   end if;
 
@@ -639,8 +613,8 @@ begin
   end if;
 
   if v_a_meta > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (p_meta_id, v_tx_id, v_a_meta, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (p_meta_id, v_tx_id, v_a_meta, null, v_uid);
   end if;
 
   if v_a_fondo > 0 then
@@ -654,8 +628,8 @@ begin
     if v_fondo_id is null then
       raise exception 'No existe el fondo de emergencia del ámbito % para el excedente', v_meta.ambito;
     end if;
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (v_fondo_id, v_tx_id, v_a_fondo, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (v_fondo_id, v_tx_id, v_a_fondo, null, v_uid);
   end if;
 
   return v_tx_id;
