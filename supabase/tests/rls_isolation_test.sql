@@ -8,6 +8,14 @@
 --   B = 22222222-2222-2222-2222-222222222222
 
 -- ── Teardown (in case a previous run left rows) ──────────────────────
+delete from public.transacciones where user_id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222'
+);
+delete from public.categorias where user_id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222'
+);
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',
   '22222222-2222-2222-2222-222222222222'
@@ -56,6 +64,7 @@ begin
   insert into public.categorias (nombre, tipo, user_id)
   values ('A-custom','gasto','11111111-1111-1111-1111-111111111111');
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
 end $$;
 
@@ -71,8 +80,26 @@ begin
   select count(*) into n from public.transacciones where nota = 'A-secret';
   if n <> 0 then raise exception 'TEST 1 FAILED: B sees % of A''s transactions', n; end if;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   raise notice 'TEST 1 PASSED: B cannot read A transactions';
+end $$;
+
+-- ── TEST 1b: A CAN SELECT its own transaction ─────────────────────────
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub','11111111-1111-1111-1111-111111111111',
+                      'role','authenticated')::text, true);
+  set local role authenticated;
+
+  select count(*) into n from public.transacciones where nota = 'A-secret';
+  if n <> 1 then raise exception 'TEST 1b FAILED: A cannot read its own transaction (count=%)', n; end if;
+
+  perform set_config('request.jwt.claims', '{}', true);
+  reset role;
+  raise notice 'TEST 1b PASSED: A reads its own transaction';
 end $$;
 
 -- ── TEST 2: B cannot SELECT A's custom category ──────────────────────
@@ -87,6 +114,7 @@ begin
   select count(*) into n from public.categorias where nombre = 'A-custom';
   if n <> 0 then raise exception 'TEST 2 FAILED: B sees A''s custom category'; end if;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   raise notice 'TEST 2 PASSED: B cannot read A custom category';
 end $$;
@@ -103,6 +131,7 @@ begin
   select count(*) into n from public.categorias where user_id is null;
   if n = 0 then raise exception 'TEST 3 FAILED: B cannot read system categories'; end if;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   raise notice 'TEST 3 PASSED: B reads system categories';
 end $$;
@@ -122,6 +151,7 @@ begin
   select count(*) into n from upd;
   if n <> 0 then raise exception 'TEST 4 FAILED: B updated % of A''s rows', n; end if;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   raise notice 'TEST 4 PASSED: B cannot update A transactions';
 end $$;
@@ -139,10 +169,11 @@ begin
     insert into public.transacciones (tipo, ambito, user_id, categoria_id, monto)
     values ('gasto','personal','22222222-2222-2222-2222-222222222222',
             (select id from public.categorias where user_id is null limit 1), 5);
-  exception when others then
+  exception when insufficient_privilege then
     ok := true; -- RLS rejected, as expected
   end;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   if not ok then raise exception 'TEST 5 FAILED: A inserted a row owned by B'; end if;
   raise notice 'TEST 5 PASSED: A cannot insert rows owned by B';
@@ -161,14 +192,23 @@ begin
   where user_id = '11111111-1111-1111-1111-111111111111';
   if n <> 0 then raise exception 'TEST 6 FAILED: B sees A''s profile'; end if;
 
+  perform set_config('request.jwt.claims', '{}', true);
   reset role;
   raise notice 'TEST 6 PASSED: B cannot read A profile';
 end $$;
 
 -- ── Teardown ─────────────────────────────────────────────────────────
+delete from public.transacciones where user_id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222'
+);
+delete from public.categorias where user_id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222'
+);
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',
   '22222222-2222-2222-2222-222222222222'
 );
 
-select 'ALL TESTS PASSED' as result;
+select 'ALL TESTS PASSED (7 tests)' as result;
