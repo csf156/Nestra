@@ -64,6 +64,25 @@ async function login(email, password) {
   }
 }
 
+// signInWithGoogle() — Start Google OAuth redirect flow
+// Returns: undefined (browser redirects away; session handled on return)
+// Side effects: redirects to Google; on return, onAuthStateChange fires SIGNED_IN
+async function signInWithGoogle() {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error) {
+      console.error('Google OAuth error:', error.message);
+      throw new Error(error.message);
+    }
+  } catch (err) {
+    console.error('Unexpected error in signInWithGoogle():', err);
+    throw err;
+  }
+}
+
 // logout() — Sign out and clear state
 // Returns: undefined
 // Side effects: clears localStorage, resets memory, closes realtime, redirects to #login
@@ -187,15 +206,26 @@ function handleSessionExpired() {
 
 // setupAuthStateListener() — React to Supabase auth events
 // Returns: undefined
-// Side effects: subscribes to onAuthStateChange; on SIGNED_OUT / lost session
-//               (e.g. expired token, failed refresh) it auto-redirects to #login.
+// Side effects: subscribes to onAuthStateChange; on SIGNED_IN (incl. OAuth redirect return)
+//               rehydrates user/profile; on SIGNED_OUT / lost session (e.g. expired token,
+//               failed refresh) it auto-redirects to #login.
 function setupAuthStateListener() {
   if (!supabase || !supabase.auth || typeof supabase.auth.onAuthStateChange !== 'function') {
     return;
   }
 
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabase.auth.onAuthStateChange(async (event, session) => {
     console.log('Auth state change:', event);
+    // Fresh sign-in (incl. OAuth redirect return) — rehydrate + go to app
+    if (event === 'SIGNED_IN' && session && session.user) {
+      window.currentUser = session.user;
+      localStorage.setItem('sb-token', session.access_token);
+      try { await loadProfile(session.user.id); } catch (e) { /* profile created by trigger */ }
+      if (typeof updateUserChip === 'function') updateUserChip();
+      if (window.location.hash === '#login' || window.location.hash === '') {
+        window.location.hash = '#dashboard';
+      }
+    }
     // Token expired and refresh failed, user signed out, or account removed
     if (event === 'SIGNED_OUT' || ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && !session)) {
       handleSessionExpired();
