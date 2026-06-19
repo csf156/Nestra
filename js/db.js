@@ -554,9 +554,10 @@ async function getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta)
 // Returns: fila insertada. Lanza Error en fallo.
 async function insertCategoria(datos) {
   try {
+    const fila = { ...datos, user_id: _requireUserId() };
     const { data, error } = await supabase
       .from('categorias')
-      .insert(datos)
+      .insert(fila)
       .select()
       .single();
     if (error) throw error;
@@ -802,17 +803,13 @@ async function getAporteMetaMes(meta_id, mes, anio) {
 // insertMeta(datos) — crea meta.
 // datos: { nombre, tipo, horizonte, ambito, monto_objetivo,
 //          fecha_limite, monto_actual?, fecha_inicio?, nota?, categoria_id? }
-// Para ambito 'personal' se fuerza user_id al usuario activo; para
-// 'hogar' se fuerza user_id NULL (RLS exige esta atribución).
+// Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
 // Returns: fila insertada. Lanza Error en fallo.
 async function insertMeta(datos) {
   try {
     const fila = { ...datos };
-    if (datos.ambito === 'personal') {
-      fila.user_id = _requireUserId();
-    } else {
-      fila.user_id = null;
-    }
+    // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
+    fila.user_id = _requireUserId();
     const { data, error } = await supabase
       .from('metas')
       .insert(fila)
@@ -913,7 +910,7 @@ async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
   try {
     const { data, error } = await supabase
       .from('prestamos')
-      .insert({ transaccion_id, deudor, estado })
+      .insert({ transaccion_id, deudor, estado, user_id: _requireUserId() })
       .select()
       .single();
     if (error) throw error;
@@ -1007,17 +1004,14 @@ async function getDesafios(estado = null) {
 // insertDesafio(datos) — crea desafío.
 // datos: { titulo, ambito, duracion_dias, descripcion?, fecha_inicio?,
 //          categoria_id? }
-// Para 'personal' fuerza user_id al activo; para 'hogar' fuerza NULL.
+// Fase 0: owner-scoped (hogar sharing deferred to Fase 5).
 // fecha_fin se calcula en la BD (columna generada).
 // Returns: fila insertada. Lanza Error en fallo.
 async function insertDesafio(datos) {
   try {
     const fila = { ...datos };
-    if (datos.ambito === 'personal') {
-      fila.user_id = _requireUserId();
-    } else {
-      fila.user_id = null;
-    }
+    // Fase 0: owner-scoped (hogar sharing deferred to Fase 5).
+    fila.user_id = _requireUserId();
     const { data, error } = await supabase
       .from('desafios')
       .insert(fila)
