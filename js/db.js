@@ -69,6 +69,14 @@ async function _mirroredRead(store, fetcher) {
 }
 
 
+// _isNetworkError(err) — heurística: ¿el fallo es por falta de red?
+function _isNetworkError(err) {
+  if (!navigator.onLine) return true;
+  const msg = (err && (err.message || err)) + '';
+  return /failed to fetch|networkerror|load failed|fetch/i.test(msg);
+}
+
+
 // ═══════════════════════════════════════════════════════════════════
 // TRANSACCIONES
 // ═══════════════════════════════════════════════════════════════════
@@ -126,35 +134,43 @@ async function getUltimasTransacciones(limite = 5) {
 // insertTransaccion(datos) — crea una transacción.
 // datos: { tipo, ambito, categoria_id, monto, fecha?, nota? }
 // El user_id se fuerza al usuario activo (RLS exige auth.uid()=user_id).
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertTransaccion(datos) {
+  const userId = _requireUserId();
+  const fila = {
+    id:           crypto.randomUUID(),
+    tipo:         datos.tipo,
+    ambito:       datos.ambito,
+    categoria_id: datos.categoria_id,
+    monto:        datos.monto,
+    nota:         datos.nota ?? null,
+    user_id:      userId,
+    fecha:        datos.fecha || undefined,
+    updated_at:   new Date().toISOString(),
+  };
+  if (!fila.fecha) delete fila.fecha;
+
+  if (!navigator.onLine) {
+    await outboxAdd('transacciones', fila);
+    await mirrorPut('transacciones', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
+
   try {
-    const userId = _requireUserId();
-    const fila = {
-      tipo:         datos.tipo,
-      ambito:       datos.ambito,
-      categoria_id: datos.categoria_id,
-      monto:        datos.monto,
-      nota:         datos.nota ?? null,
-      user_id:      userId,
-    };
-    if (datos.fecha) fila.fecha = datos.fecha;
-
     const { data, error } = await supabase
-      .from('transacciones')
-      .insert(fila)
-      .select()
-      .single();
+      .from('transacciones').insert(fila).select().single();
     if (error) throw error;
-
-    // Si es un gasto en categoría "Ahorro", repartir entre las metas personales
-    // vía RPC atómico. Best-effort: la transacción ya existe (balance correcto);
-    // un fallo del reparto NO debe revertirla ni propagarse.
-    if (data.tipo === 'gasto') {
-      await _distribuirSiAhorro(data);
-    }
+    if (data.tipo === 'gasto') await _distribuirSiAhorro(data);
+    await mirrorPut('transacciones', data);
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('transacciones', fila);
+      await mirrorPut('transacciones', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertTransaccion():', err.message || err);
     throw err;
   }
@@ -268,6 +284,7 @@ async function deleteTransaccion(id) {
 // Returns: array con las dos filas insertadas. Lanza Error en fallo.
 async function insertAporteHogar(monto, categoria_id, nota, fecha) {
   try {
+    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const userId = _requireUserId();
     const aporteId = crypto.randomUUID();
 
@@ -820,20 +837,28 @@ async function getAporteMetaMes(meta_id, mes, anio) {
 // datos: { nombre, tipo, horizonte, ambito, monto_objetivo,
 //          fecha_limite, monto_actual?, fecha_inicio?, nota?, categoria_id? }
 // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertMeta(datos) {
+  const fila = { ...datos, id: crypto.randomUUID(), user_id: _requireUserId(), updated_at: new Date().toISOString() };
+
+  if (!navigator.onLine) {
+    await outboxAdd('metas', fila);
+    await mirrorPut('metas', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
   try {
-    const fila = { ...datos };
-    // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
-    fila.user_id = _requireUserId();
-    const { data, error } = await supabase
-      .from('metas')
-      .insert(fila)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('metas').insert(fila).select().single();
     if (error) throw error;
+    await mirrorPut('metas', data);
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('metas', fila);
+      await mirrorPut('metas', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertMeta():', err.message || err);
     throw err;
   }
@@ -880,6 +905,7 @@ async function deleteMeta(id) {
 // Returns: id (uuid) de la transacción creada. Lanza Error en fallo.
 async function insertAporteDirecto(meta_id, monto, fecha, nota) {
   try {
+    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const { data, error } = await supabase.rpc('aporte_directo_meta', {
       p_meta_id: meta_id,
       p_monto: monto,
@@ -916,17 +942,28 @@ async function getPrestamos(estado = null) {
 // insertPrestamo(transaccion_id, deudor, estado?) — registra un préstamo nuevo.
 // estado: 'pendiente' (default) | 'devuelto' (para registrar préstamos ya saldados).
 // Llamar DESPUÉS de insertar la transacción de gasto asociada.
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
+  const fila = { id: crypto.randomUUID(), transaccion_id, deudor, estado, user_id: _requireUserId(), updated_at: new Date().toISOString() };
+
+  if (!navigator.onLine) {
+    await outboxAdd('prestamos', fila);
+    await mirrorPut('prestamos', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
   try {
-    const { data, error } = await supabase
-      .from('prestamos')
-      .insert({ transaccion_id, deudor, estado, user_id: _requireUserId() })
-      .select()
-      .single();
+    const { data, error } = await supabase.from('prestamos').insert(fila).select().single();
     if (error) throw error;
+    await mirrorPut('prestamos', data);
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('prestamos', fila);
+      await mirrorPut('prestamos', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertPrestamo():', err.message || err);
     throw err;
   }
