@@ -375,18 +375,18 @@
         }
       });
     </script>
-    <script>
-      // Registro del Service Worker (PWA). El prompt de instalación y la lógica
-      // ampliada llegan en js/pwa.js (Task 9).
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('sw.js').then(function (reg) {
-            console.log('SW registrado, scope:', reg.scope);
-          }).catch(function (err) {
-            console.error('SW registro falló:', err);
-          });
-        });
-      }
-    </script>
+    <!-- Prompt de instalación PWA (custom; oculto por defecto) -->
+    <div id="installPrompt" class="install-prompt" role="dialog" aria-labelledby="installPromptTitle" hidden>
+      <img src="assets/icon-192.png" alt="" class="install-prompt-icon" width="44" height="44">
+      <div class="install-prompt-body">
+        <p class="install-prompt-title" id="installPromptTitle">Instala Nestra</p>
+        <p class="install-prompt-text" id="installPromptText">Añádela a tu pantalla de inicio para abrirla como una app.</p>
+      </div>
+      <div class="install-prompt-actions">
+        <button type="button" class="btn btn-secondary btn-small" id="installDismiss">Ahora no</button>
+        <button type="button" class="btn btn-primary btn-small" id="installAccept">Instalar</button>
+      </div>
+    </div>
+    <script src="js/pwa.js"></script>
 </body>
 </html>
