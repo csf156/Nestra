@@ -13,8 +13,11 @@ async function _serverRow(entity, id) {
   return data || null;
 }
 
-// _replayOp(op) — sincroniza una operación de alta. Devuelve true si se completó
-// (y debe quitarse de la outbox), false si debe reintentarse luego.
+// _replayOp(op) — sincroniza una operación de alta. Devuelve:
+//   'done'  → completada, quitar de la outbox.
+//   'retry' → error de RED: cortar el lote y reintentar en el próximo disparo.
+//   'skip'  → error real por fila (validación/constraint/RLS): marcada 'error',
+//             NO bloquea a las siguientes ops del lote.
 async function _replayOp(op) {
   const { entity, payload } = op;
   try {
@@ -22,23 +25,25 @@ async function _replayOp(op) {
     const winner = window.lwwWinner(payload, server);
     if (winner === 'server') {
       if (server) await mirrorPut(entity, server);
-      return true;
+      return 'done';
     }
     const { data, error } = await supabase.from(entity).upsert(payload, { onConflict: 'id' }).select().single();
     if (error) throw error;
     await mirrorPut(entity, data);
-    return true;
+    return 'done';
   } catch (err) {
     if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) {
-      return false; // error de red → reintentar luego, sigue pending
+      return 'retry'; // error de red → reintentar luego, sigue pending
     }
     console.error('Sync op fallida (entity=' + entity + ', id=' + payload.id + '):', err.message || err);
     await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
-    return false;
+    return 'skip'; // error real → no reintentar, pero no bloquea al resto del lote
   }
 }
 
 // syncOutbox() — vacía la outbox FIFO. Idempotente y reentrante-seguro.
+// Una fila con error real ('skip') no detiene al resto; solo un error de red
+// ('retry') corta el lote para reintentar entero en el próximo disparo.
 async function syncOutbox() {
   if (_syncing || !navigator.onLine) return;
   if (typeof isAuthenticated === 'function' && !isAuthenticated()) return;
@@ -47,9 +52,10 @@ async function syncOutbox() {
     const ops = await outboxPending();
     for (const op of ops) {
       if (op.status === 'error') continue; // requiere intervención; no reintentar en bucle
-      const done = await _replayOp(op);
-      if (done) await outboxRemove(op.op_id);
-      else break; // corte por red: parar y reintentar en el próximo disparo
+      const result = await _replayOp(op);
+      if (result === 'done') await outboxRemove(op.op_id);
+      else if (result === 'retry') break; // corte por red
+      // 'skip' → seguir con la siguiente op del lote
     }
   } finally {
     _syncing = false;
