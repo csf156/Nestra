@@ -115,6 +115,9 @@
             integrity="sha384-p3ppjAbdEPObbT9B8J3Jc/6aBp2Gl54cFACgyZjDVLaR3+KwIc+eeU9V6vqHa/Ml"
             crossorigin="anonymous"></script>
 
+    <!-- IndexedDB (idb vendorizado) -->
+    <script src="js/vendor/idb-umd.js"></script>
+
     <!-- Application Scripts (in order) -->
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
@@ -128,6 +131,9 @@
             integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3"
             crossorigin="anonymous"></script>
     <script src="js/export.js"></script>
+    <!-- PWA / offline: comparador LWW (módulo: expone window.lwwWinner) + capa IndexedDB -->
+    <script type="module" src="js/sync-lww.js"></script>
+    <script src="js/nestra-db.js"></script>
     <script src="js/db.js"></script>
     <script src="js/alerts.js"></script>
     <script src="js/router.js"></script>
