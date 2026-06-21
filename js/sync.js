@@ -86,9 +86,23 @@ window.syncOutbox = syncOutbox;
 window.notifyPendingChanged = notifyPendingChanged;
 
 // ── UI: banner offline + badge de pendientes ──────────────────
+// El banner es fijo; medimos su altura real y la exponemos en
+// --offline-banner-h para que el CSS empuje el contenido (y la sidebar en
+// desktop) y NO lo tape. La clase body.nestra-offline activa ese empuje.
 function _updateOfflineBanner() {
   const b = document.getElementById('offlineBanner');
-  if (b) b.hidden = navigator.onLine;
+  if (!b) return;
+  const offline = !navigator.onLine;
+  b.hidden = !offline;
+  document.body.classList.toggle('nestra-offline', offline);
+  if (offline) {
+    // Leer offsetHeight fuerza el layout: alto real disponible al instante
+    // (sin depender de requestAnimationFrame, que no corre si la pestaña
+    // no está visible).
+    document.body.style.setProperty('--offline-banner-h', b.offsetHeight + 'px');
+  } else {
+    document.body.style.removeProperty('--offline-banner-h');
+  }
 }
 function _updatePendingBadge(count) {
   const badge = document.getElementById('pendingBadge');

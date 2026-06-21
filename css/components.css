@@ -1328,10 +1328,14 @@ hr, .divider {
 }
 
 /* ── PWA: banner offline + badge pendientes ───────────────────── */
+/* Mobile-first. Banner FIJO arriba (el body es flex-column en móvil y
+   flex-row en desktop, así que no puede ir en flujo). Para no TAPAR nada,
+   js/sync.js mide su altura en --offline-banner-h y empujamos el contenido
+   (y la sidebar en desktop) esa misma cantidad. */
 .offline-banner {
   position: fixed;
   top: 0; left: 0; right: 0;
-  z-index: 1000;
+  z-index: 1100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1341,17 +1345,26 @@ hr, .divider {
   color: #1f2937;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
+  text-align: center;
   box-shadow: var(--shadow-sm);
-  animation: offlineSlideDown 0.2s ease-out;
+  animation: offlineFade 0.2s ease-out;
 }
 .offline-banner[hidden] { display: none; }
-@keyframes offlineSlideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@keyframes offlineFade { from { opacity: 0; } to { opacity: 1; } }
+/* Empujar el contenido para que el banner fijo no lo tape. */
+body.nestra-offline main { padding-top: var(--offline-banner-h, 0px); }
+/* Desktop: el nav es sidebar fija (top:0); bajarla bajo el banner también. */
+@media (min-width: 768px) {
+  body.nestra-offline nav { top: var(--offline-banner-h, 0px); }
+}
 
 .pending-badge {
   position: fixed;
-  bottom: calc(var(--space-lg) + 64px); /* sobre el FAB */
+  /* Sobre el nav inferior móvil (60px) y por encima del FAB (52px),
+     para no taparlos. */
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 52px + var(--space-md));
   right: var(--space-lg);
-  z-index: 999;
+  z-index: 95;
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
@@ -1374,7 +1387,10 @@ hr, .divider {
 /* ── PWA: prompt de instalación custom ─────────────────────────── */
 .install-prompt {
   position: fixed;
-  left: 50%; bottom: var(--space-lg);
+  left: 50%;
+  /* Apilado por encima del nav (60px), el FAB (52px) y el badge, para no
+     tapar ninguno. Mobile-first; es un bottom-sheet descartable. */
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 52px + var(--space-md) + 56px);
   transform: translateX(-50%);
   z-index: 1001;
   display: flex;
