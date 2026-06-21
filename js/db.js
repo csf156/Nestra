@@ -78,25 +78,31 @@ async function _mirroredRead(store, fetcher) {
 //                               fecha_desde, fecha_hasta }
 // Returns: array de transacciones (con categoria embebida) o [].
 async function getTransacciones(filtros = {}) {
-  return _mirroredRead('transacciones', async () => {
-    let query = supabase
+  // Fetch SIN filtros server-side: así el espejo guarda SIEMPRE el set completo y
+  // una llamada filtrada (p.ej. getGastoCategoria) no lo sobreescribe parcialmente.
+  // Los filtros y el orden se aplican en cliente (online y offline por igual).
+  const rows = await _mirroredRead('transacciones', async () => {
+    const { data, error } = await supabase
       .from('transacciones')
-      .select('*, categorias(nombre, tipo, color, icono)')
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    if (filtros.ambito)       query = query.eq('ambito', filtros.ambito);
-    if (filtros.categoria_id) query = query.eq('categoria_id', filtros.categoria_id);
-    if (filtros.tipo)         query = query.eq('tipo', filtros.tipo);
-    if (filtros.fecha_desde)  query = query.gte('fecha', filtros.fecha_desde);
-    if (filtros.fecha_hasta)  query = query.lte('fecha', filtros.fecha_hasta);
-
-    const { data, error } = await query;
+      .select('*, categorias(nombre, tipo, color, icono)');
     if (error) throw error;
-    // Offline el espejo devuelve TODAS las transacciones (sin aplicar `filtros`);
-    // aceptable en Fase 1 (las vistas re-filtran en cliente lo que necesitan).
     return data || [];
   });
+
+  const out = rows.filter((t) =>
+    (!filtros.ambito       || t.ambito === filtros.ambito) &&
+    (!filtros.categoria_id || t.categoria_id === filtros.categoria_id) &&
+    (!filtros.tipo         || t.tipo === filtros.tipo) &&
+    (!filtros.fecha_desde  || t.fecha >= filtros.fecha_desde) &&
+    (!filtros.fecha_hasta  || t.fecha <= filtros.fecha_hasta)
+  );
+  // Orden: fecha desc, luego created_at desc (fechas/ISO comparables como string).
+  out.sort((a, b) => {
+    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+    const ca = a.created_at || '', cb = b.created_at || '';
+    return ca < cb ? 1 : (ca > cb ? -1 : 0);
+  });
+  return out;
 }
 
 // getUltimasTransacciones(limite) — N transacciones más recientes.
