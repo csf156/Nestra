@@ -29,7 +29,8 @@ create table public.categorias (
   limite_mensual  numeric(10,2),
   color           text,
   icono           text,
-  estado          text not null default 'activa' check (estado in ('activa', 'archivada'))
+  estado          text not null default 'activa' check (estado in ('activa', 'archivada')),
+  updated_at      timestamptz not null default now()
 );
 
 -- 1.3 transacciones (tipo incluye 'ahorro'; columna es_aporte_directo)
@@ -44,7 +45,8 @@ create table public.transacciones (
   nota              text,
   aporte_id         uuid,
   es_aporte_directo boolean not null default false,
-  created_at        timestamptz not null default now()
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
 -- 1.4 prestamos (incluye fecha_devolucion de migración 20260608)
@@ -54,7 +56,8 @@ create table public.prestamos (
   transaccion_id   uuid not null references public.transacciones (id) on delete cascade,
   deudor           text not null,
   estado           text not null default 'pendiente' check (estado in ('pendiente', 'devuelto')),
-  fecha_devolucion date
+  fecha_devolucion date,
+  updated_at       timestamptz not null default now()
 );
 
 -- 1.5 metas (importancia, es_fondo_emergencia, categoria_id; nullable objetivo/fecha/horizonte)
@@ -74,6 +77,7 @@ create table public.metas (
   importancia          int not null default 3 check (importancia between 1 and 5),
   es_fondo_emergencia  boolean not null default false,
   categoria_id         uuid references public.categorias (id) on delete set null,
+  updated_at           timestamptz not null default now(),
   constraint metas_monto_objetivo_check check (monto_objetivo > 0),
   constraint metas_monto_actual_check   check (monto_actual >= 0),
   constraint metas_fondo_o_completa_check check (
@@ -122,7 +126,44 @@ create table public.categorias_favoritas (
 
 
 -- =====================================================================
--- 2. ÍNDICES
+-- 2. FUNCIÓN Y TRIGGERS updated_at (LWW offline sync)
+-- =====================================================================
+
+-- 2.1 Función trigger compartida: sella updated_at en cada UPDATE.
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+-- 2.2 Triggers por tabla (drop+create para reaplicar sin error).
+drop trigger if exists trg_transacciones_updated_at on public.transacciones;
+create trigger trg_transacciones_updated_at
+  before update on public.transacciones
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_categorias_updated_at on public.categorias;
+create trigger trg_categorias_updated_at
+  before update on public.categorias
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_metas_updated_at on public.metas;
+create trigger trg_metas_updated_at
+  before update on public.metas
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_prestamos_updated_at on public.prestamos;
+create trigger trg_prestamos_updated_at
+  before update on public.prestamos
+  for each row execute function public.set_updated_at();
+
+
+-- =====================================================================
+-- 3. ÍNDICES
 -- =====================================================================
 
 create index idx_transacciones_user_id      on public.transacciones (user_id);
@@ -149,7 +190,7 @@ create index idx_categorias_favoritas_user_id on public.categorias_favoritas (us
 
 
 -- =====================================================================
--- 3. VISTA metas_con_progreso
+-- 4. VISTA metas_con_progreso
 -- =====================================================================
 
 create view public.metas_con_progreso
@@ -183,7 +224,7 @@ grant select on public.aportes_meta        to authenticated;
 
 
 -- =====================================================================
--- 4. ROW LEVEL SECURITY
+-- 5. ROW LEVEL SECURITY
 -- =====================================================================
 
 alter table public.profiles               enable row level security;
@@ -272,10 +313,10 @@ create policy "desafios_delete" on public.desafios for delete
 
 
 -- =====================================================================
--- 5. FUNCIONES Y TRIGGERS
+-- 6. FUNCIONES Y TRIGGERS
 -- =====================================================================
 
--- 5.1 Proteger fondo de emergencia contra degradación vía UPDATE
+-- 6.1 Proteger fondo de emergencia contra degradación vía UPDATE
 create or replace function public.metas_proteger_fondo()
 returns trigger language plpgsql as $$
 begin
@@ -291,7 +332,7 @@ create trigger metas_proteger_fondo
   for each row execute function public.metas_proteger_fondo();
 
 
--- 5.2 Creación automática de perfil + fondo personal al registrar usuario
+-- 6.2 Creación automática de perfil + fondo personal al registrar usuario
 create or replace function public.handle_new_user()
 returns trigger language plpgsql
 security definer set search_path = public
@@ -326,7 +367,7 @@ create trigger on_auth_user_created
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 
--- 5.3 distribuir_ahorro — reparte transacción de ahorro personal entre metas
+-- 6.3 distribuir_ahorro — reparte transacción de ahorro personal entre metas
 create or replace function public.distribuir_ahorro(p_transaccion_id uuid)
 returns void language plpgsql
 security definer set search_path = public
@@ -434,7 +475,7 @@ grant  execute on function public.distribuir_ahorro(uuid) to authenticated;
 revoke execute on function public.distribuir_ahorro(uuid) from anon, public;
 
 
--- 5.4 distribuir_aporte_hogar — reparte ingreso de hogar entre metas del hogar
+-- 6.4 distribuir_aporte_hogar — reparte ingreso de hogar entre metas del hogar
 create or replace function public.distribuir_aporte_hogar(p_aporte_id uuid)
 returns void language plpgsql
 security definer set search_path = public
@@ -547,7 +588,7 @@ grant  execute on function public.distribuir_aporte_hogar(uuid) to authenticated
 revoke execute on function public.distribuir_aporte_hogar(uuid) from anon, public;
 
 
--- 5.5 aporte_directo_meta — aporte 100% a una meta específica
+-- 6.5 aporte_directo_meta — aporte 100% a una meta específica
 create or replace function public.aporte_directo_meta(
   p_meta_id uuid,
   p_monto   numeric,
@@ -641,7 +682,7 @@ revoke execute on function public.aporte_directo_meta(uuid, numeric, date, text)
 
 
 -- =====================================================================
--- 6. REALTIME
+-- 7. REALTIME
 -- =====================================================================
 
 alter publication supabase_realtime add table public.profiles;
@@ -653,7 +694,7 @@ alter publication supabase_realtime add table public.desafios;
 
 
 -- =====================================================================
--- 7. DATOS SEMILLA
+-- 8. DATOS SEMILLA
 -- =====================================================================
 
 -- 7.1 Categorías de gasto (21)
