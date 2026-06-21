@@ -52,6 +52,22 @@ function _requireUserId() {
   return user.id;
 }
 
+// _mirroredRead(store, fetcher) — ejecuta `fetcher()` (query a Supabase).
+// Online OK → espeja el resultado en IndexedDB y lo devuelve.
+// Fallo/offline → devuelve el espejo local de `store`.
+async function _mirroredRead(store, fetcher) {
+  try {
+    if (!navigator.onLine) throw new Error('offline');
+    const rows = await fetcher();
+    if (typeof mirrorReplace === 'function') await mirrorReplace(store, rows);
+    return rows;
+  } catch (err) {
+    console.warn('_mirroredRead(' + store + ') usa espejo local:', err.message || err);
+    if (typeof mirrorGetAll === 'function') return await mirrorGetAll(store);
+    return [];
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════════════
 // TRANSACCIONES
@@ -62,7 +78,7 @@ function _requireUserId() {
 //                               fecha_desde, fecha_hasta }
 // Returns: array de transacciones (con categoria embebida) o [].
 async function getTransacciones(filtros = {}) {
-  try {
+  return _mirroredRead('transacciones', async () => {
     let query = supabase
       .from('transacciones')
       .select('*, categorias(nombre, tipo, color, icono)')
@@ -77,11 +93,10 @@ async function getTransacciones(filtros = {}) {
 
     const { data, error } = await query;
     if (error) throw error;
+    // Offline el espejo devuelve TODAS las transacciones (sin aplicar `filtros`);
+    // aceptable en Fase 1 (las vistas re-filtran en cliente lo que necesitan).
     return data || [];
-  } catch (err) {
-    console.error('Error en getTransacciones():', err.message || err);
-    return [];
-  }
+  });
 }
 
 // getUltimasTransacciones(limite) — N transacciones más recientes.
@@ -463,22 +478,20 @@ async function getAhorrosPersonal(mes, anio) {
 
 // getCategorias(tipo) — categorías activas. tipo opcional: 'gasto'|'ingreso'.
 // Returns: array ordenado por nombre o [].
+// El fetcher trae TODAS las categorías (sin filtrar por estado/tipo) para que
+// el espejo IndexedDB siempre contenga el conjunto completo. El filtrado se
+// aplica en cliente para que offline también funcione correctamente.
 async function getCategorias(tipo = null, incluirArchivadas = false) {
-  try {
-    let query = supabase
-      .from('categorias')
-      .select('*')
-      .order('nombre', { ascending: true });
-    if (!incluirArchivadas) query = query.eq('estado', 'activa');
-    if (tipo) query = query.eq('tipo', tipo);
-
-    const { data, error } = await query;
+  const rows = await _mirroredRead('categorias', async () => {
+    const { data, error } = await supabase
+      .from('categorias').select('*').order('nombre', { ascending: true });
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getCategorias():', err.message || err);
-    return [];
-  }
+  });
+  // Filtrado client-side (aplica también al espejo offline).
+  return rows.filter((c) =>
+    (incluirArchivadas || c.estado === 'activa') && (!tipo || c.tipo === tipo)
+  );
 }
 
 // getCategoriasConFavorito(tipo?) — todas las categorías activas (de `tipo` si se da)
@@ -726,21 +739,18 @@ async function updateProfile(datos) {
 // Incluye importancia y es_fondo_emergencia. Los fondos (fecha_limite NULL) van al
 // final del orden (nullsFirst: false). ambito opcional: 'personal' | 'hogar'.
 // Returns: array o [].
+// Online: lee la vista metas_con_progreso (cálculos en BD). Mirror almacenado bajo
+// store 'metas'. Offline: devuelve el espejo completo, filtrado por ambito en cliente.
 async function getMetas(ambito = null) {
-  try {
-    let query = supabase
+  const rows = await _mirroredRead('metas', async () => {
+    const { data, error } = await supabase
       .from('metas_con_progreso')
       .select('*')
       .order('fecha_limite', { ascending: true, nullsFirst: false });
-    if (ambito) query = query.eq('ambito', ambito);
-
-    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getMetas():', err.message || err);
-    return [];
-  }
+  });
+  return ambito ? rows.filter((m) => m.ambito === ambito) : rows;
 }
 
 // getAportesDeMeta(meta_id) — aportes recibidos por una meta, con su transacción
@@ -887,19 +897,14 @@ async function insertAporteDirecto(meta_id, monto, fecha, nota) {
 // estado opcional: 'pendiente' | 'devuelto'.
 // Returns: array o [].
 async function getPrestamos(estado = null) {
-  try {
-    let query = supabase
+  const rows = await _mirroredRead('prestamos', async () => {
+    const { data, error } = await supabase
       .from('prestamos')
       .select('*, transacciones(fecha, monto, ambito, nota, user_id, tipo)');
-    if (estado) query = query.eq('estado', estado);
-
-    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getPrestamos():', err.message || err);
-    return [];
-  }
+  });
+  return estado ? rows.filter((p) => p.estado === estado) : rows;
 }
 
 // insertPrestamo(transaccion_id, deudor, estado?) — registra un préstamo nuevo.
