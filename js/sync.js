@@ -78,3 +78,27 @@ if ('serviceWorker' in navigator) {
 
 window.syncOutbox = syncOutbox;
 window.notifyPendingChanged = notifyPendingChanged;
+
+// ── UI: banner offline + badge de pendientes ──────────────────
+function _updateOfflineBanner() {
+  const b = document.getElementById('offlineBanner');
+  if (b) b.hidden = navigator.onLine;
+}
+function _updatePendingBadge(count) {
+  const badge = document.getElementById('pendingBadge');
+  const text = document.getElementById('pendingBadgeText');
+  if (!badge) return;
+  if (count > 0) {
+    badge.hidden = false;
+    if (text) text.textContent = count + (count === 1 ? ' cambio por sincronizar' : ' cambios por sincronizar');
+  } else {
+    badge.hidden = true;
+  }
+}
+window.addEventListener('online', _updateOfflineBanner);
+window.addEventListener('offline', _updateOfflineBanner);
+window.addEventListener('nestra:pending', (e) => _updatePendingBadge(e.detail.count));
+document.addEventListener('DOMContentLoaded', () => {
+  _updateOfflineBanner();
+  notifyPendingChanged();
+});

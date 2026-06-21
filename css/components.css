@@ -1326,3 +1326,47 @@ hr, .divider {
   vertical-align: -0.15em;
   flex-shrink: 0;
 }
+
+/* ── PWA: banner offline + badge pendientes ───────────────────── */
+.offline-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-warning, #f59e0b);
+  color: #1f2937;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-sm);
+  animation: offlineSlideDown 0.2s ease-out;
+}
+.offline-banner[hidden] { display: none; }
+@keyframes offlineSlideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+.pending-badge {
+  position: fixed;
+  bottom: calc(var(--space-lg) + 64px); /* sobre el FAB */
+  right: var(--space-lg);
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-md);
+}
+.pending-badge[hidden] { display: none; }
+.pending-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; opacity: 0.9;
+  animation: pendingPulse 1.4s ease-in-out infinite;
+}
+@keyframes pendingPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
