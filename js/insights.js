@@ -111,8 +111,60 @@ function detectCrecimiento(transacciones, opts) {
   return out.slice(0, 2);
 }
 
+// detectDiaAnomalo(transacciones, { hoy, factor?, minOcc?, minTotal? })
+// Detecta el día de la semana con gasto promedio ≥ factor× el promedio diario
+// global (ventana 90d, gasto de ambos ámbitos). Devuelve 1 insight info o [].
+function detectDiaAnomalo(transacciones, opts) {
+  const hoy = opts.hoy;
+  const FACTOR = opts.factor != null ? opts.factor : 1.8;
+  const MIN_OCC = opts.minOcc != null ? opts.minOcc : 6;
+  const MIN_TOTAL = opts.minTotal != null ? opts.minTotal : 100;
+  const desde = diaISO(restarDias(hoy, 90));
+  const hoyISO = diaISO(hoy);
+
+  const sumPorDia = [0, 0, 0, 0, 0, 0, 0];
+  const fechasPorWd = [new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()];
+  const fechasTotal = new Set();
+  let total = 0;
+  for (const t of transacciones) {
+    if (t.tipo !== 'gasto' || !t.fecha) continue;
+    if (t.fecha < desde || t.fecha > hoyISO) continue;
+    const wd = parseFechaISO(t.fecha).getDay();
+    const m = Number(t.monto);
+    sumPorDia[wd] += m; total += m;
+    fechasPorWd[wd].add(t.fecha); fechasTotal.add(t.fecha);
+  }
+  if (total < MIN_TOTAL || fechasTotal.size === 0) return [];
+  const promedioGlobalDia = total / fechasTotal.size;
+  if (promedioGlobalDia <= 0) return [];
+
+  let mejor = null;
+  for (let wd = 0; wd < 7; wd++) {
+    const occ = fechasPorWd[wd].size;
+    if (occ < MIN_OCC) continue;
+    const promWd = sumPorDia[wd] / occ;
+    const ratio = promWd / promedioGlobalDia;
+    if (ratio >= FACTOR && (!mejor || ratio > mejor.ratio)) {
+      mejor = { wd, ratio, promWd, occ };
+    }
+  }
+  if (!mejor) return [];
+
+  const otrosDias = fechasTotal.size - mejor.occ;
+  const promOtros = otrosDias > 0 ? (total - sumPorDia[mejor.wd]) / otrosDias : 0;
+  const veces = Math.round(mejor.ratio * 10) / 10;
+  const dia = DIAS_PLURAL[mejor.wd];
+  return [{
+    id: `dia-anomalo:${mejor.wd}`, tipo: 'info', icono: 'calendar-stats',
+    titulo: `Gastas ${veces}x más los ${dia}`,
+    subtexto: `${fmtS(mejor.promWd)} en promedio los ${dia} vs ${fmtS(promOtros)} los demás días`,
+    accion: null,
+    meta: { wd: mejor.wd, ratio: mejor.ratio, magnitud: Math.min(1, (mejor.ratio - 1) / 2) },
+  }];
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo };
