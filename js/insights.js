@@ -299,8 +299,38 @@ function detectBuenMes(transacciones, opts) {
   }];
 }
 
+const PESO_TIPO = { alert: 3, warn: 2, good: 1.5, info: 1 };
+
+// priorizar(insights, { cap? }) — calcula score, ordena desc y capa (default 6).
+function priorizar(insights, opts) {
+  const cap = (opts && opts.cap != null) ? opts.cap : 6;
+  const conScore = insights.map((i) => {
+    const peso = PESO_TIPO[i.tipo] != null ? PESO_TIPO[i.tipo] : 1;
+    const mag = (i.meta && typeof i.meta.magnitud === 'number') ? i.meta.magnitud : 0;
+    return Object.assign({}, i, { score: peso * (1 + mag) });
+  });
+  conScore.sort((a, b) => b.score - a.score);
+  return conScore.slice(0, cap);
+}
+
+// generarInsights({ transacciones, categorias, metas, hoy }) — orquesta todos
+// los detectores (cada uno aislado en try/catch), prioriza y capa. Puro.
+function generarInsights(datos) {
+  const transacciones = datos.transacciones || [];
+  const metas = datos.metas || [];
+  const opts = { hoy: datos.hoy || new Date() };
+  let all = [];
+  const corre = (fn, arg) => { try { all = all.concat(fn(arg, opts)); } catch (e) { console.error('insight detector falló:', e && e.message); } };
+  corre(detectCrecimiento, transacciones);
+  corre(detectDiaAnomalo, transacciones);
+  corre(detectProyeccionMeta, metas);
+  corre(detectRitmoMensual, transacciones);
+  corre(detectBuenMes, transacciones);
+  return priorizar(all, {});
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes, priorizar, generarInsights };
