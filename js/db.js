@@ -1005,7 +1005,8 @@ async function insertPresupuesto(datos) {
 }
 
 // updatePresupuesto(id, datos) — actualiza un presupuesto (p.ej. monto_limite).
-// Online-only (igual que updateMeta). Returns: fila actualizada. Lanza en fallo.
+// Online-only; refresca el espejo con la fila devuelta (incluye el updated_at
+// que sella el trigger set_updated_at, para LWW). Returns: fila. Lanza en fallo.
 async function updatePresupuesto(id, datos) {
   try {
     const { data, error } = await supabase
