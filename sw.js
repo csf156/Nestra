@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v1';
+const SHELL_VERSION = 'v2';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -41,6 +41,10 @@ precaching.precacheAndRoute([
   { url: 'assets/tabler-sprite.svg', revision: SHELL_VERSION },
   { url: 'assets/icon-192.png', revision: SHELL_VERSION },
   { url: 'assets/icon-512.png', revision: SHELL_VERSION },
+  { url: 'assets/fonts/Outfit-Regular.woff2', revision: SHELL_VERSION },
+  { url: 'assets/fonts/Outfit-SemiBold.woff2', revision: SHELL_VERSION },
+  { url: 'assets/fonts/PlayfairDisplay-Regular.woff2', revision: SHELL_VERSION },
+  { url: 'assets/fonts/PlayfairDisplay-SemiBold.woff2', revision: SHELL_VERSION },
 ]);
 
 // Vistas HTML (views/*.html) — el router las hace fetch. Stale-while-revalidate.

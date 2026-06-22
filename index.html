@@ -2,11 +2,22 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <script>
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('nestra-theme'); } catch (e) {}
+        if (t !== 'dark' && t !== 'light') t = 'dark';
+        document.documentElement.classList.add(t);
+      })();
+    </script>
+    <link rel="preload" href="assets/fonts/Outfit-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/PlayfairDisplay-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Nestra - Gestor de Finanzas Personales</title>
     <link rel="icon" type="image/png" href="assets/nestra_logo.png">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#08080f">
+    <meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">
 
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes">

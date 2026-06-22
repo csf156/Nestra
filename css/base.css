@@ -2,80 +2,74 @@
 /* Nestra — base.css: Variables, Reset, Tipografía, Temas         */
 /* ─────────────────────────────────────────────────────────────── */
 
+/* ── Fuentes self-hosted (PWA offline) ─────────────────────────── */
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/Outfit-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 600; font-display: swap; src: url('../assets/fonts/Outfit-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/PlayfairDisplay-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Playfair Display'; font-style: normal; font-weight: 600; font-display: swap; src: url('../assets/fonts/PlayfairDisplay-SemiBold.woff2') format('woff2'); }
+
 :root {
-  /* Colores — tema claro (default)
-     Paleta fintech: esmeralda primario, grises neutros                */
-  --color-primary: #059669;      /* esmeralda-600 — acciones, links   */
-  --color-secondary: #6b7280;    /* gris-500 — accento neutro          */
-  --color-danger: #ef4444;       /* rojo-500                           */
-  --color-warning: #f59e0b;      /* ámbar-500                          */
-  --color-success: #10b981;      /* esmeralda-500 — valores positivos  */
+  /* ── Paleta DARK (default) — editorial luxury ────────────────── */
+  --bg-light: #08080f;
+  --bg-light-secondary: #101019;
+  --text-dark: #f4f1ea;
+  --text-secondary: #a8a29a;
+  --border-light: rgba(255,255,255,0.08);
 
-  --bg-light: #ffffff;
-  --bg-light-secondary: #f9fafb;
-  --text-dark: #1f2937;
-  --text-secondary: #6b7280;
-  --border-light: #e5e7eb;
+  --color-primary: #c9a84c;
+  --accent-hover: #d9bb63;
+  --color-secondary: #a8a29a;
+  --color-success: #5ec98a;
+  --color-danger:  #f08a8a;
+  --color-warning: #e8b94a;
+  --color-info:    #6ea8e8;
 
-  /* Tipografía */
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-size-xs: 0.75rem;      /* 12px */
-  --font-size-sm: 0.875rem;     /* 14px */
-  --font-size-base: 1rem;       /* 16px */
-  --font-size-lg: 1.125rem;     /* 18px */
-  --font-size-xl: 1.25rem;      /* 20px */
-  --font-size-2xl: 1.5rem;      /* 24px */
-
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-size-xs: 0.75rem;  --font-size-sm: 0.875rem; --font-size-base: 1rem;
+  --font-size-lg: 1.125rem; --font-size-xl: 1.25rem;  --font-size-2xl: 1.5rem;
   --font-weight-normal: 400;
-  --font-weight-medium: 500;
+  --font-weight-medium: 400;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
+  --font-weight-bold: 600;
 
-  /* Espaciado */
-  --space-xs: 0.25rem;   /* 4px */
-  --space-sm: 0.5rem;    /* 8px */
-  --space-md: 1rem;      /* 16px */
-  --space-lg: 1.5rem;    /* 24px */
-  --space-xl: 2rem;      /* 32px */
+  --space-xs: 0.25rem; --space-sm: 0.5rem; --space-md: 1rem; --space-lg: 1.5rem; --space-xl: 2rem;
 
-  /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 12px -2px rgba(0,0,0,0.5);
+  --shadow-lg: 0 16px 32px -8px rgba(0,0,0,0.6);
 
-  /* Radio */
-  --radius-sm: 0.375rem;   /* 6px */
-  --radius-md: 0.5rem;     /* 8px */
-  --radius-lg: 0.75rem;    /* 12px */
+  --radius-sm: 0.375rem; --radius-md: 0.5rem; --radius-lg: 0.75rem;
 }
 
-/* Tema oscuro */
-html.dark {
-  --bg-light: #1f2937;
-  --bg-light-secondary: #111827;
-  --text-dark: #f9fafb;
-  --text-secondary: #d1d5db;
-  --border-light: #374151;
-  --color-primary: #34d399;      /* esmeralda-400 — contraste en fondo oscuro */
-  --color-secondary: #9ca3af;    /* gris-400                                   */
-  --color-success: #34d399;      /* esmeralda-400                              */
-  --color-danger: #f87171;       /* rojo-400 — más claro para contraste WCAG   */
-  --color-warning: #fbbf24;      /* ámbar-400                                  */
+/* ── Tema LIGHT — alterna coherente (paper cálido) ─────────────── */
+html.light {
+  --bg-light: #faf8f3;
+  --bg-light-secondary: #ffffff;
+  --text-dark: #1a1813;
+  --text-secondary: #6b655c;
+  --border-light: rgba(0,0,0,0.10);
+  --color-primary: #8a6d22;
+  --accent-hover: #a8842f;
+  --color-secondary: #6b655c;
+  --color-success: #1f7a4d;
+  --color-danger:  #b3261e;
+  --color-warning: #8a6315;
+  --color-info:    #2563c9;
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.10);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.10);
 }
-
-/* Respetar preferencia OS */
-@media (prefers-color-scheme: dark) {
-  html:not(.light) {
-    --bg-light: #1f2937;
-    --bg-light-secondary: #111827;
-    --text-dark: #f9fafb;
-    --text-secondary: #d1d5db;
-    --border-light: #374151;
-    --color-primary: #34d399;
-    --color-secondary: #9ca3af;
-    --color-success: #34d399;
-    --color-danger: #f87171;
-    --color-warning: #fbbf24;
+@media (prefers-color-scheme: light) {
+  html:not(.dark):not(.light) {
+    --bg-light: #faf8f3; --bg-light-secondary: #ffffff;
+    --text-dark: #1a1813; --text-secondary: #6b655c;
+    --border-light: rgba(0,0,0,0.10);
+    --color-primary: #8a6d22; --accent-hover: #a8842f; --color-secondary: #6b655c;
+    --color-success: #1f7a4d; --color-danger: #b3261e; --color-warning: #8a6315; --color-info: #2563c9;
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.10);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.10);
   }
 }
 
@@ -107,10 +101,8 @@ body {
 /* Tipografía */
 /* ─────────────────────────────────────────────────────────────── */
 
-h1, h2, h3, h4, h5, h6 {
-  font-weight: var(--font-weight-bold);
-  line-height: 1.25;
-}
+h1, h2, h3, h4, h5, h6 { font-weight: var(--font-weight-semibold); line-height: 1.25; }
+h1, h2 { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; }
 
 h1 {
   font-size: var(--font-size-2xl);
@@ -170,6 +162,14 @@ input, textarea, select {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+.signature-num {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
 }
 
 .container {
@@ -246,28 +246,4 @@ input, textarea, select {
 .badge-danger {
   background-color: #fee2e2;
   color: #991b1b;
-}
-
-/* Dark mode badge overrides — manual .dark class */
-html.dark .badge-warning {
-  background-color: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-}
-
-html.dark .badge-danger {
-  background-color: rgba(248, 113, 113, 0.15);
-  color: #f87171;
-}
-
-/* Dark mode badge overrides — OS preference */
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .badge-warning {
-    background-color: rgba(251, 191, 36, 0.15);
-    color: #fbbf24;
-  }
-
-  html:not(.light) .badge-danger {
-    background-color: rgba(248, 113, 113, 0.15);
-    color: #f87171;
-  }
 }
