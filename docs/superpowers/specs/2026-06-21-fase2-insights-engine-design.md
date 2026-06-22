@@ -42,7 +42,10 @@ previos (días 31–90). Montos en soles (S/).
 | 4 | Proyección de meta — en camino | `good` | `target-arrow` | ritmo de aporte proyecta alcanzar objetivo **≤ fecha_limite** | fecha_inicio pasada; monto_actual>0; ritmo>0; **no** fondo emergencia; tiene fecha_limite y monto_objetivo |
 | 5 | Proyección de meta — atrasada | `warn` | `target-arrow` | ritmo proyecta pasar fecha_limite (o no alcanzar) | mismos que #4 (el color del `tipo` distingue) |
 | 6 | Ritmo de gasto mensual | `warn`/`good` | `chart-line` | gasto proyectado a fin de mes (pace) se desvía **±15%** vs total del mes anterior (`warn` si sube, `good` si baja) | ≥5 días transcurridos del mes en curso; mes anterior con datos |
-| 7 | Buen mes / racha | `good` | `circle-check` | gasto del mes en curso < promedio mensual histórico **−15%** | ≥2 meses de historia |
+| 7 | Buen mes (mes cerrado) | `good` | `circle-check` | gasto del **mes calendario más reciente ya cerrado** < promedio de los meses cerrados previos **−15%** | ≥2 meses cerrados con datos (excluye el mes en curso) |
+
+Nota: #7 mira el último mes **cerrado** (no el en curso) para no solaparse con #6
+(que proyecta el mes en curso) y para comparar totales completos vs completos.
 
 Reglas transversales de precisión:
 - Nunca dividir por un baseline ~0 (los guards de monto mínimo lo impiden).
