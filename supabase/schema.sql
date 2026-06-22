@@ -252,12 +252,23 @@ create policy "profiles_update_propio"
   with check ((select auth.uid()) = user_id);
 
 -- 2.2 categorias ------------------------------------------------------
--- Compartidas: cualquier autenticado lee y escribe.
-create policy "categorias_todo_autenticados"
-  on public.categorias for all
+-- Owner-scoped (fase0) con semillas compartidas: user_id NULL = categoría
+-- del sistema/hogar, visible y editable por cualquier miembro autenticado;
+-- las propias (user_id) solo su dueño. (Migración 20260618 + fix
+-- 20260622_categorias_editables_hogar que permite editar/borrar las NULL.)
+create policy "categorias_select" on public.categorias for select
   to authenticated
-  using (true)
-  with check (true);
+  using (user_id is null or (select auth.uid()) = user_id);
+create policy "categorias_insert" on public.categorias for insert
+  to authenticated
+  with check ((select auth.uid()) = user_id);
+create policy "categorias_update" on public.categorias for update
+  to authenticated
+  using      (user_id is null or (select auth.uid()) = user_id)
+  with check (user_id is null or (select auth.uid()) = user_id);
+create policy "categorias_delete" on public.categorias for delete
+  to authenticated
+  using (user_id is null or (select auth.uid()) = user_id);
 
 -- 2.3 transacciones ---------------------------------------------------
 -- Lectura/edición/borrado: hogar compartido o propias. Pero la INSERCIÓN
