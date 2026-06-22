@@ -131,9 +131,23 @@ create table public.desafios (
   categoria_id   uuid references public.categorias (id) on delete set null
 );
 
+-- 1.7 presupuestos ----------------------------------------------------
+-- Límite mensual PERSONAL por categoría (por-usuario). Distinta de
+-- categorias.limite_mensual (global). RLS estricta por dueño.
+create table public.presupuestos (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users (id) on delete cascade,
+  categoria_id  uuid not null references public.categorias (id) on delete cascade,
+  monto_limite  numeric(10,2) not null check (monto_limite > 0),
+  periodo       text not null default 'mensual' check (periodo = 'mensual'),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (user_id, categoria_id, periodo)
+);
+
 
 -- =====================================================================
--- 1.7 ÍNDICES
+-- 1.8 ÍNDICES
 -- ---------------------------------------------------------------------
 -- PostgreSQL no crea índices automáticamente sobre columnas FK. Estos
 -- soportan los joins/filtros frecuentes y la evaluación de las políticas
@@ -162,7 +176,7 @@ create index idx_desafios_categoria_id      on public.desafios (categoria_id);
 
 
 -- =====================================================================
--- 1.8 VISTA metas_con_progreso
+-- 1.9 VISTA metas_con_progreso
 -- ---------------------------------------------------------------------
 -- Expone todas las columnas de metas EXCEPTO la columna física
 -- monto_actual, reemplazándola por la suma derivada de aportes_meta. Así
@@ -214,6 +228,7 @@ alter table public.prestamos     enable row level security;
 alter table public.metas         enable row level security;
 alter table public.aportes_meta  enable row level security;
 alter table public.desafios      enable row level security;
+alter table public.presupuestos  enable row level security;
 
 -- 2.1 profiles --------------------------------------------------------
 -- Lectura para cualquier autenticado (la app muestra ambos perfiles y
@@ -392,6 +407,14 @@ create policy "desafios_delete"
   on public.desafios for delete
   to authenticated
   using (ambito = 'hogar' or (select auth.uid()) = user_id);
+
+-- 2.7 presupuestos ----------------------------------------------------
+-- Estrictamente por dueño: cada usuario solo ve/edita los suyos.
+create policy "presupuestos_acceso"
+  on public.presupuestos for all
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 
 -- =====================================================================
