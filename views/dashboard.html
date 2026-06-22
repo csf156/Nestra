@@ -105,6 +105,7 @@
   }
   .dash-saludo {
     margin: 0;
+    font-family: var(--font-display);
     font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-bold);
     color: var(--text-dark);
@@ -202,7 +203,7 @@
 
   .dash-line-value--ingreso { color: var(--color-success); }
   .dash-line-value--gasto   { color: var(--color-danger); }
-  .dash-line-value--ahorro  { color: #3b82f6; }
+  .dash-line-value--ahorro  { color: var(--color-info); }
   .dash-line--aporte { font-size: var(--font-size-xs); }
   .dash-line--aporte .dash-line-label { font-style: italic; }
 
@@ -330,8 +331,8 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .dash-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
-  .dash-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
+  .dash-badge--hogar    { background: color-mix(in srgb, var(--color-primary) 12%, transparent);   color: var(--color-primary); }
+  .dash-badge--personal { background: color-mix(in srgb, var(--text-secondary) 15%, transparent); color: var(--text-secondary); }
   .dash-tx-monto {
     font-weight: var(--font-weight-bold);
     font-variant-numeric: tabular-nums;
@@ -377,12 +378,6 @@
     padding: var(--space-sm) 0;
   }
   .dash-presup + .dash-presup { border-top: 1px solid var(--border-light); }
-  .dash-presup-chip {
-    width: 24px; height: 24px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: var(--radius-sm);
-  }
-  .dash-presup-chip .cat-icono { width: 14px; height: 14px; }
   .dash-presup-main { flex: 1; min-width: 0; }
   /* Fila 1: nombre (trunca) + badge protegido a su derecha.
      Las cifras van en su propia línea (.dash-presup-cifras) para que el
@@ -645,13 +640,12 @@
         // Validar el color como hex antes de interpolarlo en un style inline
         // (defensa: categorias.color es escribible vía API). Si no, champagne.
         const color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
-        const chipStyle = 'background:' + color + '22;color:' + color + ';';
         const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
         const badge = est.superado
           ? '<span class="dash-presup-badge">superado</span>' : '';
 
         return `<div class="dash-presup">
-          <span class="dash-presup-chip" style="${chipStyle}" aria-hidden="true">${icon}</span>
+          <span class="cat-chip" style="--chip-color:${color}" aria-hidden="true">${icon}</span>
           <div class="dash-presup-main">
             <div class="dash-presup-head">
               <span class="dash-presup-nombre">${esc(cat.nombre || 'Categoría')}</span>
