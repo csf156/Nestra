@@ -49,6 +49,12 @@
   <!-- ── SECCIÓN 4 — Alertas ──────────────────────────────────── -->
   <section id="dashAlertas" class="dash-alertas" aria-live="polite" aria-label="Alertas activas"></section>
 
+  <!-- ── SECCIÓN 4.5 — Presupuestos del mes ───────────────────────── -->
+  <section class="card dash-presup-card" id="dashPresupCard" aria-labelledby="presupTitle" style="display:none">
+    <h2 class="dash-card-title" id="presupTitle">Presupuestos del mes</h2>
+    <div id="dashPresupBody" aria-live="polite"></div>
+  </section>
+
   <!-- ── SECCIÓN 5 — Últimas transacciones ────────────────────── -->
   <section class="card dash-tx-card" aria-labelledby="txTitle">
     <h2 class="dash-card-title" id="txTitle">Últimas transacciones</h2>
@@ -362,6 +368,68 @@
     margin: var(--space-sm) 0 0; font-style: italic;
   }
 
+  /* ── Presupuestos ───────────────────────────────────────── */
+  .dash-presup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) 0;
+  }
+  .dash-presup + .dash-presup { border-top: 1px solid var(--border-light); }
+  .dash-presup-chip {
+    width: 24px; height: 24px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+  }
+  .dash-presup-chip .cat-icono { width: 14px; height: 14px; }
+  .dash-presup-main { flex: 1; min-width: 0; }
+  .dash-presup-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--space-sm); margin-bottom: 6px;
+  }
+  .dash-presup-nombre {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: var(--font-size-sm);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dash-presup-cifras {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-presup-bar {
+    height: 2px;
+    background: var(--border-light);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .dash-presup-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease-out;
+  }
+  .dash-presup-bar-fill--verde { background: var(--color-success); }
+  .dash-presup-bar-fill--ambar { background: var(--color-warning); }
+  .dash-presup-bar-fill--rojo  { background: var(--color-danger); }
+  .dash-presup-badge {
+    display: inline-block;
+    margin-left: var(--space-sm);
+    padding: 1px var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.62rem;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    vertical-align: middle;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-presup-bar-fill { transition: none; }
+  }
+
   /* Fondos de emergencia — tiles compactos, predominantes, sin barra.
      mobile-first: 1 columna; ≥480px en 2 columnas para ahorrar alto. */
   .dash-fondos {
@@ -549,6 +617,50 @@
       cont.innerHTML = `<div class="dash-insights-track">${cards}</div>`;
     }
 
+    // ── Render: presupuestos del mes ──────────────────────────
+    // Cada presupuesto: chip tintado con el color de la categoría, nombre,
+    // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
+    function renderPresupuestos(presupuestos, gastoPorCat) {
+      const card = $('dashPresupCard');
+      const body = $('dashPresupBody');
+      if (!card || !body) return;
+      const lista = presupuestos || [];
+      if (!lista.length) { card.style.display = 'none'; return; }
+
+      const rows = lista.map((p) => {
+        const cat = p.categorias || {};
+        const limite = Number(p.monto_limite) || 0;
+        const gastado = Number((gastoPorCat || {})[p.categoria_id] || 0);
+        const est = (typeof estadoPresupuesto === 'function')
+          ? estadoPresupuesto(gastado, limite) : null;
+        if (!est) return '';
+
+        const color = cat.color || '#c9a84c'; // acento champagne por defecto
+        const chipStyle = 'background:' + color + '22;color:' + color + ';';
+        const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
+        const badge = est.superado
+          ? '<span class="dash-presup-badge">superado</span>' : '';
+
+        return `<div class="dash-presup">
+          <span class="dash-presup-chip" style="${chipStyle}" aria-hidden="true">${icon}</span>
+          <div class="dash-presup-main">
+            <div class="dash-presup-head">
+              <span class="dash-presup-nombre">${esc(cat.nombre || 'Categoría')}${badge}</span>
+              <span class="dash-presup-cifras">${esc(formatMonto(gastado))} / ${esc(formatMonto(limite))}</span>
+            </div>
+            <div class="dash-presup-bar" role="progressbar"
+                 aria-valuenow="${est.pctReal}" aria-valuemin="0" aria-valuemax="100"
+                 aria-label="Presupuesto de ${esc(cat.nombre || 'categoría')}: ${est.pctReal}%">
+              <div class="dash-presup-bar-fill dash-presup-bar-fill--${est.color}" style="width:${est.ancho}%;"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+      body.innerHTML = rows;
+      card.style.display = 'block';
+    }
+
     // ── Render: últimas transacciones ─────────────────────────
     function renderTransacciones(txs) {
       const body = $('dashTxBody');
@@ -660,7 +772,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, presupuestos, gastosCat] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -671,6 +783,8 @@
         getAhorrosHogar(mes, anio),
         getAhorrosPersonal(mes, anio),
         cargarInsights(),
+        getPresupuestos(),
+        getGastosPorCategoriaMes(mes, anio),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
@@ -682,6 +796,10 @@
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
       if (insights.status === 'fulfilled') renderInsights(insights.value);
+      if (presupuestos.status === 'fulfilled') {
+        const gMap = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
+        renderPresupuestos(presupuestos.value, gMap);
+      }
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
 
