@@ -258,7 +258,7 @@ test('cap a 2 insights, ordenados por |pct| desc', () => {
   for (const f of ['2026-04-03', '2026-04-13', '2026-05-03', '2026-05-13', '2026-05-18', '2026-05-21']) txs.push(gasto('c2', 'hogar', 100 / 3, f, 'B'));
   for (const f of ['2026-06-02', '2026-06-08', '2026-06-14']) txs.push(gasto('c2', 'hogar', 200 / 3, f, 'B'));
   // c3: +30% (base mensual 100, actual 130).
-  for (const f of ['2026-04-04', '2026-04-14', '2026-05-04', '2026-05-14', '2026-05-19', '2026-05-22']) txs.push(gasto('c3', 'personal', 100 / 3, f, 'C'));
+  for (const f of ['2026-04-04', '2026-04-14', '2026-05-04', '2026-05-14', '2026-05-19', '2026-05-21']) txs.push(gasto('c3', 'personal', 100 / 3, f, 'C'));
   for (const f of ['2026-06-03', '2026-06-09', '2026-06-16']) txs.push(gasto('c3', 'personal', 130 / 3, f, 'C'));
   const out = detectCrecimiento(txs, { hoy: HOY });
   assert.strictEqual(out.length, 2);
