@@ -124,13 +124,13 @@
         <span class="cfg-acc-nombre" id="cfgAccTitle"></span>
       </div>
       <button type="button" class="cfg-acc-btn" id="cfgAccEditar">
-        <span aria-hidden="true">✏️</span> Editar categoría
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-pencil"></use></svg> Editar categoría
       </button>
       <button type="button" class="cfg-acc-btn" id="cfgAccArchivar">
-        <span aria-hidden="true">📦</span> <span id="cfgAccArchivarTxt">Archivar categoría</span>
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-archive"></use></svg> <span id="cfgAccArchivarTxt">Archivar categoría</span>
       </button>
       <button type="button" class="cfg-acc-btn cfg-acc-btn--danger" id="cfgAccEliminar">
-        <span aria-hidden="true">🗑️</span> Eliminar categoría
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-trash"></use></svg> Eliminar categoría
       </button>
       <button type="button" class="cfg-acc-btn cfg-acc-btn--cancel" id="cfgAccCancelar">Cancelar</button>
     </div>
@@ -412,6 +412,7 @@
     }
     .cfg-cat-star:hover, .cfg-cat-gear:hover { background: var(--bg-light); }
     .cfg-cat-star--on { color: #f5b301; }
+    .cfg-cat-star--on .cat-icono { fill: currentColor; }
     .cfg-cat-star:focus-visible, .cfg-cat-gear:focus-visible {
       outline: 2px solid var(--color-primary); outline-offset: 1px;
     }
@@ -736,9 +737,11 @@
         '<div class="cfg-cat-acciones">' +
           '<button type="button" class="' + starCls + '" data-act="favorita" ' +
             'aria-pressed="' + (cat.favorita ? 'true' : 'false') + '" ' +
-            'title="' + starLabel + '" aria-label="' + starLabel + ' ' + escHtml(cat.nombre) + '">★</button>' +
+            'title="' + starLabel + '" aria-label="' + starLabel + ' ' + escHtml(cat.nombre) + '">' +
+            (typeof iconoCategoria === 'function' ? iconoCategoria('star') : '') + '</button>' +
           '<button type="button" class="cfg-cat-gear" data-act="opciones" ' +
-            'title="Opciones" aria-label="Opciones de ' + escHtml(cat.nombre) + '">⚙️</button>' +
+            'title="Opciones" aria-label="Opciones de ' + escHtml(cat.nombre) + '">' +
+            (typeof iconoCategoria === 'function' ? iconoCategoria('settings') : '') + '</button>' +
         '</div>' +
       '</li>';
     }

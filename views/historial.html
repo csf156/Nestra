@@ -105,7 +105,7 @@
 <div class="modal-overlay" id="histDeleteModal" role="dialog" aria-modal="true"
      aria-labelledby="histDeleteTitle">
   <div class="modal-content hist-aporte-modal">
-    <p class="hist-aporte-icon" aria-hidden="true">🗑️</p>
+    <p class="hist-aporte-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-trash"></use></svg></p>
     <h2 class="hist-aporte-title" id="histDeleteTitle">¿Eliminar movimiento?</h2>
     <p class="hist-aporte-body" id="histDeleteBody"></p>
     <div class="hist-aporte-actions">
@@ -122,7 +122,7 @@
 <div class="modal-overlay" id="histAporteModal" role="dialog" aria-modal="true"
      aria-labelledby="histAporteTitle">
   <div class="modal-content hist-aporte-modal">
-    <p class="hist-aporte-icon" aria-hidden="true">⚠️</p>
+    <p class="hist-aporte-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-alert-triangle"></use></svg></p>
     <h2 class="hist-aporte-title" id="histAporteTitle">¿Borrar el aporte completo?</h2>
     <p class="hist-aporte-body" id="histAporteBody">
       Este movimiento es parte de un aporte al hogar. Borrarlo elimina
@@ -738,7 +738,7 @@
       var btnEditar = (d.aporte || d.directo) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
       var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
-      var usuarioBadge = '<span class="hist-tx-usuario">👤 ' + esc(d.usuario) + '</span>';
+      var usuarioBadge = '<span class="hist-tx-usuario"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</span>';
       return '<div class="hist-tx" data-id="' + esc(t.id) + '">' +
           '<div class="hist-tx-row" role="button" tabindex="0" aria-expanded="false" ' +
                'aria-label="' + esc(d.cat) + ', ' + esc(formatMonto(t.monto)) + '. Toca para ver acciones">' +
@@ -763,17 +763,17 @@
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
       var btnEditar = (d.aporte || d.directo) ? '' :
-        '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '">✎</button>';
+        '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-pencil"></use></svg></button>';
       var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       return '<tr data-id="' + esc(t.id) + '">' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
           '<td>' + ((typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : '') + esc(d.cat) + aporteMark + directoMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
-          '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);">👤 ' + esc(d.usuario) + '</td>' +
+          '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</td>' +
           '<td class="hist-td-monto ' + d.clsTd + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</td>' +
           '<td class="hist-td-acc">' + btnEditar +
-            '<button type="button" class="hist-iconbtn hist-iconbtn--del" data-act="eliminar" aria-label="Eliminar ' + esc(d.cat) + '">🗑</button>' +
+            '<button type="button" class="hist-iconbtn hist-iconbtn--del" data-act="eliminar" aria-label="Eliminar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-trash"></use></svg></button>' +
           '</td>' +
         '</tr>';
     }

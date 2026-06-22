@@ -21,7 +21,7 @@
 
     <!-- ── Pantalla de éxito (oculta hasta guardar) ─────────────── -->
     <div id="txExito" class="tx-exito" style="display:none;" aria-live="polite">
-      <div class="tx-exito-icon" aria-hidden="true">✓</div>
+      <div class="tx-exito-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg></div>
       <p class="tx-exito-msg">Transacción guardada</p>
       <div id="txAlertaPost" style="display:none; margin-top: var(--space-md);"></div>
       <button type="button" class="btn btn-primary" id="txExitoContinuar"
@@ -45,7 +45,7 @@
           </button>
           <button type="button" class="tx-toggle-btn tx-toggle-btn--ahorro"
                   id="btnTipoAhorro" aria-pressed="false">
-            <span class="tx-toggle-icon" aria-hidden="true">🐷</span> Ahorro
+            <span class="tx-toggle-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-pig-money"></use></svg></span> Ahorro
           </button>
         </div>
         <input type="hidden" id="tipo" value="gasto">
@@ -84,7 +84,7 @@
           <button type="button" class="btn btn-primary btn-small"
                   id="nuevaCatGuardar">Crear</button>
           <button type="button" class="btn btn-secondary btn-small"
-                  id="nuevaCatCancelar" aria-label="Cancelar nueva categoría">✕</button>
+                  id="nuevaCatCancelar" aria-label="Cancelar nueva categoría"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-x"></use></svg></button>
         </div>
         <span id="nuevaCatError" class="form-error" role="alert" style="display:none;"></span>
       </div>

@@ -347,9 +347,14 @@
         var sem = '', semTxt = '';
         if (lim != null && lim > 0) {
           var pctLim = (c.total / lim) * 100;
-          if (pctLim > 100) { sem = '🔴'; semTxt = Math.round(pctLim) + '% límite'; }
-          else if (pctLim >= 80) { sem = '🟡'; semTxt = Math.round(pctLim) + '% límite'; }
-          else { sem = '🟢'; semTxt = Math.round(pctLim) + '% límite'; }
+          // Íconos Tabler (sprite) coloreados por umbral — la app no usa emojis.
+          var _semSvg = function (nombre, varColor) {
+            return '<span style="color:var(' + varColor + ')"><svg class="cat-icono" aria-hidden="true">' +
+              '<use href="assets/tabler-sprite.svg#tabler-' + nombre + '"></use></svg></span>';
+          };
+          if (pctLim > 100) { sem = _semSvg('alert-octagon', '--color-danger'); semTxt = Math.round(pctLim) + '% límite'; }
+          else if (pctLim >= 80) { sem = _semSvg('alert-triangle', '--color-warning'); semTxt = Math.round(pctLim) + '% límite'; }
+          else { sem = _semSvg('circle-check', '--color-success'); semTxt = Math.round(pctLim) + '% límite'; }
         }
         var li = document.createElement('li');
         li.innerHTML = '<span class="dot" style="background:' + colores[i] + '"></span>' +

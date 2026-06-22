@@ -866,7 +866,7 @@
             (tx.nota ? '<p class="prest-card-nota">' + escHtml(tx.nota) + '</p>' : '') +
             '<div class="prest-card-footer">' +
               (alerta
-                ? '<span class="prest-card-dias prest-card-dias--alerta">⚠️ Vencido (' + dias + ' días)</span>'
+                ? '<span class="prest-card-dias prest-card-dias--alerta"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-alert-triangle"></use></svg> Vencido (' + dias + ' días)</span>'
                 : '<span class="prest-card-dias">Hace ' + dias + ' día' + (dias === 1 ? '' : 's') + '</span>') +
               '<button type="button" class="btn btn-secondary btn-sm prest-btn-devolver"' +
                 ' data-act="devolver"' +

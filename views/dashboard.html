@@ -19,7 +19,7 @@
     <!-- Balance del hogar -->
     <section class="card dash-balance-card" aria-labelledby="hogarTitle">
       <h2 class="dash-card-title" id="hogarTitle">
-        <span aria-hidden="true">🏠</span> Hogar
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-home"></use></svg> Hogar
         <span class="dash-card-periodo" id="hogarPeriodo"></span>
       </h2>
       <div id="hogarBody" class="dash-balance-body" aria-busy="true">
@@ -32,7 +32,7 @@
     <!-- Balance personal -->
     <section class="card dash-balance-card" aria-labelledby="personalTitle">
       <h2 class="dash-card-title" id="personalTitle">
-        <span aria-hidden="true">👤</span> Tu balance
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> Tu balance
         <span class="dash-card-periodo" id="personalPeriodo"></span>
       </h2>
       <div id="personalBody" class="dash-balance-body" aria-busy="true">
@@ -189,8 +189,9 @@
     letter-spacing: 0.04em;
   }
   .dash-neto-value {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
   /* Signo no solo por color (WCAG 1.4.1): glifo ▲/▼ */
@@ -238,14 +239,14 @@
     gap: var(--space-xs);
     padding: var(--space-md);
     border-radius: var(--radius-md);
-    border-left: 4px solid var(--border-light);
-    background: var(--bg-light-secondary);
-    box-shadow: var(--shadow-sm);
+    border-left: 2px solid var(--insight-color, var(--border-light));
+    background: color-mix(in srgb, var(--insight-color, var(--color-primary)) 4%, var(--bg-light-secondary));
+    box-shadow: none;
   }
-  .insight-card--warn { border-left-color: var(--color-warning); }
-  .insight-card--good { border-left-color: var(--color-success); }
-  .insight-card--alert { border-left-color: var(--color-danger); }
-  .insight-card--info { border-left-color: var(--color-primary); }
+  .insight-card--warn  { --insight-color: var(--color-warning); }
+  .insight-card--good  { --insight-color: var(--color-success); }
+  .insight-card--alert { --insight-color: var(--color-danger);  }
+  .insight-card--info  { --insight-color: var(--color-primary); }
   .insight-icono .cat-icono { width: 24px; height: 24px; }
   .insight-titulo {
     margin: 0;
@@ -598,7 +599,7 @@
       if (!alertas || !alertas.length) { panel.innerHTML = ''; return; }
       panel.innerHTML = alertas.map((a) => `
         <div class="alert-item alert-item--${esc(a.nivel)}" role="status">
-          <span class="alert-icon" aria-hidden="true">${esc(a.icono)}</span>
+          <span class="alert-icon" aria-hidden="true">${a.icono}</span>
           <span>${esc(a.mensaje)}</span>
         </div>`).join('');
     }
@@ -720,9 +721,9 @@
       const fondosTiles = fondos.map((f) => {
         const total = Number(f.monto_actual) || 0;
         const ambito = f.ambito === 'hogar' ? 'Hogar' : 'Personal';
-        const icono = f.ambito === 'hogar' ? '🏠' : '👤';
+        const icono = (typeof iconoCategoria === 'function') ? iconoCategoria(f.ambito === 'hogar' ? 'home' : 'user') : '';
         return `<div class="dash-fondo">
-          <span class="dash-fondo-label"><span aria-hidden="true">${icono}</span> Fondo · ${esc(ambito)}</span>
+          <span class="dash-fondo-label">${icono} Fondo · ${esc(ambito)}</span>
           <span class="dash-fondo-monto">${esc(formatMonto(total))}</span>
           <span class="dash-fondo-var" id="fondoVar-${esc(f.id)}"></span>
         </div>`;

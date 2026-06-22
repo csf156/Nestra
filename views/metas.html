@@ -143,7 +143,7 @@
   .metas-comp-sum { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-sm); }
   .metas-comp-lista { list-style: none; margin: var(--space-md) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
   .metas-comp-lista li { display: flex; justify-content: space-between; gap: var(--space-sm); font-size: var(--font-size-sm); color: var(--text-secondary); }
-  .metas-comp-lista li::before { content: "✓"; color: var(--color-success); margin-right: 6px; }
+  .metas-comp-lista li > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
 
   /* Modal: z-index por encima del nav (100), centrado en todas las pantallas */
   .metas-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; padding: var(--space-md); }
@@ -279,7 +279,7 @@
         if (metaAlcanzada(m)) {
           return '<article class="meta-card meta-card--lograda" data-id="' + m.id + '">' +
             '<div class="meta-felicita">' +
-              '<div class="meta-felicita-icono" aria-hidden="true">🎉</div>' +
+              '<div class="meta-felicita-icono" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-confetti"></use></svg></div>' +
               '<h2 class="meta-felicita-titulo">¡Meta cumplida!</h2>' +
               '<p class="meta-felicita-nombre">' + esc(m.nombre) + '</p>' +
               '<p class="meta-felicita-monto">' + formatMonto(Number(m.monto_actual) || 0) + '</p>' +
@@ -327,7 +327,7 @@
     function renderCompletadas(comp) {
       $('metasCompCount').textContent = comp.length;
       $('metasCompLista').innerHTML = comp.map(function (m) {
-        return '<li><span>' + esc(m.nombre) + '</span><span>' + (m.fecha_limite || '—') + ' · ' + formatMonto(Number(m.monto_actual) || 0) + '</span></li>';
+        return '<li><span><svg class="cat-icono" style="color:var(--color-success)" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg> ' + esc(m.nombre) + '</span><span>' + (m.fecha_limite || '—') + ' · ' + formatMonto(Number(m.monto_actual) || 0) + '</span></li>';
       }).join('');
     }
 

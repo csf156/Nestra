@@ -243,7 +243,17 @@
     }
 
     // ── Render de la tarjeta de veredicto ─────────────────────
-    var ICONOS = { recomendable: '✅', cautela: '⚠️', no: '⛔', 'sin-presupuesto': '⚙️', ahorro: '💰' };
+    // Íconos Tabler (sprite) — la app no usa emojis.
+    function _icoSvg(nombre) {
+      return '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-' + nombre + '"></use></svg>';
+    }
+    var ICONOS = {
+      recomendable: _icoSvg('circle-check'),
+      cautela: _icoSvg('alert-triangle'),
+      no: _icoSvg('ban'),
+      'sin-presupuesto': _icoSvg('settings'),
+      ahorro: _icoSvg('coin'),
+    };
     var TITULOS = { recomendable: 'Recomendable', cautela: 'Con cautela', no: 'No recomendable', 'sin-presupuesto': 'Fija un presupuesto primero', ahorro: 'Adelante' };
     // Mapeo de los 5 niveles a las 3 clases semánticas de color.
     var CLASE_VER = { recomendable: 'veredicto-ok', ahorro: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-presupuesto': '' };
@@ -303,7 +313,7 @@
       var box = $('decVeredicto');
       box.className = 'dec-veredicto';
       box.setAttribute('data-nivel', '');
-      box.innerHTML = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">🌫️</span>El oráculo está nublado</div>' +
+      box.innerHTML = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">' + _icoSvg('cloud') + '</span>El oráculo está nublado</div>' +
         '<p class="dec-ver-razon">El Oráculo está nublado en este momento. Inténtalo de nuevo.</p>';
       revelar(box);
     }
@@ -367,7 +377,11 @@
       ambar.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' cerca del límite'); });
       metasRiesgo.slice(0, 1).forEach(function (mt) { focos.push('Meta ' + mt.nombre + ' en riesgo de plazo'); });
 
-      var titulos = { sano: '🟢 Hogar sano', ajustado: '🟡 Mes ajustado', riesgo: '🔴 En riesgo' };
+      var titulos = {
+        sano:     '<span style="color:var(--color-success)">' + _icoSvg('circle-check')   + '</span> Hogar sano',
+        ajustado: '<span style="color:var(--color-warning)">' + _icoSvg('alert-triangle') + '</span> Mes ajustado',
+        riesgo:   '<span style="color:var(--color-danger)">'  + _icoSvg('alert-octagon')  + '</span> En riesgo',
+      };
       var box = $('decEstado');
       box.setAttribute('data-salud', salud);
       box.innerHTML = '<div class="dec-estado-titulo">' + titulos[salud] + '</div>' +

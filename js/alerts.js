@@ -12,7 +12,7 @@
 // Forma de cada alerta:
 //   {
 //     nivel:   'suave' | 'critica' | 'positiva',
-//     icono:   '⚠️' | '🚨' | '✅',
+//     icono:   SVG Tabler (alert-triangle | alert-octagon | circle-check),
 //     origen:  'categoria' | 'meta' | 'prestamo' | 'desafio',
 //     mensaje: string legible,
 //     contexto:{ ...datos útiles para la vista (ids, montos, %) }
@@ -24,12 +24,21 @@
 
 
 // ─── Constantes de umbral (sección 9 de la arquitectura) ──────────
-const ALERT_UMBRAL_CATEGORIA_SUAVE = 80;   // % del límite → ⚠️ suave
-const ALERT_DIAS_META_POR_VENCER   = 7;    // < 7 días → ⚠️ suave
-const ALERT_DIAS_PRESTAMO_VIEJO    = 30;   // > 30 días → ⚠️ suave
-const ALERT_DIAS_DESAFIO_POR_FIN   = 2;    // < 2 días → ⚠️ suave
+const ALERT_UMBRAL_CATEGORIA_SUAVE = 80;   // % del límite → nivel suave
+const ALERT_DIAS_META_POR_VENCER   = 7;    // < 7 días → nivel suave
+const ALERT_DIAS_PRESTAMO_VIEJO    = 30;   // > 30 días → nivel suave
+const ALERT_DIAS_DESAFIO_POR_FIN   = 2;    // < 2 días → nivel suave
 
-const ALERT_ICONO = { suave: '⚠️', critica: '🚨', positiva: '✅' };
+// Íconos Tabler (sprite) — la app no usa emojis. Se inyectan como SVG.
+function _alertIconoSvg(nombre) {
+  return '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-' +
+    nombre + '"></use></svg>';
+}
+const ALERT_ICONO = {
+  suave:    _alertIconoSvg('alert-triangle'),
+  critica:  _alertIconoSvg('alert-octagon'),
+  positiva: _alertIconoSvg('circle-check'),
+};
 
 
 // ─── Helpers de fecha ─────────────────────────────────────────────
@@ -72,7 +81,7 @@ function _alerta(nivel, origen, mensaje, contexto = {}) {
 // ═══════════════════════════════════════════════════════════════════
 
 // _alertasCategorias(mes, anio) — gasto vs. límite mensual por categoría.
-// ⚠️ suave: 80–99% del límite. 🚨 crítica: ≥100%.
+// suave: 80–99% del límite. crítica: ≥100%.
 // Solo categorías con limite_mensual definido (> 0).
 async function _alertasCategorias(mes, anio) {
   try {
@@ -118,7 +127,7 @@ async function _alertasCategorias(mes, anio) {
 }
 
 // _alertasMetas() — metas por vencer o vencidas sin cumplir.
-// ⚠️ suave: en curso y vence en < 7 días. 🚨 crítica: vencida sin lograr.
+// suave: en curso y vence en < 7 días. crítica: vencida sin lograr.
 async function _alertasMetas() {
   try {
     const metas = await getMetas();
@@ -186,7 +195,7 @@ async function _alertasPrestamos() {
 }
 
 // _alertasDesafios() — desafíos por terminar (< 2 días) y completados.
-// ⚠️ suave: activo, termina en < 2 días. ✅ positiva: completado.
+// suave: activo, termina en < 2 días. positiva: completado.
 async function _alertasDesafios() {
   try {
     const desafios = await getDesafios();
@@ -205,7 +214,7 @@ async function _alertasDesafios() {
       } else if (d.estado === 'completado') {
         alertas.push(_alerta(
           'positiva', 'desafio',
-          `¡Desafío completado: "${d.titulo}"! 🎉`,
+          `¡Desafío completado: "${d.titulo}"!`,
           { desafio_id: d.id, titulo: d.titulo }
         ));
       }
