@@ -54,8 +54,65 @@ function filtrarVentana(transacciones, hoy, dias) {
   );
 }
 
+// detectCrecimiento(transacciones, { hoy, umbralPct?, baselineMin? })
+// Compara gasto por categoría×ámbito: últimos 30d vs promedio mensual de los
+// 60d previos. Devuelve hasta 2 insights (crecimiento warn / caída good).
+function detectCrecimiento(transacciones, opts) {
+  const hoy = opts.hoy;
+  const UMBRAL = opts.umbralPct != null ? opts.umbralPct : 25;
+  const BASE_MIN = opts.baselineMin != null ? opts.baselineMin : 50;
+  const actualDesde = diaISO(restarDias(hoy, 30));
+  const baseDesde = diaISO(restarDias(hoy, 90));
+  const hoyISO = diaISO(hoy);
+
+  const grupos = new Map();
+  for (const t of transacciones) {
+    if (t.tipo !== 'gasto' || !t.fecha) continue;
+    if (t.fecha < baseDesde || t.fecha > hoyISO) continue;
+    const key = t.categoria_id + '|' + t.ambito;
+    let g = grupos.get(key);
+    if (!g) {
+      g = {
+        categoria_id: t.categoria_id, ambito: t.ambito,
+        nombre: (t.categorias && t.categorias.nombre) || 'Sin categoría',
+        actualSum: 0, actualCount: 0, baseSum: 0, baseCount: 0,
+      };
+      grupos.set(key, g);
+    }
+    if (t.fecha >= actualDesde) { g.actualSum += Number(t.monto); g.actualCount++; }
+    else { g.baseSum += Number(t.monto); g.baseCount++; }
+  }
+
+  const out = [];
+  for (const g of grupos.values()) {
+    const baseMensual = g.baseSum / 2; // 60 días ≈ 2 meses
+    if (baseMensual < BASE_MIN || g.baseCount < 3 || g.actualCount < 2) continue;
+    const pct = Math.round((g.actualSum - baseMensual) / baseMensual * 100);
+    const ambLabel = g.ambito === 'hogar' ? 'hogar' : 'personal';
+    const subtexto = `${fmtS(g.actualSum)} este mes vs ${fmtS(baseMensual)} tu promedio`;
+    if (pct >= UMBRAL) {
+      out.push({
+        id: `crecimiento:${g.categoria_id}:${g.ambito}`, tipo: 'warn', icono: 'trending-up',
+        titulo: `${g.nombre} (${ambLabel}) subió ${pct}%`, subtexto,
+        accion: { label: 'Ver historial', href: '#historial' },
+        meta: { ambito: g.ambito, categoria_id: g.categoria_id, pct, magnitud: Math.min(1, pct / 100) },
+      });
+    } else if (pct <= -UMBRAL) {
+      const abs = Math.abs(pct);
+      out.push({
+        id: `caida:${g.categoria_id}:${g.ambito}`, tipo: 'good', icono: 'trending-down',
+        titulo: `${g.nombre} (${ambLabel}) bajó ${abs}%`, subtexto,
+        accion: { label: 'Ver historial', href: '#historial' },
+        meta: { ambito: g.ambito, categoria_id: g.categoria_id, pct, magnitud: Math.min(1, abs / 100) },
+      });
+    }
+  }
+  out.sort((a, b) => Math.abs(b.meta.pct) - Math.abs(a.meta.pct));
+  return out.slice(0, 2);
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento };
