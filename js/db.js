@@ -52,30 +52,6 @@ function _requireUserId() {
   return user.id;
 }
 
-// _mirroredRead(store, fetcher) — ejecuta `fetcher()` (query a Supabase).
-// Online OK → espeja el resultado en IndexedDB y lo devuelve.
-// Fallo/offline → devuelve el espejo local de `store`.
-async function _mirroredRead(store, fetcher) {
-  try {
-    if (!navigator.onLine) throw new Error('offline');
-    const rows = await fetcher();
-    if (typeof mirrorReplace === 'function') await mirrorReplace(store, rows);
-    return rows;
-  } catch (err) {
-    console.warn('_mirroredRead(' + store + ') usa espejo local:', err.message || err);
-    if (typeof mirrorGetAll === 'function') return await mirrorGetAll(store);
-    return [];
-  }
-}
-
-
-// _isNetworkError(err) — heurística: ¿el fallo es por falta de red?
-function _isNetworkError(err) {
-  if (!navigator.onLine) return true;
-  const msg = (err && (err.message || err)) + '';
-  return /failed to fetch|networkerror|load failed|fetch/i.test(msg);
-}
-
 
 // ═══════════════════════════════════════════════════════════════════
 // TRANSACCIONES
@@ -86,31 +62,26 @@ function _isNetworkError(err) {
 //                               fecha_desde, fecha_hasta }
 // Returns: array de transacciones (con categoria embebida) o [].
 async function getTransacciones(filtros = {}) {
-  // Fetch SIN filtros server-side: así el espejo guarda SIEMPRE el set completo y
-  // una llamada filtrada (p.ej. getGastoCategoria) no lo sobreescribe parcialmente.
-  // Los filtros y el orden se aplican en cliente (online y offline por igual).
-  const rows = await _mirroredRead('transacciones', async () => {
-    const { data, error } = await supabase
+  try {
+    let query = supabase
       .from('transacciones')
-      .select('*, categorias(nombre, tipo, color, icono)');
+      .select('*, categorias(nombre, tipo, color, icono)')
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (filtros.ambito)       query = query.eq('ambito', filtros.ambito);
+    if (filtros.categoria_id) query = query.eq('categoria_id', filtros.categoria_id);
+    if (filtros.tipo)         query = query.eq('tipo', filtros.tipo);
+    if (filtros.fecha_desde)  query = query.gte('fecha', filtros.fecha_desde);
+    if (filtros.fecha_hasta)  query = query.lte('fecha', filtros.fecha_hasta);
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  });
-
-  const out = rows.filter((t) =>
-    (!filtros.ambito       || t.ambito === filtros.ambito) &&
-    (!filtros.categoria_id || t.categoria_id === filtros.categoria_id) &&
-    (!filtros.tipo         || t.tipo === filtros.tipo) &&
-    (!filtros.fecha_desde  || t.fecha >= filtros.fecha_desde) &&
-    (!filtros.fecha_hasta  || t.fecha <= filtros.fecha_hasta)
-  );
-  // Orden: fecha desc, luego created_at desc (fechas/ISO comparables como string).
-  out.sort((a, b) => {
-    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
-    const ca = a.created_at || '', cb = b.created_at || '';
-    return ca < cb ? 1 : (ca > cb ? -1 : 0);
-  });
-  return out;
+  } catch (err) {
+    console.error('Error en getTransacciones():', err.message || err);
+    return [];
+  }
 }
 
 // getUltimasTransacciones(limite) — N transacciones más recientes.
@@ -134,43 +105,35 @@ async function getUltimasTransacciones(limite = 5) {
 // insertTransaccion(datos) — crea una transacción.
 // datos: { tipo, ambito, categoria_id, monto, fecha?, nota? }
 // El user_id se fuerza al usuario activo (RLS exige auth.uid()=user_id).
-// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
+// Returns: fila insertada. Lanza Error en fallo.
 async function insertTransaccion(datos) {
-  const userId = _requireUserId();
-  const fila = {
-    id:           crypto.randomUUID(),
-    tipo:         datos.tipo,
-    ambito:       datos.ambito,
-    categoria_id: datos.categoria_id,
-    monto:        datos.monto,
-    nota:         datos.nota ?? null,
-    user_id:      userId,
-    fecha:        datos.fecha || undefined,
-    updated_at:   new Date().toISOString(),
-  };
-  if (!fila.fecha) delete fila.fecha;
-
-  if (!navigator.onLine) {
-    await outboxAdd('transacciones', fila);
-    await mirrorPut('transacciones', { ...fila, _pending: true });
-    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-    return { ...fila, _pending: true };
-  }
-
   try {
+    const userId = _requireUserId();
+    const fila = {
+      tipo:         datos.tipo,
+      ambito:       datos.ambito,
+      categoria_id: datos.categoria_id,
+      monto:        datos.monto,
+      nota:         datos.nota ?? null,
+      user_id:      userId,
+    };
+    if (datos.fecha) fila.fecha = datos.fecha;
+
     const { data, error } = await supabase
-      .from('transacciones').insert(fila).select().single();
+      .from('transacciones')
+      .insert(fila)
+      .select()
+      .single();
     if (error) throw error;
-    if (data.tipo === 'gasto') await _distribuirSiAhorro(data);
-    await mirrorPut('transacciones', data);
+
+    // Si es un gasto en categoría "Ahorro", repartir entre las metas personales
+    // vía RPC atómico. Best-effort: la transacción ya existe (balance correcto);
+    // un fallo del reparto NO debe revertirla ni propagarse.
+    if (data.tipo === 'gasto') {
+      await _distribuirSiAhorro(data);
+    }
     return data;
   } catch (err) {
-    if (_isNetworkError(err)) {
-      await outboxAdd('transacciones', fila);
-      await mirrorPut('transacciones', { ...fila, _pending: true });
-      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      return { ...fila, _pending: true };
-    }
     console.error('Error en insertTransaccion():', err.message || err);
     throw err;
   }
@@ -284,7 +247,6 @@ async function deleteTransaccion(id) {
 // Returns: array con las dos filas insertadas. Lanza Error en fallo.
 async function insertAporteHogar(monto, categoria_id, nota, fecha) {
   try {
-    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const userId = _requireUserId();
     const aporteId = crypto.randomUUID();
 
@@ -501,20 +463,22 @@ async function getAhorrosPersonal(mes, anio) {
 
 // getCategorias(tipo) — categorías activas. tipo opcional: 'gasto'|'ingreso'.
 // Returns: array ordenado por nombre o [].
-// El fetcher trae TODAS las categorías (sin filtrar por estado/tipo) para que
-// el espejo IndexedDB siempre contenga el conjunto completo. El filtrado se
-// aplica en cliente para que offline también funcione correctamente.
 async function getCategorias(tipo = null, incluirArchivadas = false) {
-  const rows = await _mirroredRead('categorias', async () => {
-    const { data, error } = await supabase
-      .from('categorias').select('*').order('nombre', { ascending: true });
+  try {
+    let query = supabase
+      .from('categorias')
+      .select('*')
+      .order('nombre', { ascending: true });
+    if (!incluirArchivadas) query = query.eq('estado', 'activa');
+    if (tipo) query = query.eq('tipo', tipo);
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  });
-  // Filtrado client-side (aplica también al espejo offline).
-  return rows.filter((c) =>
-    (incluirArchivadas || c.estado === 'activa') && (!tipo || c.tipo === tipo)
-  );
+  } catch (err) {
+    console.error('Error en getCategorias():', err.message || err);
+    return [];
+  }
 }
 
 // getCategoriasConFavorito(tipo?) — todas las categorías activas (de `tipo` si se da)
@@ -762,18 +726,21 @@ async function updateProfile(datos) {
 // Incluye importancia y es_fondo_emergencia. Los fondos (fecha_limite NULL) van al
 // final del orden (nullsFirst: false). ambito opcional: 'personal' | 'hogar'.
 // Returns: array o [].
-// Online: lee la vista metas_con_progreso (cálculos en BD). Mirror almacenado bajo
-// store 'metas'. Offline: devuelve el espejo completo, filtrado por ambito en cliente.
 async function getMetas(ambito = null) {
-  const rows = await _mirroredRead('metas', async () => {
-    const { data, error } = await supabase
+  try {
+    let query = supabase
       .from('metas_con_progreso')
       .select('*')
       .order('fecha_limite', { ascending: true, nullsFirst: false });
+    if (ambito) query = query.eq('ambito', ambito);
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  });
-  return ambito ? rows.filter((m) => m.ambito === ambito) : rows;
+  } catch (err) {
+    console.error('Error en getMetas():', err.message || err);
+    return [];
+  }
 }
 
 // getAportesDeMeta(meta_id) — aportes recibidos por una meta, con su transacción
@@ -837,28 +804,20 @@ async function getAporteMetaMes(meta_id, mes, anio) {
 // datos: { nombre, tipo, horizonte, ambito, monto_objetivo,
 //          fecha_limite, monto_actual?, fecha_inicio?, nota?, categoria_id? }
 // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
-// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
+// Returns: fila insertada. Lanza Error en fallo.
 async function insertMeta(datos) {
-  const fila = { ...datos, id: crypto.randomUUID(), user_id: _requireUserId(), updated_at: new Date().toISOString() };
-
-  if (!navigator.onLine) {
-    await outboxAdd('metas', fila);
-    await mirrorPut('metas', { ...fila, _pending: true });
-    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-    return { ...fila, _pending: true };
-  }
   try {
-    const { data, error } = await supabase.from('metas').insert(fila).select().single();
+    const fila = { ...datos };
+    // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
+    fila.user_id = _requireUserId();
+    const { data, error } = await supabase
+      .from('metas')
+      .insert(fila)
+      .select()
+      .single();
     if (error) throw error;
-    await mirrorPut('metas', data);
     return data;
   } catch (err) {
-    if (_isNetworkError(err)) {
-      await outboxAdd('metas', fila);
-      await mirrorPut('metas', { ...fila, _pending: true });
-      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      return { ...fila, _pending: true };
-    }
     console.error('Error en insertMeta():', err.message || err);
     throw err;
   }
@@ -905,7 +864,6 @@ async function deleteMeta(id) {
 // Returns: id (uuid) de la transacción creada. Lanza Error en fallo.
 async function insertAporteDirecto(meta_id, monto, fecha, nota) {
   try {
-    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const { data, error } = await supabase.rpc('aporte_directo_meta', {
       p_meta_id: meta_id,
       p_monto: monto,
@@ -929,41 +887,35 @@ async function insertAporteDirecto(meta_id, monto, fecha, nota) {
 // estado opcional: 'pendiente' | 'devuelto'.
 // Returns: array o [].
 async function getPrestamos(estado = null) {
-  const rows = await _mirroredRead('prestamos', async () => {
-    const { data, error } = await supabase
+  try {
+    let query = supabase
       .from('prestamos')
       .select('*, transacciones(fecha, monto, ambito, nota, user_id, tipo)');
+    if (estado) query = query.eq('estado', estado);
+
+    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  });
-  return estado ? rows.filter((p) => p.estado === estado) : rows;
+  } catch (err) {
+    console.error('Error en getPrestamos():', err.message || err);
+    return [];
+  }
 }
 
 // insertPrestamo(transaccion_id, deudor, estado?) — registra un préstamo nuevo.
 // estado: 'pendiente' (default) | 'devuelto' (para registrar préstamos ya saldados).
 // Llamar DESPUÉS de insertar la transacción de gasto asociada.
-// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
+// Returns: fila insertada. Lanza Error en fallo.
 async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
-  const fila = { id: crypto.randomUUID(), transaccion_id, deudor, estado, user_id: _requireUserId(), updated_at: new Date().toISOString() };
-
-  if (!navigator.onLine) {
-    await outboxAdd('prestamos', fila);
-    await mirrorPut('prestamos', { ...fila, _pending: true });
-    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-    return { ...fila, _pending: true };
-  }
   try {
-    const { data, error } = await supabase.from('prestamos').insert(fila).select().single();
+    const { data, error } = await supabase
+      .from('prestamos')
+      .insert({ transaccion_id, deudor, estado, user_id: _requireUserId() })
+      .select()
+      .single();
     if (error) throw error;
-    await mirrorPut('prestamos', data);
     return data;
   } catch (err) {
-    if (_isNetworkError(err)) {
-      await outboxAdd('prestamos', fila);
-      await mirrorPut('prestamos', { ...fila, _pending: true });
-      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      return { ...fila, _pending: true };
-    }
     console.error('Error en insertPrestamo():', err.message || err);
     throw err;
   }

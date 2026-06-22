@@ -43,9 +43,6 @@
     </section>
   </div>
 
-  <!-- ── SECCIÓN 3.5 — Insights ───────────────────────────────── -->
-  <section id="dashInsights" class="dash-insights" aria-label="Insights" aria-live="polite"></section>
-
   <!-- ── SECCIÓN 4 — Alertas ──────────────────────────────────── -->
   <section id="dashAlertas" class="dash-alertas" aria-live="polite" aria-label="Alertas activas"></section>
 
@@ -208,70 +205,6 @@
   }
   .dash-delta--pos { color: var(--color-success); font-weight: var(--font-weight-semibold); }
   .dash-delta--neg { color: var(--color-danger);  font-weight: var(--font-weight-semibold); }
-
-  /* ── Insights (carrusel mobile-first) ──────────────────── */
-  .dash-insights:not(:empty) { margin-bottom: var(--space-md); }
-  .dash-insights-track {
-    display: flex;
-    gap: var(--space-sm);
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    /* sangra a los bordes de pantalla en móvil → swipe edge-to-edge */
-    margin-inline: calc(-1 * var(--space-md));
-    padding-inline: var(--space-md);
-    padding-bottom: var(--space-xs);
-    scrollbar-width: thin;
-  }
-  .insight-card {
-    flex: 0 0 auto;
-    width: min(85%, 300px);
-    scroll-snap-align: start;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    padding: var(--space-md);
-    border-radius: var(--radius-md);
-    border-left: 4px solid var(--border-light);
-    background: var(--bg-light-secondary);
-    box-shadow: var(--shadow-sm);
-  }
-  .insight-card--warn { border-left-color: var(--color-warning); }
-  .insight-card--good { border-left-color: var(--color-success); }
-  .insight-card--alert { border-left-color: var(--color-danger); }
-  .insight-card--info { border-left-color: var(--color-primary); }
-  .insight-icono .cat-icono { width: 24px; height: 24px; }
-  .insight-titulo {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-dark);
-    line-height: 1.25;
-  }
-  .insight-subtexto {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-secondary);
-    line-height: 1.35;
-  }
-  .insight-accion {
-    margin-top: auto;
-    padding-top: var(--space-xs);
-    min-height: 44px;            /* target táctil */
-    display: inline-flex;
-    align-items: center;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-primary);
-    text-decoration: none;
-  }
-  .insight-accion:hover { text-decoration: underline; }
-  @media (min-width: 600px) {
-    .insight-card { width: 280px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .dash-insights-track { scroll-behavior: auto; }
-  }
 
   /* ── Alertas ────────────────────────────────────────────── */
   .dash-alertas:not(:empty) { margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
@@ -529,26 +462,6 @@
         </div>`).join('');
     }
 
-    // ── Render: insights (carrusel horizontal) ────────────────
-    function renderInsights(insights) {
-      const cont = $('dashInsights');
-      if (!cont) return;
-      if (!insights || !insights.length) { cont.innerHTML = ''; return; }
-      const cards = insights.map((i) => {
-        const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(i.icono) : '';
-        const accion = i.accion
-          ? `<a class="insight-accion" href="${esc(i.accion.href)}">${esc(i.accion.label)} →</a>`
-          : '';
-        return `<article class="insight-card insight-card--${esc(i.tipo)}">
-          <div class="insight-icono" aria-hidden="true">${icon}</div>
-          <h3 class="insight-titulo">${esc(i.titulo)}</h3>
-          <p class="insight-subtexto">${esc(i.subtexto)}</p>
-          ${accion}
-        </article>`;
-      }).join('');
-      cont.innerHTML = `<div class="dash-insights-track">${cards}</div>`;
-    }
-
     // ── Render: últimas transacciones ─────────────────────────
     function renderTransacciones(txs) {
       const body = $('dashTxBody');
@@ -660,7 +573,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -670,7 +583,6 @@
         getSaldoAcumuladoPersonal(),
         getAhorrosHogar(mes, anio),
         getAhorrosPersonal(mes, anio),
-        cargarInsights(),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
@@ -681,7 +593,6 @@
       if (hogar.status === 'fulfilled')    renderHogar(hogar.value, acumH, ahorH);
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
-      if (insights.status === 'fulfilled') renderInsights(insights.value);
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
 
