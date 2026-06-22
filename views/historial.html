@@ -210,7 +210,7 @@
   }
   .hist-chip:hover { border-color: var(--color-primary); }
   .hist-chip--active {
-    background: var(--color-primary); color: #fff; border-color: var(--color-primary);
+    background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary);
   }
   .hist-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   .hist-chip-sep { width: 1px; height: 20px; background: var(--border-light); margin: 0 var(--space-xs); }
@@ -257,7 +257,7 @@
   .hist-tag {
     display: inline-flex; align-items: center; gap: var(--space-xs);
     padding: 2px var(--space-sm);
-    background: rgba(5,150,105,0.12); color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
   }
@@ -359,19 +359,19 @@
     font-weight: var(--font-weight-semibold); text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .hist-badge--gasto    { background: rgba(239,68,68,0.12); color: var(--color-danger); }
-  .hist-badge--ingreso  { background: rgba(34,197,94,0.12); color: var(--color-success); }
-  .hist-badge--ahorro   { background: rgba(59,130,246,0.12); color: #2563eb; }
-  .hist-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
-  .hist-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
-  .hist-badge--aporte   { background: rgba(245,158,11,0.15); color: var(--color-warning); }
+  .hist-badge--gasto    { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
+  .hist-badge--ingreso  { background: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); }
+  .hist-badge--ahorro   { background: color-mix(in srgb, var(--color-info) 12%, transparent); color: var(--color-info); }
+  .hist-badge--hogar    { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }
+  .hist-badge--personal { background: color-mix(in srgb, var(--text-secondary) 15%, transparent); color: var(--text-secondary); }
+  .hist-badge--aporte   { background: color-mix(in srgb, var(--color-warning) 15%, transparent); color: var(--color-warning); }
   .hist-tx-monto {
     font-weight: var(--font-weight-bold); font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
   .hist-tx-monto--ingreso { color: var(--color-success); }
   .hist-tx-monto--gasto   { color: var(--color-danger); }
-  .hist-tx-monto--ahorro  { color: #2563eb; }
+  .hist-tx-monto--ahorro  { color: var(--color-info); }
   .hist-tx-caret {
     flex-shrink: 0; color: var(--text-secondary); font-size: 0.9rem;
     transition: transform 0.2s;
@@ -418,7 +418,7 @@
     font-size: 0.95rem; line-height: 1;
   }
   .hist-iconbtn:hover { background: var(--border-light); color: var(--color-primary); }
-  .hist-iconbtn--del:hover { background: rgba(239,68,68,0.12); color: var(--color-danger); }
+  .hist-iconbtn--del:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
   .hist-iconbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 
   @media (min-width: 720px) {
@@ -455,8 +455,12 @@
   .hist-tot-ingreso::before { content: "↑ "; }
   .hist-tot-gasto { color: var(--color-danger); font-weight: var(--font-weight-semibold); }
   .hist-tot-gasto::before { content: "↓ "; }
-  .hist-tot-neto { font-weight: var(--font-weight-bold); color: var(--text-dark); }
-  .hist-tot-neto::before { content: "= "; color: var(--text-secondary); }
+  .hist-tot-neto {
+    font-family: var(--font-display); font-weight: 400;
+    font-size: 1.75rem; line-height: 1.1; color: var(--text-dark);
+    font-variant-numeric: tabular-nums;
+  }
+  .hist-tot-neto::before { content: "= "; font-family: inherit; color: var(--text-secondary); }
   .hist-resumen .btn { white-space: nowrap; flex-shrink: 0; margin-left: auto; }
   /* Móvil: apilar (conteo, totales que envuelven, botón a todo el ancho). */
   @media (max-width: 599px) {
@@ -469,7 +473,7 @@
   .hist-fab {
     position: fixed; right: var(--space-lg); bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
     width: 56px; height: 56px; border-radius: 50%;
-    background: var(--color-primary); color: #fff; border: none;
+    background: var(--color-primary); color: var(--bg-light); border: none;
     font-size: 2rem; line-height: 1;
     display: flex; align-items: center; justify-content: center;
     box-shadow: var(--shadow-lg); cursor: pointer; z-index: 860;
@@ -728,10 +732,20 @@
       };
     }
 
+    // Chip de categoría (24×24 tintado del color de la categoría).
+    // Valida el hex antes de interpolarlo en style (categorias.color es escribible vía API).
+    function chipCategoria(t) {
+      if (typeof iconoCategoria !== 'function') return '';
+      var cat = t.categorias || {};
+      var color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
+      return '<span class="cat-chip" style="--chip-color:' + color + '">' +
+        iconoCategoria(cat.icono || null) + '</span>';
+    }
+
     // Tarjeta (móvil): fila tappable + acciones expandibles.
     function cardTx(t, mostrarFecha) {
       var d = _datosTx(t);
-      var iconoHtml = (typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null, { clase: 'hist-cat-icono' }) : '';
+      var iconoHtml = chipCategoria(t);
       var aporteBadge = d.aporte ? '<span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
@@ -767,7 +781,7 @@
       var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       return '<tr data-id="' + esc(t.id) + '">' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
-          '<td>' + ((typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : '') + esc(d.cat) + aporteMark + directoMark + '</td>' +
+          '<td>' + chipCategoria(t) + ' ' + esc(d.cat) + aporteMark + directoMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
           '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</td>' +
