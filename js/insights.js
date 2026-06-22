@@ -329,8 +329,28 @@ function generarInsights(datos) {
   return priorizar(all, {});
 }
 
-if (typeof window !== 'undefined') {
-  // (se completará con generarInsights / cargarInsights en tareas posteriores)
+// cargarInsights() — ÚNICA parte impura. Lee de db.js (globales en window),
+// recorta a 90 días y delega en generarInsights. try/catch → [] (nunca tumba
+// el dashboard). No se unit-testea; la lógica de recorte vive en filtrarVentana.
+async function cargarInsights() {
+  try {
+    const [transacciones, categorias, metas] = await Promise.all([
+      window.getTransacciones(),
+      window.getCategorias(),
+      window.getMetas(),
+    ]);
+    const hoy = new Date();
+    const recientes = filtrarVentana(transacciones || [], hoy, 90);
+    return generarInsights({ transacciones: recientes, categorias: categorias || [], metas: metas || [], hoy });
+  } catch (err) {
+    console.error('Error en cargarInsights():', err && (err.message || err));
+    return [];
+  }
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes, priorizar, generarInsights };
+if (typeof window !== 'undefined') {
+  window.generarInsights = generarInsights;
+  window.cargarInsights = cargarInsights;
+}
+
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes, priorizar, generarInsights, cargarInsights };
