@@ -217,8 +217,55 @@ function detectProyeccionMeta(metas, opts) {
   return out;
 }
 
+// detectRitmoMensual(transacciones, { hoy, umbralPct?, minDias? })
+// Proyecta el gasto total del mes en curso a fin de mes y lo compara con el
+// total del mes anterior. warn si sube ≥15%, good si baja ≥15%.
+function detectRitmoMensual(transacciones, opts) {
+  const hoy = opts.hoy;
+  const UMBRAL = opts.umbralPct != null ? opts.umbralPct : 15;
+  const MIN_DIAS = opts.minDias != null ? opts.minDias : 5;
+  const y = hoy.getFullYear(), mo = hoy.getMonth();
+  const diaDelMes = hoy.getDate();
+  if (diaDelMes < MIN_DIAS) return [];
+  const diasDelMes = new Date(y, mo + 1, 0).getDate();
+  const inicioMesISO = diaISO(new Date(y, mo, 1));
+  const hoyISO = diaISO(hoy);
+
+  const prevY = mo === 0 ? y - 1 : y;
+  const prevMo = mo === 0 ? 11 : mo - 1;
+  const inicioPrevISO = diaISO(new Date(prevY, prevMo, 1));
+  const finPrevISO = diaISO(new Date(prevY, prevMo, new Date(prevY, prevMo + 1, 0).getDate()));
+
+  let gastoMes = 0, gastoPrev = 0;
+  for (const t of transacciones) {
+    if (t.tipo !== 'gasto' || !t.fecha) continue;
+    if (t.fecha >= inicioMesISO && t.fecha <= hoyISO) gastoMes += Number(t.monto);
+    else if (t.fecha >= inicioPrevISO && t.fecha <= finPrevISO) gastoPrev += Number(t.monto);
+  }
+  if (gastoPrev <= 0) return [];
+
+  const proyeccion = gastoMes / diaDelMes * diasDelMes;
+  const pct = Math.round((proyeccion - gastoPrev) / gastoPrev * 100);
+  const subtexto = `Proyección ${fmtS(proyeccion)} este mes vs ${fmtS(gastoPrev)} el mes pasado`;
+  if (pct >= UMBRAL) {
+    return [{
+      id: 'ritmo-mes', tipo: 'warn', icono: 'chart-line',
+      titulo: `Vas camino a gastar ${pct}% más que el mes pasado`, subtexto,
+      accion: null, meta: { pct, magnitud: Math.min(1, pct / 100) },
+    }];
+  } else if (pct <= -UMBRAL) {
+    const abs = Math.abs(pct);
+    return [{
+      id: 'ritmo-mes', tipo: 'good', icono: 'chart-line',
+      titulo: `Vas camino a gastar ${abs}% menos que el mes pasado`, subtexto,
+      accion: null, meta: { pct, magnitud: Math.min(1, abs / 100) },
+    }];
+  }
+  return [];
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual };
