@@ -1,6 +1,9 @@
 // Supabase Configuration — environment-aware
-// Production (csf156.github.io) → v1 instance (rblxwqdphhmpglxxtgtv)
-// Everything else (localhost, Netlify preview) → v2 instance (ombnhxueclqfeyjzhroz)
+// Production (csf156.github.io, GitHub Pages, branch main) → v1 instance (rblxwqdphhmpglxxtgtv)
+// Everything else (localhost, *.pages.dev Cloudflare, Netlify) → v2 instance (ombnhxueclqfeyjzhroz)
+// v2 is deployed on Cloudflare Pages from branch `v2`; its hostname is NOT
+// csf156.github.io, so it auto-routes to the v2 DB. NEVER serve v2 from
+// csf156.github.io — that routes v2 code to the v1 schema and breaks writes.
 // Same file on every branch — no per-branch credentials, no merge accidents.
 
 const _isProd = window.location.hostname === 'csf156.github.io';
