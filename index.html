@@ -5,16 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Nestra - Gestor de Finanzas Personales</title>
     <link rel="icon" type="image/png" href="assets/nestra_logo.png">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#ffffff">
-
-    <!-- iOS PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Nestra">
-    <link rel="apple-touch-icon" href="assets/icon-192.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
+    <link rel="apple-touch-icon" href="assets/nestra_logo.png">
 
     <!-- CSS Files -->
     <link rel="stylesheet" href="css/base.css">
@@ -22,16 +13,6 @@
     <link rel="stylesheet" href="css/components.css">
 </head>
 <body class="no-chrome">
-    <!-- Banner offline (oculto por defecto; lo controla js/sync.js) -->
-    <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>
-      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-      <span>Sin conexión — tus cambios se guardan y se sincronizarán al volver.</span>
-    </div>
-    <!-- Badge de pendientes por sincronizar (oculto si 0) -->
-    <div id="pendingBadge" class="pending-badge" role="status" aria-live="polite" hidden>
-      <span class="pending-badge-dot" aria-hidden="true"></span>
-      <span id="pendingBadgeText">0 por sincronizar</span>
-    </div>
     <!-- Navigation Bar -->
     <nav id="navbar" class="navbar">
         <div class="navbar-container">
@@ -125,9 +106,6 @@
             integrity="sha384-p3ppjAbdEPObbT9B8J3Jc/6aBp2Gl54cFACgyZjDVLaR3+KwIc+eeU9V6vqHa/Ml"
             crossorigin="anonymous"></script>
 
-    <!-- IndexedDB (idb vendorizado) -->
-    <script src="js/vendor/idb-umd.js"></script>
-
     <!-- Application Scripts (in order) -->
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
@@ -141,13 +119,8 @@
             integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3"
             crossorigin="anonymous"></script>
     <script src="js/export.js"></script>
-    <!-- PWA / offline: comparador LWW (módulo: expone window.lwwWinner) + capa IndexedDB -->
-    <script type="module" src="js/sync-lww.js"></script>
-    <script src="js/nestra-db.js"></script>
     <script src="js/db.js"></script>
-    <script src="js/sync.js"></script>
     <script src="js/alerts.js"></script>
-    <script type="module" src="js/insights.js"></script>
     <script src="js/router.js"></script>
     <script src="js/sidebar.js"></script>
 
@@ -376,18 +349,5 @@
         }
       });
     </script>
-    <!-- Prompt de instalación PWA (custom; oculto por defecto) -->
-    <div id="installPrompt" class="install-prompt" role="dialog" aria-labelledby="installPromptTitle" hidden>
-      <img src="assets/icon-192.png" alt="" class="install-prompt-icon" width="44" height="44">
-      <div class="install-prompt-body">
-        <p class="install-prompt-title" id="installPromptTitle">Instala Nestra</p>
-        <p class="install-prompt-text" id="installPromptText">Añádela a tu pantalla de inicio para abrirla como una app.</p>
-      </div>
-      <div class="install-prompt-actions">
-        <button type="button" class="btn btn-secondary btn-small" id="installDismiss">Ahora no</button>
-        <button type="button" class="btn btn-primary btn-small" id="installAccept">Instalar</button>
-      </div>
-    </div>
-    <script src="js/pwa.js"></script>
 </body>
 </html>
