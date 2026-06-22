@@ -641,7 +641,9 @@
           ? estadoPresupuesto(gastado, limite) : null;
         if (!est) return '';
 
-        const color = cat.color || '#c9a84c'; // acento champagne por defecto
+        // Validar el color como hex antes de interpolarlo en un style inline
+        // (defensa: categorias.color es escribible vía API). Si no, champagne.
+        const color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
         const chipStyle = 'background:' + color + '22;color:' + color + ';';
         const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
         const badge = est.superado
@@ -656,7 +658,7 @@
             </div>
             <span class="dash-presup-cifras">${esc(formatMonto(gastado))} / ${esc(formatMonto(limite))}</span>
             <div class="dash-presup-bar" role="progressbar"
-                 aria-valuenow="${est.pctReal}" aria-valuemin="0" aria-valuemax="100"
+                 aria-valuenow="${est.ancho}" aria-valuemin="0" aria-valuemax="100"
                  aria-label="Presupuesto de ${esc(cat.nombre || 'categoría')}: ${est.pctReal}%">
               <div class="dash-presup-bar-fill dash-presup-bar-fill--${est.color}" style="width:${est.ancho}%;"></div>
             </div>
