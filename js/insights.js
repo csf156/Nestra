@@ -163,8 +163,62 @@ function detectDiaAnomalo(transacciones, opts) {
   }];
 }
 
+// detectProyeccionMeta(metas, { hoy }) — proyecta, al ritmo actual de aporte,
+// si cada meta en curso llegará a su objetivo antes de su fecha límite.
+// good = llega a tiempo; warn = se atrasa. Ignora fondos de emergencia.
+function detectProyeccionMeta(metas, opts) {
+  const hoy = opts.hoy;
+  const out = [];
+  for (const m of metas) {
+    if (m.es_fondo_emergencia) continue;
+    if (m.estado !== 'en_curso') continue;
+    const objetivo = Number(m.monto_objetivo);
+    const actual = Number(m.monto_actual);
+    if (!objetivo || objetivo <= 0) continue;
+    if (!m.fecha_limite || !m.fecha_inicio) continue;
+    if (!(actual > 0)) continue;
+
+    const inicio = parseFechaISO(m.fecha_inicio);
+    const limite = parseFechaISO(m.fecha_limite);
+    const diasTranscurridos = Math.floor((hoy - inicio) / 86400000);
+    if (diasTranscurridos <= 0) continue;
+    const restante = objetivo - actual;
+    if (restante <= 0) continue;
+    const ritmoDiario = actual / diasTranscurridos;
+    if (!(ritmoDiario > 0)) continue;
+
+    const diasFalt = Math.ceil(restante / ritmoDiario);
+    const proy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + diasFalt);
+
+    if (proy <= limite) {
+      const holguraDias = Math.floor((limite - proy) / 86400000);
+      out.push({
+        id: `meta-ok:${m.id}`, tipo: 'good', icono: 'target-arrow',
+        titulo: `A este ritmo alcanzas ${m.nombre} en ${MESES[proy.getMonth()]}`,
+        subtexto: `Proyección ${diaISO(proy)} · meta ${m.fecha_limite}`,
+        accion: { label: 'Ver meta', href: '#metas' },
+        meta: { ambito: m.ambito, meta_id: m.id, magnitud: Math.min(1, holguraDias / 90) },
+      });
+    } else {
+      const atrasoDias = Math.floor((proy - limite) / 86400000);
+      const meses = Math.round(atrasoDias / 30);
+      const atrasoTxt = atrasoDias >= 30
+        ? `${meses} mes${meses === 1 ? '' : 'es'}`
+        : `${atrasoDias} día${atrasoDias === 1 ? '' : 's'}`;
+      out.push({
+        id: `meta-tarde:${m.id}`, tipo: 'warn', icono: 'target-arrow',
+        titulo: `${m.nombre} va atrasada ~${atrasoTxt}`,
+        subtexto: `A este ritmo llegas el ${diaISO(proy)} · meta ${m.fecha_limite}`,
+        accion: { label: 'Ver meta', href: '#metas' },
+        meta: { ambito: m.ambito, meta_id: m.id, magnitud: Math.min(1, atrasoDias / 90) },
+      });
+    }
+  }
+  return out;
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta };
