@@ -6,8 +6,8 @@
 //   { op_id, entity, payload, status:'pending'|'syncing'|'error', error?, created_at }
 
 const NESTRA_IDB_NAME = 'nestra';
-const NESTRA_IDB_VERSION = 1;
-const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos'];
+const NESTRA_IDB_VERSION = 2;
+const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos'];
 
 let _nestraDbPromise = null;
 
