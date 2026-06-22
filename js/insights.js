@@ -264,8 +264,43 @@ function detectRitmoMensual(transacciones, opts) {
   return [];
 }
 
+// detectBuenMes(transacciones, { hoy, umbralPct? }) — compara el gasto del
+// último mes calendario CERRADO con el promedio de los meses cerrados previos.
+// good si gastó ≥15% menos. Excluye el mes en curso (comparación completa).
+function detectBuenMes(transacciones, opts) {
+  const hoy = opts.hoy;
+  const UMBRAL = opts.umbralPct != null ? opts.umbralPct : 15;
+  const porMes = new Map();
+  for (const t of transacciones) {
+    if (t.tipo !== 'gasto' || !t.fecha) continue;
+    const ym = t.fecha.slice(0, 7);
+    porMes.set(ym, (porMes.get(ym) || 0) + Number(t.monto));
+  }
+  const ymActual = diaISO(hoy).slice(0, 7);
+  const cerrados = [...porMes.entries()]
+    .filter(([ym]) => ym < ymActual)
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1)); // desc por mes
+  if (cerrados.length < 2) return [];
+
+  const [ymUlt, gastoUlt] = cerrados[0];
+  const previos = cerrados.slice(1);
+  const promPrevios = previos.reduce((s, [, v]) => s + v, 0) / previos.length;
+  if (promPrevios <= 0) return [];
+  const pct = Math.round((gastoUlt - promPrevios) / promPrevios * 100);
+  if (pct > -UMBRAL) return [];
+
+  const abs = Math.abs(pct);
+  const mm = Number(ymUlt.split('-')[1]);
+  return [{
+    id: 'buen-mes', tipo: 'good', icono: 'circle-check',
+    titulo: `En ${MESES[mm - 1]} gastaste ${abs}% menos que tu promedio`,
+    subtexto: `${fmtS(gastoUlt)} vs ${fmtS(promPrevios)} de promedio mensual`,
+    accion: null, meta: { pct, magnitud: Math.min(1, abs / 100) },
+  }];
+}
+
 if (typeof window !== 'undefined') {
   // (se completará con generarInsights / cargarInsights en tareas posteriores)
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes };
