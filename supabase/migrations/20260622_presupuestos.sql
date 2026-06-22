@@ -22,10 +22,6 @@ create table if not exists public.presupuestos (
 create unique index if not exists idx_presupuestos_user_cat_periodo
   on public.presupuestos (user_id, categoria_id, periodo);
 
--- Índice para la lectura por usuario (RLS / dashboard).
-create index if not exists idx_presupuestos_user_id
-  on public.presupuestos (user_id);
-
 -- RLS: estrictamente por dueño (no compartido con el hogar).
 alter table public.presupuestos enable row level security;
 

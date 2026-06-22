@@ -173,6 +173,8 @@ create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
 create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
 create index idx_desafios_user_id           on public.desafios (user_id);
 create index idx_desafios_categoria_id      on public.desafios (categoria_id);
+create unique index idx_presupuestos_user_cat_periodo
+  on public.presupuestos (user_id, categoria_id, periodo);
 
 
 -- =====================================================================
