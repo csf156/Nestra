@@ -24,6 +24,11 @@ test('detecta el weekday con gasto promedio ≥ 1.8x del global', () => {
   assert.strictEqual(out[0].icono, 'calendar-stats');
   assert.match(out[0].titulo, /viernes/);
   assert.strictEqual(out[0].meta.wd, 5); // viernes
+  // El multiplicador del título compara contra los DEMÁS días (200 vs 20 = 10x),
+  // y debe ser coherente con las cifras del subtexto.
+  assert.strictEqual(out[0].meta.ratio, 10);
+  assert.match(out[0].titulo, /Gastas 10x más los viernes/);
+  assert.match(out[0].subtexto, /S\/200 .* vs S\/20 /);
 });
 
 test('NO dispara si el weekday tiene < 6 ocurrencias', () => {

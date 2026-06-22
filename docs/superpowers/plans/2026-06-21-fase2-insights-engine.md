@@ -357,7 +357,7 @@ git commit -m "feat(insights): category growth/decline detector"
 - Modify: `js/insights.js`
 - Test: `test/insights-dia-anomalo.test.mjs`
 
-Logic: over the 90-day window of `gasto` (both ámbitos combined — this is a timing pattern, not a category one). For each weekday, `promWd = sumWeekday / (#distinct fechas con gasto ese weekday)`. Global per-day avg = `totalGasto / (#distinct fechas con gasto)`. Anomaly if `promWd ≥ 1.8 × globalPromedioDia` and that weekday has ≥6 distinct spending dates. Pick the highest-ratio weekday; emit one `info`/`calendar-stats` insight. Guard: total ≥ S/100.
+Logic: over the 90-day window of `gasto` (both ámbitos combined — this is a timing pattern, not a category one). For each weekday, `promWd = sumWeekday / (#distinct fechas con gasto ese weekday)` and `promOtros = (total − sumWeekday) / (#distinct fechas de los demás días)`. Anomaly if `promWd ≥ 1.8 × promOtros` and that weekday has ≥6 distinct spending dates. Comparing against the **other** days (not a self-inclusive global average) keeps the title's multiplier consistent with the subtext figures. Pick the highest-ratio weekday; emit one `info`/`calendar-stats` insight. Guards: total ≥ S/100, `promOtros > 0`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -390,6 +390,11 @@ test('detecta el weekday con gasto promedio ≥ 1.8x del global', () => {
   assert.strictEqual(out[0].icono, 'calendar-stats');
   assert.match(out[0].titulo, /viernes/);
   assert.strictEqual(out[0].meta.wd, 5); // viernes
+  // El multiplicador del título compara contra los DEMÁS días (200 vs 20 = 10x),
+  // y debe ser coherente con las cifras del subtexto.
+  assert.strictEqual(out[0].meta.ratio, 10);
+  assert.match(out[0].titulo, /Gastas 10x más los viernes/);
+  assert.match(out[0].subtexto, /S\/200 .* vs S\/20 /);
 });
 
 test('NO dispara si el weekday tiene < 6 ocurrencias', () => {
@@ -431,8 +436,11 @@ In `js/insights.js`, add before the dual-export block:
 
 ```js
 // detectDiaAnomalo(transacciones, { hoy, factor?, minOcc?, minTotal? })
-// Detecta el día de la semana con gasto promedio ≥ factor× el promedio diario
-// global (ventana 90d, gasto de ambos ámbitos). Devuelve 1 insight info o [].
+// Detecta el día de la semana cuyo gasto promedio (por fecha distinta) es
+// ≥ factor× el promedio de los DEMÁS días. Comparar contra los demás días (no
+// contra un promedio global que se auto-incluye) mantiene el multiplicador del
+// título coherente con las cifras del subtexto. Ventana 90d, gasto de ambos
+// ámbitos. Devuelve 1 insight info o [].
 function detectDiaAnomalo(transacciones, opts) {
   const hoy = opts.hoy;
   const FACTOR = opts.factor != null ? opts.factor : 1.8;
@@ -454,29 +462,29 @@ function detectDiaAnomalo(transacciones, opts) {
     fechasPorWd[wd].add(t.fecha); fechasTotal.add(t.fecha);
   }
   if (total < MIN_TOTAL || fechasTotal.size === 0) return [];
-  const promedioGlobalDia = total / fechasTotal.size;
-  if (promedioGlobalDia <= 0) return [];
 
   let mejor = null;
   for (let wd = 0; wd < 7; wd++) {
-    const occ = fechasPorWd[wd].size;
+    const occ = fechasPorWd[wd].size;       // fechas distintas con gasto ese weekday
     if (occ < MIN_OCC) continue;
+    const otrosDias = fechasTotal.size - occ;
+    if (otrosDias <= 0) continue;           // sin días de comparación
     const promWd = sumPorDia[wd] / occ;
-    const ratio = promWd / promedioGlobalDia;
+    const promOtros = (total - sumPorDia[wd]) / otrosDias;
+    if (promOtros <= 0) continue;
+    const ratio = promWd / promOtros;
     if (ratio >= FACTOR && (!mejor || ratio > mejor.ratio)) {
-      mejor = { wd, ratio, promWd, occ };
+      mejor = { wd, ratio, promWd, promOtros, occ };
     }
   }
   if (!mejor) return [];
 
-  const otrosDias = fechasTotal.size - mejor.occ;
-  const promOtros = otrosDias > 0 ? (total - sumPorDia[mejor.wd]) / otrosDias : 0;
   const veces = Math.round(mejor.ratio * 10) / 10;
   const dia = DIAS_PLURAL[mejor.wd];
   return [{
     id: `dia-anomalo:${mejor.wd}`, tipo: 'info', icono: 'calendar-stats',
     titulo: `Gastas ${veces}x más los ${dia}`,
-    subtexto: `${fmtS(mejor.promWd)} en promedio los ${dia} vs ${fmtS(promOtros)} los demás días`,
+    subtexto: `${fmtS(mejor.promWd)} en promedio los ${dia} vs ${fmtS(mejor.promOtros)} los demás días`,
     accion: null,
     meta: { wd: mejor.wd, ratio: mejor.ratio, magnitud: Math.min(1, (mejor.ratio - 1) / 2) },
   }];

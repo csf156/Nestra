@@ -112,8 +112,11 @@ function detectCrecimiento(transacciones, opts) {
 }
 
 // detectDiaAnomalo(transacciones, { hoy, factor?, minOcc?, minTotal? })
-// Detecta el día de la semana con gasto promedio ≥ factor× el promedio diario
-// global (ventana 90d, gasto de ambos ámbitos). Devuelve 1 insight info o [].
+// Detecta el día de la semana cuyo gasto promedio (por fecha distinta) es
+// ≥ factor× el promedio de los DEMÁS días. Comparar contra los demás días (no
+// contra un promedio global que se auto-incluye) mantiene el multiplicador del
+// título coherente con las cifras del subtexto. Ventana 90d, gasto de ambos
+// ámbitos. Devuelve 1 insight info o [].
 function detectDiaAnomalo(transacciones, opts) {
   const hoy = opts.hoy;
   const FACTOR = opts.factor != null ? opts.factor : 1.8;
@@ -135,29 +138,29 @@ function detectDiaAnomalo(transacciones, opts) {
     fechasPorWd[wd].add(t.fecha); fechasTotal.add(t.fecha);
   }
   if (total < MIN_TOTAL || fechasTotal.size === 0) return [];
-  const promedioGlobalDia = total / fechasTotal.size;
-  if (promedioGlobalDia <= 0) return [];
 
   let mejor = null;
   for (let wd = 0; wd < 7; wd++) {
-    const occ = fechasPorWd[wd].size;
+    const occ = fechasPorWd[wd].size;       // fechas distintas con gasto ese weekday
     if (occ < MIN_OCC) continue;
+    const otrosDias = fechasTotal.size - occ;
+    if (otrosDias <= 0) continue;           // sin días de comparación
     const promWd = sumPorDia[wd] / occ;
-    const ratio = promWd / promedioGlobalDia;
+    const promOtros = (total - sumPorDia[wd]) / otrosDias;
+    if (promOtros <= 0) continue;
+    const ratio = promWd / promOtros;
     if (ratio >= FACTOR && (!mejor || ratio > mejor.ratio)) {
-      mejor = { wd, ratio, promWd, occ };
+      mejor = { wd, ratio, promWd, promOtros, occ };
     }
   }
   if (!mejor) return [];
 
-  const otrosDias = fechasTotal.size - mejor.occ;
-  const promOtros = otrosDias > 0 ? (total - sumPorDia[mejor.wd]) / otrosDias : 0;
   const veces = Math.round(mejor.ratio * 10) / 10;
   const dia = DIAS_PLURAL[mejor.wd];
   return [{
     id: `dia-anomalo:${mejor.wd}`, tipo: 'info', icono: 'calendar-stats',
     titulo: `Gastas ${veces}x más los ${dia}`,
-    subtexto: `${fmtS(mejor.promWd)} en promedio los ${dia} vs ${fmtS(promOtros)} los demás días`,
+    subtexto: `${fmtS(mejor.promWd)} en promedio los ${dia} vs ${fmtS(mejor.promOtros)} los demás días`,
     accion: null,
     meta: { wd: mejor.wd, ratio: mejor.ratio, magnitud: Math.min(1, (mejor.ratio - 1) / 2) },
   }];

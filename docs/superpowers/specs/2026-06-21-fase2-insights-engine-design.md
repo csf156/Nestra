@@ -38,7 +38,7 @@ previos (días 31–90). Montos en soles (S/).
 |---|---------|------|----------------|----------------|---------------------|
 | 1 | Crecimiento de categoría | `warn` | `trending-up` | gasto de cat×ámbito en periodo actual ≥ **+25%** vs promedio mensual del baseline | baseline ≥ S/50 **y** ≥3 tx; ≥2 tx en actual; máx **top 2** |
 | 2 | Caída de categoría | `good` | `trending-down` | misma métrica pero ≤ **−25%** | mismos guards que #1 |
-| 3 | Día de semana anómalo | `info` | `calendar-stats` | gasto promedio de un weekday ≥ **1.8×** el promedio diario global (90d) | ≥6 ocurrencias del weekday con gasto; total 90d ≥ umbral mínimo (S/100) |
+| 3 | Día de semana anómalo | `info` | `calendar-stats` | gasto promedio de un weekday ≥ **1.8×** el promedio de los **demás** días (90d) | ≥6 fechas distintas del weekday con gasto; total 90d ≥ S/100 |
 | 4 | Proyección de meta — en camino | `good` | `target-arrow` | ritmo de aporte proyecta alcanzar objetivo **≤ fecha_limite** | fecha_inicio pasada; monto_actual>0; ritmo>0; **no** fondo emergencia; tiene fecha_limite y monto_objetivo |
 | 5 | Proyección de meta — atrasada | `warn` | `target-arrow` | ritmo proyecta pasar fecha_limite (o no alcanzar) | mismos que #4 (el color del `tipo` distingue) |
 | 6 | Ritmo de gasto mensual | `warn`/`good` | `chart-line` | gasto proyectado a fin de mes (pace) se desvía **±15%** vs total del mes anterior (`warn` si sube, `good` si baja) | ≥5 días transcurridos del mes en curso; mes anterior con datos |
