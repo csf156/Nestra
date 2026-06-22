@@ -158,23 +158,37 @@ a.card:hover {
   transform: translateY(1px);
 }
 
+/* Foco global champagne + selección de texto */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-/* — Primary ─────────── filled esmeralda */
+/* — Primary ─────────── filled champagne */
 .btn-primary {
   background-color: var(--color-primary);
-  color: #fff;
+  color: #08080f;
   border-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--color-primary) 82%, #000);
-  border-color:     color-mix(in srgb, var(--color-primary) 82%, #000);
+  background-color: var(--accent-hover);
+  border-color:     var(--accent-hover);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+/* En claro --color-primary es oscuro → texto blanco */
+html.light .btn-primary { color: #ffffff; }
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .btn-primary { color: #ffffff; }
 }
 
 /* — Secondary ────────── outline neutro */
@@ -239,8 +253,13 @@ a.card:hover {
   flex-shrink: 0;
 }
 
-.btn-primary .spinner,
-.btn-danger  .spinner {
+/* Sobre champagne el texto es oscuro → spinner oscuro (currentColor) */
+.btn-primary .spinner {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+}
+
+.btn-danger .spinner {
   border-color: rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
 }
@@ -674,27 +693,11 @@ input[type="radio"] {
   letter-spacing: 0.02em;
 }
 
-/* — Semánticos */
-.badge-success {
-  background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: var(--color-success);
-}
-
-.badge-warning {
-  background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
-  color: var(--color-warning);
-}
-
-.badge-danger {
-  background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
-  color: var(--color-danger);
-}
-
-.badge-neutral {
-  background-color: var(--bg-light-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-light);
-}
+/* — Semánticos (tintes tokenizados, válidos en ambos temas) */
+.badge-success { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
+.badge-warning { background: color-mix(in srgb, var(--color-warning) 16%, transparent); color: var(--color-warning); }
+.badge-danger  { background: color-mix(in srgb, var(--color-danger)  16%, transparent); color: var(--color-danger);  }
+.badge-neutral { background: color-mix(in srgb, var(--text-secondary) 14%, transparent); color: var(--text-secondary); }
 
 /* — Ámbito */
 .badge-hogar {
@@ -702,29 +705,21 @@ input[type="radio"] {
   color: var(--color-primary);
 }
 
+/* Indigo claro por defecto (legible sobre el dark-default) */
 .badge-personal {
-  background-color: color-mix(in srgb, #6366f1 13%, transparent);
-  color: #6366f1;
-}
-
-/* Ajuste personal para dark (indigo es oscuro, necesita variante clara) */
-html.dark .badge-personal,
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .badge-personal {
-    background-color: rgba(129, 140, 248, 0.18);
-    color: #a5b4fc;
-  }
-}
-
-html.dark .badge-personal {
   background-color: rgba(129, 140, 248, 0.18);
   color: #a5b4fc;
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .badge-personal {
-    background-color: rgba(129, 140, 248, 0.18);
-    color: #a5b4fc;
+/* En tema claro, indigo más saturado/oscuro para contraste sobre fondo claro */
+html.light .badge-personal {
+  background-color: color-mix(in srgb, #6366f1 13%, transparent);
+  color: #6366f1;
+}
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .badge-personal {
+    background-color: color-mix(in srgb, #6366f1 13%, transparent);
+    color: #6366f1;
   }
 }
 
@@ -800,21 +795,21 @@ html.dark .badge-personal {
 
 .progress {
   width: 100%;
-  height: 6px;
+  height: 2px;
   background-color: var(--border-light);
-  border-radius: 99px;
+  border-radius: 9999px;
   overflow: hidden;
   flex-shrink: 0;
 }
 
-.progress-md { height: 8px; }
-.progress-lg { height: 12px; }
+.progress-md { height: 6px; }
+.progress-lg { height: 10px; }
 
 .progress-bar {
   height: 100%;
-  border-radius: inherit;
+  border-radius: 9999px;
   background-color: var(--progress-color, var(--color-primary));
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s ease;
   min-width: 0;
 }
 
@@ -1203,7 +1198,7 @@ hr, .divider {
   width: 32px;
   height: 32px;
   background-color: var(--color-primary);
-  color: #fff;
+  color: #08080f;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1326,6 +1321,21 @@ hr, .divider {
   vertical-align: -0.15em;
   flex-shrink: 0;
 }
+
+/* Chip de ícono de categoría — 24×24, fondo tintado del color de la categoría */
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--chip-color, var(--color-primary)) 14%, transparent);
+  color: var(--chip-color, var(--color-primary));
+}
+.cat-chip .cat-icono,
+.cat-chip svg { width: 14px; height: 14px; }
 
 /* ── PWA: banner offline + badge pendientes ───────────────────── */
 /* Mobile-first. Banner FIJO arriba (el body es flex-column en móvil y
