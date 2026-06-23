@@ -44,7 +44,12 @@ async function _consumeShare() {
   window._sharePrefill = { monto, nota: texto || null, imageURL };
 
   const ok = await _whenAuthed();
-  if (!ok) return; // sin sesión: el prefill queda listo si el usuario abre el form luego
+  if (!ok) {
+    // Sin sesión a tiempo: no se abrirá el modal; libera el object URL para no
+    // filtrarlo. El prefill (monto/nota) queda listo si el usuario abre el form.
+    if (imageURL) { URL.revokeObjectURL(imageURL); window._sharePrefill.imageURL = null; }
+    return;
+  }
   if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
 }
 

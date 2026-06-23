@@ -860,7 +860,11 @@
         if (sp.imageURL) {
           const prev = document.getElementById('txSharePreview');
           const img = document.getElementById('txShareImg');
-          if (prev && img) { img.src = sp.imageURL; prev.style.display = 'block'; }
+          if (prev && img) {
+            img.onload = function () { URL.revokeObjectURL(sp.imageURL); };
+            img.src = sp.imageURL;
+            prev.style.display = 'block';
+          }
         }
       }
     }
