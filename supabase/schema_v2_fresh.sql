@@ -40,13 +40,14 @@ create table public.transacciones (
   tipo              text not null check (tipo in ('gasto', 'ingreso', 'ahorro')),
   ambito            text not null check (ambito in ('personal', 'hogar')),
   user_id           uuid not null references auth.users (id) on delete cascade,
-  categoria_id      uuid not null references public.categorias (id) on delete restrict,
+  categoria_id      uuid references public.categorias (id) on delete restrict,
   monto             numeric(10,2) not null check (monto > 0),
   nota              text,
   aporte_id         uuid,
   es_aporte_directo boolean not null default false,
   created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
+  updated_at        timestamptz not null default now(),
+  constraint transacciones_categoria_por_tipo check (tipo = 'ahorro' or categoria_id is not null)
 );
 
 -- 1.4 prestamos (incluye fecha_devolucion de migración 20260608)
@@ -369,8 +370,10 @@ revoke execute on function public.handle_new_user() from public, anon, authentic
 
 -- 6.3 distribuir_ahorro — reparte transacción de ahorro personal entre metas
 create or replace function public.distribuir_ahorro(p_transaccion_id uuid)
-returns void language plpgsql
-security definer set search_path = public
+returns void
+language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_tx           public.transacciones%rowtype;
@@ -398,22 +401,29 @@ begin
 
   v_total := v_tx.monto;
 
-  select id into v_fondo_id
-  from public.metas
-  where es_fondo_emergencia = true and ambito = 'personal' and user_id = v_tx.user_id
-  limit 1;
+  if v_tx.ambito = 'hogar' then
+    select id into v_fondo_id from public.metas
+    where es_fondo_emergencia = true and ambito = 'hogar' limit 1;
+  else
+    select id into v_fondo_id from public.metas
+    where es_fondo_emergencia = true and ambito = 'personal' and user_id = v_tx.user_id limit 1;
+  end if;
   if v_fondo_id is null then
-    raise exception 'El usuario no tiene fondo de emergencia personal';
+    raise exception 'No existe el fondo de emergencia del ámbito %', v_tx.ambito;
   end if;
 
   for r in
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
     from public.metas m
-    where m.ambito = 'personal' and m.user_id = v_tx.user_id
-      and m.es_fondo_emergencia = false and m.estado = 'en_curso'
+    where m.es_fondo_emergencia = false
+      and m.estado = 'en_curso'
       and m.fecha_limite >= current_date
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
+      and (
+        (v_tx.ambito = 'personal' and m.ambito = 'personal' and m.user_id = v_tx.user_id)
+        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar' and m.user_id is null)
+      )
   loop
     v_f_horizonte := case r.horizonte when 'corto' then 3 when 'mediano' then 2 else 1 end;
     v_f_urgencia  := case
@@ -421,25 +431,31 @@ begin
                        when (r.fecha_limite - current_date) < 30 then 2
                        else 1
                      end;
-    v_avance   := r.progreso / r.monto_objetivo;
+    v_avance  := r.progreso / r.monto_objetivo;
     v_f_rezago := greatest(0.2, least(1, 1 - v_avance));
-    v_peso     := r.importancia * v_f_horizonte * v_f_urgencia * v_f_rezago;
+    v_peso := r.importancia * v_f_horizonte * v_f_urgencia * v_f_rezago;
     v_suma_pesos := v_suma_pesos + v_peso;
   end loop;
 
   select importancia into v_peso from public.metas where id = v_fondo_id;
   v_suma_pesos := v_suma_pesos + v_peso;
 
-  if v_suma_pesos <= 0 then return; end if;
+  if v_suma_pesos <= 0 then
+    return;
+  end if;
 
   for r in
     select m.id, m.importancia, m.horizonte, m.fecha_limite, m.monto_objetivo,
            coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0) as progreso
     from public.metas m
-    where m.ambito = 'personal' and m.user_id = v_tx.user_id
-      and m.es_fondo_emergencia = false and m.estado = 'en_curso'
+    where m.es_fondo_emergencia = false
+      and m.estado = 'en_curso'
       and m.fecha_limite >= current_date
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
+      and (
+        (v_tx.ambito = 'personal' and m.ambito = 'personal' and m.user_id = v_tx.user_id)
+        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar' and m.user_id is null)
+      )
   loop
     v_f_horizonte := case r.horizonte when 'corto' then 3 when 'mediano' then 2 else 1 end;
     v_f_urgencia  := case
@@ -453,20 +469,27 @@ begin
 
     v_restante := r.monto_objetivo - r.progreso;
     v_asignado := round(v_total * (v_peso / v_suma_pesos), 2);
-    if v_asignado > v_restante then v_asignado := v_restante; end if;
+
+    if v_asignado > v_restante then
+      v_asignado := v_restante;
+    end if;
 
     if v_asignado > 0 then
-      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
-      values (r.id, v_tx.id, v_asignado, v_peso, v_tx.user_id);
+      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
+      values (r.id, v_tx.id, v_asignado, v_peso);
       v_repartido := v_repartido + v_asignado;
+
+      if (r.progreso + v_asignado) >= r.monto_objetivo then
+        update public.metas set estado = 'lograda' where id = r.id;
+      end if;
     end if;
   end loop;
 
-  select importancia into v_peso from public.metas where id = v_fondo_id;
   v_aporte_fondo := v_total - v_repartido;
   if v_aporte_fondo > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
-    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso, v_tx.user_id);
+    select importancia into v_peso from public.metas where id = v_fondo_id;
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
+    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso);
   end if;
 end;
 $$;
@@ -595,13 +618,14 @@ create or replace function public.aporte_directo_meta(
   p_fecha   date,
   p_nota    text
 )
-returns uuid language plpgsql
-security definer set search_path = public
+returns uuid
+language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_uid        uuid := (select auth.uid());
   v_meta       public.metas%rowtype;
-  v_cat_ahorro uuid;
   v_tx_id      uuid;
   v_progreso   numeric(10,2);
   v_restante   numeric(10,2);
@@ -621,41 +645,37 @@ begin
     raise exception 'No autorizado: la meta no pertenece al usuario';
   end if;
 
-  select id into v_cat_ahorro
-  from public.categorias where nombre = 'Ahorro' and tipo = 'gasto'
-  limit 1;
-  if v_cat_ahorro is null then
-    raise exception 'No existe la categoría Ahorro';
-  end if;
-
   insert into public.transacciones
     (fecha, tipo, ambito, user_id, categoria_id, monto, nota, es_aporte_directo)
   values
-    (coalesce(p_fecha, current_date), 'gasto', 'personal', v_uid, v_cat_ahorro, p_monto, p_nota, true)
+    (coalesce(p_fecha, current_date), 'ahorro', 'personal', v_uid, null, p_monto, p_nota, true)
   returning id into v_tx_id;
 
   select coalesce(sum(a.monto), 0) into v_progreso
   from public.aportes_meta a where a.meta_id = p_meta_id;
 
   if v_meta.es_fondo_emergencia or v_meta.monto_objetivo is null then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
-    values (p_meta_id, v_tx_id, p_monto, null, v_uid);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
+    values (p_meta_id, v_tx_id, p_monto, null);
     return v_tx_id;
   end if;
 
   v_restante := v_meta.monto_objetivo - v_progreso;
 
   if v_restante <= 0 then
-    v_a_meta := 0; v_a_fondo := p_monto;
+    v_a_meta  := 0;
+    v_a_fondo := p_monto;
   elsif p_monto <= v_restante then
-    v_a_meta := p_monto; v_a_fondo := 0;
+    v_a_meta  := p_monto;
+    v_a_fondo := 0;
   else
-    v_a_meta := v_restante; v_a_fondo := p_monto - v_restante;
+    v_a_meta  := v_restante;
+    v_a_fondo := p_monto - v_restante;
   end if;
 
   if v_a_meta > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
-    values (p_meta_id, v_tx_id, v_a_meta, null, v_uid);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
+    values (p_meta_id, v_tx_id, v_a_meta, null);
   end if;
 
   if v_a_fondo > 0 then
@@ -669,8 +689,8 @@ begin
     if v_fondo_id is null then
       raise exception 'No existe el fondo de emergencia del ámbito % para el excedente', v_meta.ambito;
     end if;
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
-    values (v_fondo_id, v_tx_id, v_a_fondo, null, v_uid);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
+    values (v_fondo_id, v_tx_id, v_a_fondo, null);
   end if;
 
   return v_tx_id;
@@ -702,7 +722,6 @@ insert into public.categorias (nombre, tipo, limite_mensual) values
   ('Entretenimiento',            'gasto', 150),
   ('Comer fuera',                'gasto', 400),
   ('Salidas en bicicleta',       'gasto', 150),
-  ('Ahorro',                     'gasto', null),
   ('Gastos hormiga',             'gasto', 100),
   ('Ganjah',                     'gasto', 100),
   ('Partes de bicicleta',        'gasto', 150),
