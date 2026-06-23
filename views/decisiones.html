@@ -213,9 +213,6 @@
 
     // ── Dictamen puro a partir de monto + métricas + categoría ─
     function dictaminar(monto, m, cat) {
-      if (cat.nombre === 'Ahorro') {
-        return { nivel: 'ahorro', razon: 'Estás ahorrando, no gastando. Adelante.' };
-      }
       if (cat.limite_mensual == null) {
         return { nivel: 'sin-presupuesto', razon: 'Define un presupuesto para ' + cat.nombre + ' y podré aconsejarte.' };
       }
@@ -330,8 +327,8 @@
         renderVeredicto({ nivel: 'sin-presupuesto', razon: 'Ingresa un monto y una categoría válidos.' }, 0, null, cat || { nombre: '' });
         return;
       }
-      // Casos sin consulta a Supabase (Ahorro / sin presupuesto): resolver directo.
-      if (cat.nombre === 'Ahorro' || cat.limite_mensual == null) {
+      // Caso sin consulta a Supabase (sin presupuesto): resolver directo.
+      if (cat.limite_mensual == null) {
         renderVeredicto(dictaminar(monto, { limite: NaN }, cat), monto, null, cat);
         return;
       }
@@ -352,7 +349,7 @@
     // ── Estado general del hogar ──────────────────────────────
     async function renderEstadoGeneral() {
       var cats = await getCategorias('gasto');
-      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null && c.nombre !== 'Ahorro'; });
+      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null; });
       var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
 
       var usos = await Promise.all(conLimite.map(function (c) {
