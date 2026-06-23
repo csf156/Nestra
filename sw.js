@@ -90,6 +90,41 @@ self.addEventListener('message', (event) => {
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
+// ── Web Share Target (Fase 1) ─────────────────────────────────
+// Recibe el POST multipart del share, guarda el payload en una cache
+// y redirige a la app con ?shared=1. La página (js/share-target.js)
+// lo consume y abre el modal de transacción precargado.
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method === 'POST' && url.pathname.endsWith('/share-target')) {
+    event.respondWith(_handleShareTarget(event.request));
+  }
+});
+
+async function _handleShareTarget(request) {
+  try {
+    const form = await request.formData();
+    const payload = {
+      title: form.get('title') || '',
+      text: form.get('text') || '',
+      url: form.get('url') || '',
+      hasImage: false,
+    };
+    const file = form.get('image');
+    const cache = await caches.open('nestra-share');
+    if (file && file.size) {
+      payload.hasImage = true;
+      await cache.put('/__share_image__',
+        new Response(file, { headers: { 'Content-Type': file.type || 'image/png' } }));
+    }
+    await cache.put('/__share_data__',
+      new Response(JSON.stringify(payload), { headers: { 'Content-Type': 'application/json' } }));
+  } catch (err) {
+    // Si algo falla, igual redirigimos para no dejar al usuario en una pantalla rota.
+  }
+  return Response.redirect('./?shared=1', 303);
+}
+
 // ── Web Push (Fase 6) ─────────────────────────────────────────
 self.addEventListener('push', (event) => {
   let data = {};
