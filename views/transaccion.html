@@ -64,7 +64,7 @@
       </div>
 
       <!-- Categoría -->
-      <div class="form-group">
+      <div class="form-group" id="categoriaGroup">
         <label for="categoria">Categoría</label>
         <select id="categoria" name="categoria" required>
           <option value="">Cargando categorías...</option>
@@ -240,7 +240,8 @@
   }
   .tx-toggle-btn {
     flex: 1;
-    padding: var(--space-sm) var(--space-md);
+    min-width: 0;
+    padding: var(--space-sm) var(--space-xs);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     background: var(--bg-light);
@@ -529,7 +530,10 @@
       btnTipoIngreso.setAttribute('aria-pressed', String(val === 'ingreso'));
       btnTipoAhorro.classList.toggle('tx-active', val === 'ahorro');
       btnTipoAhorro.setAttribute('aria-pressed', String(val === 'ahorro'));
-      cargarCategorias();
+      var esAhorro = (val === 'ahorro');
+      document.getElementById('categoriaGroup').style.display = esAhorro ? 'none' : '';
+      if (esAhorro) { _ocultarNuevaCat(); _ocultarPrestamo(); }
+      else cargarCategorias();
       _mostrarAporteHogar();
     }
     function _setAmbito(val) {
@@ -577,8 +581,7 @@
       _ocultarNuevaCat();
       _ocultarPrestamo();
       try {
-        const catTipo = tipo === 'ahorro' ? 'gasto' : tipo;
-        const cats = await getCategorias(catTipo);
+        const cats = await getCategorias(tipo);
         if (!cats.length) {
           categoriaEl.innerHTML = '<option value="">Sin categorías</option>';
           return;
@@ -674,7 +677,7 @@
       ocultar(deudorError);
       ocultar(formError);
 
-      if (!categoriaEl.value) {
+      if (tipoEl.value !== 'ahorro' && !categoriaEl.value) {
         const msg = nuevaCatGroup.style.display !== 'none'
           ? 'Completa o cancela la nueva categoría primero.'
           : 'Selecciona una categoría.';
@@ -763,14 +766,14 @@
           await updateTransaccion(editTx.id, {
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
-            categoria_id: savedCatId,
+            categoria_id: tipoEl.value === 'ahorro' ? null : savedCatId,
             monto,
             fecha,
             nota,
           });
           // Re-distribuir aportes a metas si la categoría es/era "Ahorro".
           // Best-effort: fallo no revierte la edición ya guardada.
-          await _reDistribuirAhorro(editTx.id, savedCatId);
+          await _reDistribuirAhorro(editTx.id, tipoEl.value);
           await mostrarExito(savedCatId);
           return;
         }
@@ -780,7 +783,7 @@
           const tx = await insertTransaccion({
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
-            categoria_id: savedCatId,
+            categoria_id: tipoEl.value === 'ahorro' ? null : savedCatId,
             monto,
             fecha,
             nota,
@@ -812,6 +815,7 @@
       btnTipoIngreso.setAttribute('aria-pressed', String(editTx.tipo === 'ingreso'));
       btnTipoAhorro.classList.toggle('tx-active', editTx.tipo === 'ahorro');
       btnTipoAhorro.setAttribute('aria-pressed', String(editTx.tipo === 'ahorro'));
+      document.getElementById('categoriaGroup').style.display = (editTx.tipo === 'ahorro') ? 'none' : '';
 
       ambitoEl.value = editTx.ambito;
       btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
