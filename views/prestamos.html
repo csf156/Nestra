@@ -15,7 +15,7 @@
   <section id="prestTotalSection" style="display:none;">
     <div class="prest-total-card">
       <p class="prest-total-label">Total pendiente</p>
-      <p class="prest-total-monto" id="prestTotalMonto">S/ 0.00</p>
+      <p class="prest-total-monto signature-num" id="prestTotalMonto">S/ 0.00</p>
       <div class="prest-total-desglose" id="prestTotalDesglose"></div>
     </div>
   </section>
@@ -274,8 +274,8 @@
       padding: var(--space-lg);
     }
     .prest-card--alerta {
-      border-color: #f59e0b;
-      background: color-mix(in srgb, #f59e0b 5%, var(--bg-light-secondary));
+      border-color: var(--color-warning);
+      background: color-mix(in srgb, var(--color-warning) 5%, var(--bg-light-secondary));
     }
     .prest-card--devuelto { opacity: 0.7; }
 
@@ -320,7 +320,7 @@
     }
     .prest-card-dias { font-size: var(--font-size-sm); color: var(--text-secondary); }
     .prest-card-dias--alerta {
-      color: #f59e0b;
+      color: var(--color-warning);
       font-weight: var(--font-weight-medium);
     }
 
@@ -438,20 +438,12 @@
 
     /* ── Dirección badge en cards ────────────────────────────── */
     .prest-badge--preste {
-      background: color-mix(in srgb, #f59e0b 12%, transparent);
-      color: #b45309;
-    }
-    html.dark .prest-badge--preste {
-      background: color-mix(in srgb, #f59e0b 18%, transparent);
-      color: #fbbf24;
+      background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+      color: var(--color-warning);
     }
     .prest-badge--recibido {
-      background: color-mix(in srgb, #10b981 12%, transparent);
-      color: #047857;
-    }
-    html.dark .prest-badge--recibido {
-      background: color-mix(in srgb, #10b981 18%, transparent);
-      color: #34d399;
+      background: color-mix(in srgb, var(--color-success) 16%, transparent);
+      color: var(--color-success);
     }
 
     /* ── Nuevo préstamo modal ────────────────────────────────── */
@@ -568,15 +560,15 @@
     .prest-input--prefixed { padding-left: 2.2rem; }
     .prest-field-error {
       font-size: var(--font-size-xs);
-      color: #ef4444;
+      color: var(--color-danger);
       margin: 0;
       min-height: 1em;
     }
     .prest-form-error {
       font-size: var(--font-size-sm);
-      color: #ef4444;
-      background: color-mix(in srgb, #ef4444 8%, transparent);
-      border: 1px solid color-mix(in srgb, #ef4444 20%, transparent);
+      color: var(--color-danger);
+      background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--color-danger) 20%, transparent);
       border-radius: var(--radius-sm);
       padding: var(--space-sm) var(--space-md);
       margin: 0;
