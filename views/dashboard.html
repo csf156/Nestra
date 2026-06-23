@@ -181,7 +181,10 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    gap: var(--space-sm);
   }
+  /* El lado de la etiqueta puede encogerse; el monto nunca se parte en 2 líneas. */
+  .dash-neto > div { min-width: 0; }
   .dash-neto-label {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
@@ -194,6 +197,8 @@
     font-size: 2rem;
     font-weight: 400;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   /* Signo no solo por color (WCAG 1.4.1): glifo ▲/▼ */
   .dash-neto-value--pos { color: var(--color-success); }

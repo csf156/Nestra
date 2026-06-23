@@ -54,7 +54,7 @@
     </section>
     <section class="graf-card" id="card6">
       <h2 class="graf-card-title">Flujo de caja</h2>
-      <p class="graf-card-desc">De ingresos a balance, restando cada categoría.</p>
+      <p class="graf-card-desc">Ingresos, gastos y balance del mes (hogar + personal).</p>
       <div class="graf-state" data-card="6"></div>
       <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
     </section>
@@ -477,27 +477,20 @@
     }
     function render6(datos) {
       var resumen = datos.resumen;
-      var ingresos = resumen.hogar.ingresos || 0;
-      var cats = (resumen.porCategoria || []).slice(0, 6);
-      if (ingresos <= 0 && !cats.length) { setEstado(6, 'vacio'); return; }
+      // Alcance consistente: ingresos y gastos del mes visibles (hogar + personal).
+      var ingresos = (resumen.hogar.ingresos || 0) + (resumen.personal.ingresos || 0);
+      var gastos   = (resumen.hogar.gastos   || 0) + (resumen.personal.gastos   || 0);
+      var balance  = ingresos - gastos;
+      if (ingresos <= 0 && gastos <= 0) { setEstado(6, 'vacio'); return; }
 
-      var labels = ['Ingresos'];
-      var floatData = [[0, ingresos]];
-      var colores = [cssVar('--color-success')];
-
-      var corriente = ingresos;
-      cats.forEach(function (c) {
-        labels.push(c.nombre);
-        var monto = Number(c.total);
-        var antes = corriente;
-        corriente -= monto;
-        floatData.push([corriente, antes]);
-        colores.push(cssVar('--color-danger'));
-      });
-
-      labels.push('Balance');
-      floatData.push([0, corriente]);
-      colores.push(corriente >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'));
+      // Barras ancladas en 0 (sin columnas flotantes): Ingresos, Gastos, Balance.
+      var labels = ['Ingresos', 'Gastos', 'Balance'];
+      var valores = [ingresos, gastos, balance];
+      var colores = [
+        cssVar('--color-success'),
+        cssVar('--color-danger'),
+        balance >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'),
+      ];
 
       setEstado(6, 'ok');
       charts.chart6 = new Chart($('chart6'), {
@@ -506,7 +499,7 @@
           labels: labels,
           datasets: [{
             label: 'Flujo',
-            data: floatData,
+            data: valores,
             backgroundColor: colores,
           }],
         },
@@ -517,9 +510,7 @@
             tooltip: {
               callbacks: {
                 label: function (item) {
-                  var d = item.raw;
-                  var val = Array.isArray(d) ? Math.abs(d[1] - d[0]) : Math.abs(d);
-                  return ' S/ ' + val.toFixed(2);
+                  return ' S/ ' + Math.abs(Number(item.raw)).toFixed(2);
                 },
               },
             },
