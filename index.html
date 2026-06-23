@@ -10,6 +10,33 @@
         document.documentElement.classList.add(t);
       })();
     </script>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('nestra-bio-enabled') === '1' &&
+              localStorage.getItem('sb-token')) {
+            document.documentElement.classList.add('bio-locked');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      #bioLock { display: none; }
+      html.bio-locked #bioLock {
+        display: flex;
+        position: fixed; inset: 0; z-index: 9999;
+        flex-direction: column; align-items: center; justify-content: center;
+        gap: 1rem; padding: 2rem; text-align: center;
+        background: var(--bg-light, #fff); color: var(--text-dark, #111);
+      }
+      #bioLock .bio-lock-icon { width: 56px; height: 56px; opacity: 0.85; }
+      #bioLock h2 { margin: 0; font-size: 1.25rem; }
+      #bioLock p { margin: 0; color: var(--text-secondary, #666); max-width: 22rem; }
+      #bioLock .bio-pass-btn {
+        background: none; border: none; color: var(--text-secondary, #666);
+        text-decoration: underline; cursor: pointer; font-size: 0.9rem;
+      }
+    </style>
     <link rel="preload" href="assets/fonts/Outfit-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/PlayfairDisplay-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -33,6 +60,19 @@
     <link rel="stylesheet" href="css/components.css">
 </head>
 <body class="no-chrome">
+    <!-- Candado biométrico (WebAuthn) — visible solo si html.bio-locked -->
+    <div id="bioLock" role="dialog" aria-modal="true" aria-labelledby="bioLockTitle">
+      <svg class="bio-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <h2 id="bioLockTitle">Nestra está bloqueada</h2>
+      <p>Verifica tu identidad para acceder a tus datos.</p>
+      <button type="button" class="btn btn-primary" id="bioUnlock">Desbloquear</button>
+      <p id="bioLockStatus" role="alert" aria-live="assertive"></p>
+      <button type="button" class="bio-pass-btn" id="bioUsePassword">Usar mi contraseña</button>
+    </div>
     <!-- Banner offline (oculto por defecto; lo controla js/sync.js) -->
     <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
@@ -403,6 +443,7 @@
     </div>
     <script src="js/pwa.js"></script>
     <script src="js/push.js"></script>
+    <script src="js/webauthn.js"></script>
     <script src="js/share-target.js"></script>
 </body>
 </html>

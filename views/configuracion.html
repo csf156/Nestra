@@ -68,6 +68,13 @@
         <span class="cfg-pref-nombre">Notificaciones push</span>
         <input type="checkbox" id="pushToggle">
       </div>
+      <div class="cfg-pref-row" id="bioToggleRow" hidden>
+        <span class="cfg-pref-nombre">Desbloqueo biométrico</span>
+        <button type="button" class="cfg-toggle" id="bioToggle"
+                role="switch" aria-checked="false" aria-label="Activar desbloqueo biométrico">
+          <span class="cfg-toggle-thumb"></span>
+        </button>
+      </div>
       <div class="cfg-pref-row cfg-pref-row--readonly">
         <span class="cfg-pref-nombre">Moneda</span>
         <span class="cfg-pref-valor">Soles (S/)</span>
@@ -1329,6 +1336,43 @@
           toggle.checked = ok;
         } else {
           await pushUnsubscribe();
+        }
+      });
+    })();
+
+    (async function initBioToggle() {
+      if (typeof webauthnSupported !== 'function' || !webauthnSupported()) return;
+      var avail = false;
+      try { avail = await webauthnPlatformAvailable(); } catch (e) {}
+      if (!avail) return;
+      var row = document.getElementById('bioToggleRow');
+      var toggle = document.getElementById('bioToggle');
+      if (!row || !toggle) return;
+      row.hidden = false;
+
+      function paint(on) {
+        toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+        toggle.setAttribute('aria-label', on ? 'Desactivar desbloqueo biométrico' : 'Activar desbloqueo biométrico');
+      }
+      paint(webauthnIsEnabled());
+
+      toggle.addEventListener('click', async function () {
+        if (webauthnIsEnabled()) {
+          webauthnDisable();
+          paint(false);
+          mostrarToast('Desbloqueo biométrico desactivado', 3000);
+          return;
+        }
+        toggle.disabled = true;
+        try {
+          var ok = await webauthnRegister();
+          paint(ok);
+          mostrarToast(ok ? 'Desbloqueo biométrico activado' : 'No se pudo registrar', 3500);
+        } catch (err) {
+          paint(false);
+          mostrarToast(err.message || 'No se pudo registrar la biometría', 4000);
+        } finally {
+          toggle.disabled = false;
         }
       });
     })();
