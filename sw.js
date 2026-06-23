@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v4';
+const SHELL_VERSION = 'v5';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -36,6 +36,7 @@ precaching.precacheAndRoute([
   { url: 'js/sync-lww.js', revision: SHELL_VERSION },
   { url: 'js/sync.js', revision: SHELL_VERSION },
   { url: 'js/pwa.js', revision: SHELL_VERSION },
+  { url: 'js/push.js', revision: SHELL_VERSION },
   { url: 'js/vendor/idb-umd.js', revision: SHELL_VERSION },
   { url: 'manifest.json', revision: SHELL_VERSION },
   { url: 'assets/nestra_logo.png', revision: SHELL_VERSION },
@@ -88,3 +89,29 @@ self.addEventListener('message', (event) => {
 });
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+
+// ── Web Push (Fase 6) ─────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (_) { data = {}; }
+  const title = data.title || 'Nestra';
+  const options = {
+    body: data.body || '',
+    icon: 'assets/icon-192.png',
+    badge: 'assets/icon-192.png',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
+      const existing = clientsArr.find((c) => 'focus' in c);
+      if (existing) { existing.focus(); if ('navigate' in existing) existing.navigate(url); return; }
+      return self.clients.openWindow(url);
+    })
+  );
+});
