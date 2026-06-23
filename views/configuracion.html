@@ -64,6 +64,10 @@
           <span class="cfg-toggle-thumb"></span>
         </button>
       </div>
+      <div class="cfg-pref-row" id="pushToggleRow" hidden>
+        <span class="cfg-pref-nombre">Notificaciones push</span>
+        <input type="checkbox" id="pushToggle">
+      </div>
       <div class="cfg-pref-row cfg-pref-row--readonly">
         <span class="cfg-pref-nombre">Moneda</span>
         <span class="cfg-pref-valor">Soles (S/)</span>
@@ -1145,6 +1149,10 @@
           var nuevo = await insertPresupuesto({ categoria_id: catId, monto_limite: monto });
           _presupuestos.push(nuevo);
           mostrarToast('Presupuesto guardado', 3000);
+          if (typeof pushOfrecerContextual === 'function') {
+            pushOfrecerContextual('presupuesto',
+              '¿Quieres que te avise si te pasas del límite de un presupuesto?');
+          }
         }
       } catch (err) {
         mostrarToast('No se pudo guardar el presupuesto', 4000);
@@ -1307,6 +1315,23 @@
     }
 
     cargar();
+
+    (async function initPushToggle() {
+      if (typeof pushSupported !== 'function' || !pushSupported()) return;
+      var row = document.getElementById('pushToggleRow');
+      var toggle = document.getElementById('pushToggle');
+      if (!row || !toggle) return;
+      row.hidden = false;
+      toggle.checked = await pushIsSubscribed();
+      toggle.addEventListener('change', async function () {
+        if (toggle.checked) {
+          var ok = await pushSubscribe();
+          toggle.checked = ok;
+        } else {
+          await pushUnsubscribe();
+        }
+      });
+    })();
 
   })();
   </script>
