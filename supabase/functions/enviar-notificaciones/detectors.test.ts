@@ -39,15 +39,24 @@ test('meta: ya cumplida NO produce aviso', () => {
   assert.equal(r.length, 0);
 });
 
-test('prestamo: pendiente >30 días produce aviso', () => {
-  const prestamos = [{ id: 'l1', deudor: 'Ana', estado: 'pendiente', fecha: '2026-05-01', monto: 50 }];
+test('prestamo: presté (gasto) >30 días → aviso de cobro', () => {
+  const prestamos = [{ id: 'l1', deudor: 'Ana', estado: 'pendiente', fecha: '2026-05-01', monto: 50, tipo: 'gasto' }];
   const r = detectarPrestamos(prestamos, HOY);
   assert.equal(r.length, 1);
   assert.equal(r[0].clave_dedupe, 'prestamo:l1:2026-06');
+  assert.equal(r[0].title, 'Préstamo por cobrar');
+});
+
+test('prestamo: me prestaron (ingreso) >30 días → aviso de pago', () => {
+  const prestamos = [{ id: 'l2', deudor: 'Beto', estado: 'pendiente', fecha: '2026-05-01', monto: 50, tipo: 'ingreso' }];
+  const r = detectarPrestamos(prestamos, HOY);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].title, 'Préstamo por pagar');
+  assert.equal(r[0].body, 'Le debes a Beto desde hace 53 días.');
 });
 
 test('prestamo: pendiente <=30 días NO produce aviso', () => {
-  const prestamos = [{ id: 'l1', deudor: 'Ana', estado: 'pendiente', fecha: '2026-06-10', monto: 50 }];
+  const prestamos = [{ id: 'l1', deudor: 'Ana', estado: 'pendiente', fecha: '2026-06-10', monto: 50, tipo: 'gasto' }];
   const r = detectarPrestamos(prestamos, HOY);
   assert.equal(r.length, 0);
 });

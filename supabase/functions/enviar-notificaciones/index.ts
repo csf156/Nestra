@@ -43,11 +43,18 @@ Deno.serve(async () => {
     try {
       const avisos = await evaluarUsuario(db, userId, hoy, desde, hasta);
       for (const aviso of avisos) {
-        // Candado idempotente: si ya existe la clave, saltar.
+        // Candado idempotente: el unique (user_id, clave_dedupe) evita reenvíos.
         const { error: lockErr } = await db.from('notificaciones_log').insert({
           user_id: userId, tipo: aviso.tipo, ref_id: aviso.ref_id, clave_dedupe: aviso.clave_dedupe,
         });
-        if (lockErr) continue; // unique_violation => ya enviado
+        if (lockErr) {
+          // 23505 = unique_violation => ya enviado este periodo, saltar en silencio.
+          // Cualquier otro error NO debe suprimir permanentemente: loguear y continuar.
+          if ((lockErr as { code?: string }).code !== '23505') {
+            console.error(`lock notificaciones_log (${aviso.clave_dedupe}):`, lockErr.message);
+          }
+          continue;
+        }
         await enviarAUsuario(db, subsPorUser.get(userId) || [], aviso);
         enviadas++;
       }
@@ -67,7 +74,7 @@ async function evaluarUsuario(
   const { data: presup } = await db
     .from('presupuestos')
     .select('id, categoria_id, monto_limite, categorias(nombre)')
-    .eq('user_id', userId);
+    .eq('user_id', userId).eq('periodo', 'mensual');
   const { data: gastos } = await db
     .from('transacciones')
     .select('categoria_id, monto')
@@ -92,13 +99,14 @@ async function evaluarUsuario(
     monto_actual: Number(m.monto_actual), monto_objetivo: Number(m.monto_objetivo),
   }));
 
-  // Préstamos pendientes + fecha de la transacción.
+  // Préstamos pendientes + datos de la transacción (tipo = dirección: gasto presté / ingreso me prestaron).
   const { data: prest } = await db
-    .from('prestamos').select('id, deudor, estado, transacciones(fecha, monto)').eq('user_id', userId);
+    .from('prestamos').select('id, deudor, estado, transacciones(fecha, monto, tipo)').eq('user_id', userId);
   const prestamosRows = (prest || []).map((p) => ({
     id: p.id, deudor: p.deudor, estado: p.estado,
     fecha: (p.transacciones as { fecha: string } | null)?.fecha ?? null,
     monto: (p.transacciones as { monto: number } | null)?.monto ?? null,
+    tipo: (p.transacciones as { tipo: string } | null)?.tipo ?? null,
   }));
 
   return [

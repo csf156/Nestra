@@ -61,7 +61,8 @@ export function detectarMetas(
 }
 
 export interface PrestamoRow {
-  id: string; deudor: string; estado: string; fecha: string | null; monto: number | null;
+  // tipo de la transacción asociada: 'gasto' = yo presté (cobro), 'ingreso' = me prestaron (pago).
+  id: string; deudor: string; estado: string; fecha: string | null; monto: number | null; tipo: string | null;
 }
 function diasEntre(desdeISO: string, hoy: Date): number {
   const d = new Date(desdeISO + 'T00:00:00Z').getTime();
@@ -74,10 +75,14 @@ export function detectarPrestamos(prestamos: PrestamoRow[], hoy: Date): Aviso[] 
     if (p.estado !== 'pendiente' || !p.fecha) continue;
     const dias = diasEntre(p.fecha, hoy);
     if (dias > 30) {
+      // Por defecto 'gasto' (presté) si tipo viene nulo, igual que prestamos.html.
+      const recibido = p.tipo === 'ingreso';
       out.push({
         tipo: 'prestamo', ref_id: p.id, clave_dedupe: `prestamo:${p.id}:${mes}`,
-        title: 'Préstamo pendiente',
-        body: `El préstamo a ${p.deudor} lleva ${dias} días pendiente.`,
+        title: recibido ? 'Préstamo por pagar' : 'Préstamo por cobrar',
+        body: recibido
+          ? `Le debes a ${p.deudor} desde hace ${dias} días.`
+          : `${p.deudor} no te ha devuelto el préstamo en ${dias} días.`,
         url: '/#/prestamos',
       });
     }
