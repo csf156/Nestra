@@ -15,3 +15,7 @@ const SUPABASE_URL = _isProd
 const SUPABASE_ANON_KEY = _isProd
   ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJibHh3cWRwaGhtcGdseHh0Z3R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MTIxNDgsImV4cCI6MjA5NjE4ODE0OH0.Wlk-l0idfwWmezRZ3ZFoKAnVkau7JY7ICk-LEvZc28A'
   : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tYm5oeHVlY2xxZmV5anpocm96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTc5NDksImV4cCI6MjA5Njg3Mzk0OX0.Ep0jXU4r3010tSAY846sYXFWUD7NRSJrykCzPdHUBM0';
+
+// VAPID public key (NO secreta) para suscripción Web Push (Fase 6). La privada vive
+// como secret de la Edge Function `enviar-notificaciones`, nunca en el cliente ni en git.
+const VAPID_PUBLIC_KEY = 'BEy0lcrgND9vnAirt9FyytTvFeAcVE3pcZVEQRMk2eRP84fhLgGaEYx3tnRT5xQrFzh-o8ocDfjsgGccg3uP4PA';
