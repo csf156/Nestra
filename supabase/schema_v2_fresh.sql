@@ -401,15 +401,17 @@ begin
 
   v_total := v_tx.monto;
 
+  -- Fondo del ámbito. Personal: siempre existe. Hogar: OPCIONAL (Fase 5);
+  -- si no hay, el excedente sobre las metas queda sin asignar.
   if v_tx.ambito = 'hogar' then
     select id into v_fondo_id from public.metas
     where es_fondo_emergencia = true and ambito = 'hogar' limit 1;
   else
     select id into v_fondo_id from public.metas
     where es_fondo_emergencia = true and ambito = 'personal' and user_id = v_tx.user_id limit 1;
-  end if;
-  if v_fondo_id is null then
-    raise exception 'No existe el fondo de emergencia del ámbito %', v_tx.ambito;
+    if v_fondo_id is null then
+      raise exception 'No existe el fondo de emergencia personal del usuario';
+    end if;
   end if;
 
   for r in
@@ -422,7 +424,7 @@ begin
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
       and (
         (v_tx.ambito = 'personal' and m.ambito = 'personal' and m.user_id = v_tx.user_id)
-        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar' and m.user_id is null)
+        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar')
       )
   loop
     v_f_horizonte := case r.horizonte when 'corto' then 3 when 'mediano' then 2 else 1 end;
@@ -437,8 +439,10 @@ begin
     v_suma_pesos := v_suma_pesos + v_peso;
   end loop;
 
-  select importancia into v_peso from public.metas where id = v_fondo_id;
-  v_suma_pesos := v_suma_pesos + v_peso;
+  if v_fondo_id is not null then
+    select importancia into v_peso from public.metas where id = v_fondo_id;
+    v_suma_pesos := v_suma_pesos + v_peso;
+  end if;
 
   if v_suma_pesos <= 0 then
     return;
@@ -454,7 +458,7 @@ begin
       and (m.monto_objetivo - coalesce((select sum(a.monto) from public.aportes_meta a where a.meta_id = m.id), 0)) > 0
       and (
         (v_tx.ambito = 'personal' and m.ambito = 'personal' and m.user_id = v_tx.user_id)
-        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar' and m.user_id is null)
+        or (v_tx.ambito = 'hogar' and m.ambito = 'hogar')
       )
   loop
     v_f_horizonte := case r.horizonte when 'corto' then 3 when 'mediano' then 2 else 1 end;
@@ -482,7 +486,7 @@ begin
   end loop;
 
   v_aporte_fondo := v_total - v_repartido;
-  if v_aporte_fondo > 0 then
+  if v_aporte_fondo > 0 and v_fondo_id is not null then
     select importancia into v_peso from public.metas where id = v_fondo_id;
     insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
     values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso, v_tx.user_id);
