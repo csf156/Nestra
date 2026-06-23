@@ -799,6 +799,10 @@
           var dirLabel = _dirActual === 'preste' ? 'Préstamo registrado.' : 'Préstamo recibido registrado.';
           mostrarToast(dirLabel, 4000);
           await cargar();
+          if (typeof pushOfrecerContextual === 'function') {
+            pushOfrecerContextual('prestamo',
+              '¿Quieres que te avise de préstamos pendientes desde hace tiempo?');
+          }
 
         } catch (err) {
           submitBtn.disabled  = false;

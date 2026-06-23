@@ -484,6 +484,10 @@
         $('mCategoria').value = '';
         mostrarToast('Meta creada', null, null, 3000);
         cargar();
+        if (typeof pushOfrecerContextual === 'function') {
+          pushOfrecerContextual('meta',
+            '¿Quieres que te recuerde aportar a tus metas cada mes?');
+        }
       } catch (e2) {
         _formError('No se pudo guardar: ' + (e2.message || 'error'));
       }
