@@ -45,7 +45,7 @@ create table public.categorias (
 create table public.transacciones (
   id            uuid primary key default gen_random_uuid(),
   fecha         date not null default current_date,
-  tipo          text not null check (tipo in ('gasto', 'ingreso')),
+  tipo          text not null check (tipo in ('gasto', 'ingreso', 'ahorro')),
   ambito        text not null check (ambito in ('personal', 'hogar')),
   user_id       uuid not null references auth.users (id) on delete cascade,
   categoria_id  uuid references public.categorias (id) on delete restrict,
