@@ -161,7 +161,7 @@ async function insertTransaccion(datos) {
     const { data, error } = await supabase
       .from('transacciones').insert(fila).select().single();
     if (error) throw error;
-    if (data.tipo === 'gasto') await _distribuirSiAhorro(data);
+    if (data.tipo === 'ahorro') await _distribuirAhorroTx(data);
     await mirrorPut('transacciones', data);
     return data;
   } catch (err) {
@@ -176,15 +176,13 @@ async function insertTransaccion(datos) {
   }
 }
 
-// _distribuirSiAhorro(tx) — si la transacción es un gasto en categoría "Ahorro",
-// invoca el RPC distribuir_ahorro. No lanza (best-effort).
-async function _distribuirSiAhorro(tx) {
+// _distribuirAhorroTx(tx) — si la transacción es de tipo 'ahorro', invoca el
+// RPC distribuir_ahorro (reparte entre metas del ámbito + fondo). Los aportes
+// directos ya asignan su monto a mano; nunca se reparten. Best-effort (no lanza).
+async function _distribuirAhorroTx(tx) {
   try {
-    // Los aportes directos ya asignan su monto a mano; nunca se reparten.
-    if (tx && tx.es_aporte_directo) return;
-    const cats = await getCategorias('gasto');
-    const cat = cats.find((c) => c.id === tx.categoria_id);
-    if (!cat || cat.nombre !== 'Ahorro') return;
+    if (!tx || tx.tipo !== 'ahorro') return;
+    if (tx.es_aporte_directo) return;
     const { error } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: tx.id });
     if (error) throw error;
   } catch (err) {
@@ -192,27 +190,18 @@ async function _distribuirSiAhorro(tx) {
   }
 }
 
-// _reDistribuirAhorro(txId, nuevaCatId) — re-reparte aportes_meta tras editar
+// _reDistribuirAhorro(txId, nuevoTipo) — re-reparte aportes_meta tras editar
 // una transacción. Borra los aportes previos del tx y re-invoca distribuir_ahorro
-// si la nueva categoría sigue siendo "Ahorro". Cubre los 4 casos:
-//   Ahorro→Ahorro: borra viejos + redistribuye con nuevo monto.
-//   Ahorro→otro:   borra viejos, sin redistribuir.
-//   otro→Ahorro:   no hay aportes previos, redistribuye directamente.
-//   otro→otro:     noop (no hay aportes, no es Ahorro).
-// Best-effort: no lanza, no revierte la edición ya guardada.
-async function _reDistribuirAhorro(txId, nuevaCatId) {
+// si el nuevo tipo sigue siendo 'ahorro'. Best-effort: no lanza, no revierte.
+async function _reDistribuirAhorro(txId, nuevoTipo) {
   try {
-    const cats = await getCategorias('gasto');
-    const esAhoraAhorro = cats.some((c) => c.id === nuevaCatId && c.nombre === 'Ahorro');
-
-    // Borrar aportes_meta anteriores del tx (RLS ALL permite al usuario borrar los suyos).
     const { error: errDel } = await supabase
       .from('aportes_meta')
       .delete()
       .eq('transaccion_id', txId);
     if (errDel) throw errDel;
 
-    if (esAhoraAhorro) {
+    if (nuevoTipo === 'ahorro') {
       const { error: errRpc } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: txId });
       if (errRpc) throw errRpc;
     }
