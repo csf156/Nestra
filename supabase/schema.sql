@@ -48,11 +48,12 @@ create table public.transacciones (
   tipo          text not null check (tipo in ('gasto', 'ingreso')),
   ambito        text not null check (ambito in ('personal', 'hogar')),
   user_id       uuid not null references auth.users (id) on delete cascade,
-  categoria_id  uuid not null references public.categorias (id) on delete restrict,
+  categoria_id  uuid references public.categorias (id) on delete restrict,
   monto         numeric(10,2) not null check (monto > 0),
   nota          text,
   aporte_id     uuid,
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  constraint transacciones_categoria_por_tipo check (tipo = 'ahorro' or categoria_id is not null)
 );
 
 -- 1.4 prestamos -------------------------------------------------------
@@ -489,7 +490,6 @@ insert into public.categorias (nombre, tipo, limite_mensual) values
   ('Entretenimiento',            'gasto', 150),
   ('Comer fuera',                'gasto', 400),
   ('Salidas en bicicleta',       'gasto', 150),
-  ('Ahorro',                     'gasto', null),
   ('Gastos hormiga',             'gasto', 100),
   ('Ganjah',                     'gasto', 100),
   ('Partes de bicicleta',        'gasto', 150),
