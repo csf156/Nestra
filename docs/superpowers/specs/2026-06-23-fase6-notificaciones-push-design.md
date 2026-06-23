@@ -137,8 +137,11 @@ Para cada usuario con suscripciones activas, evaluar (consultas SQL/RPC):
   → candidato. `clave_dedupe = presupuesto:<id>:<YYYY-MM>`.
 - **meta:** por cada `meta` con `estado` activo y `monto_actual < monto_objetivo`, si **no
   hubo `aportes_meta` en el mes actual** → recordatorio. `clave_dedupe = meta:<id>:<YYYY-MM>`.
-- **prestamo:** por cada `prestamo` con `estado` pendiente y `fecha_devolucion <= hoy + 3d`
-  → aviso de cobro/pago. `clave_dedupe = prestamo:<id>:<fecha_devolucion>`.
+- **prestamo:** `prestamos.fecha_devolucion` es la fecha en que se SALDÓ (se fija al marcar
+  `devuelto`), no un vencimiento; los pendientes la tienen NULL. Por tanto el aviso replica
+  la convención de `alerts.js`: `estado='pendiente'` y antigüedad `> 30 días` desde
+  `transacciones.fecha` del préstamo → "préstamo a {deudor} pendiente hace N días".
+  `clave_dedupe = prestamo:<id>:<YYYY-MM>` (recuerda como mucho una vez al mes).
 
 Por cada candidato:
 1. `insert` en `notificaciones_log` con `clave_dedupe`; si viola el único → ya enviado, skip.
@@ -146,9 +149,10 @@ Por cada candidato:
    del usuario.
 3. Si la respuesta es `410`/`404` → `delete` de esa fila de `push_subscriptions`.
 
-> **Nota de planificación:** confirmar columnas de `transacciones` (categoria_id, monto,
-> fecha, tipo, user_id) y la semántica exacta de `presupuestos.periodo` y de
-> `prestamos.estado` al escribir el plan; el gasto y los filtros dependen de ello.
+> **Esquema confirmado:** `transacciones`(fecha, tipo, ambito, user_id, categoria_id, monto);
+> gasto = sum(monto) where `tipo='gasto'`. `presupuestos.periodo` siempre `'mensual'`
+> (db.js fija el valor). `metas.estado` activo = `'en_curso'`. `prestamos.estado` =
+> `'pendiente'|'devuelto'`. `prestamos` enlaza la transacción vía `transacciones(fecha,monto)`.
 
 ### 5. Programación (`pg_cron`)
 
