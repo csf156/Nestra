@@ -80,7 +80,7 @@
 
   .graf-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); margin-top: var(--space-md); }
   .graf-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); cursor: pointer; transition: background 0.15s, color 0.15s; }
-  .graf-seg--active { background: var(--color-primary); color: #ffffff; }
+  .graf-seg--active { background: var(--color-primary); color: var(--bg-light); }
 
   .graf-grid { transition: opacity 0.15s ease; }
   .graf-grid.is-loading { opacity: 0.5; }
@@ -165,6 +165,15 @@
     function cssVar(nombre) {
       return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
     }
+    // Paleta multi-serie leída de tokens en tiempo de render (cicla por índice).
+    var PALETA = [
+      cssVar('--color-primary'),
+      cssVar('--color-info'),
+      cssVar('--color-success'),
+      cssVar('--color-warning'),
+      cssVar('--color-danger'),
+      cssVar('--text-secondary'),
+    ];
     // _mob() — true cuando el viewport es de mobile (<720px)
     function _mob() { return window.innerWidth < 720; }
     // Opciones de ticks para ejes en mobile: fuente pequeña, menos densidad
@@ -320,7 +329,7 @@
         limitePorNombre[c.nombre] = c.limite_mensual != null ? Number(c.limite_mensual) : null;
         colorPorNombre[c.nombre] = c.color || null; // sin color → paleta por índice
       });
-      var paleta = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var paleta = PALETA;
       var labels = [], valores = [], colores = [];
       cats.forEach(function (c, i) {
         labels.push(c.nombre);
@@ -376,7 +385,7 @@
         data: {
           labels: labels,
           datasets: [
-            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--text-secondary') },
             { label: 'Real', data: real, backgroundColor: cssVar('--color-primary') },
           ],
         },
@@ -405,7 +414,7 @@
           datasets: [{
             label: 'Ahorro acumulado', data: acum,
             borderColor: cssVar('--color-primary'),
-            backgroundColor: 'rgba(5,150,105,0.12)', fill: true, tension: 0.3,
+            backgroundColor: 'color-mix(in srgb, ' + cssVar('--color-primary') + ' 12%, transparent)', fill: true, tension: 0.3,
           }],
         },
         options: {
@@ -430,11 +439,12 @@
       if (!conGasto.length) { setEstado(5, 'vacio'); return; }
       var media = conGasto.reduce(function (a, b) { return a + b; }, 0) / conGasto.length;
 
+      function _tinte(token) { return 'color-mix(in srgb, ' + cssVar(token) + ' 85%, transparent)'; }
       function colorDia(v) {
         if (v <= 0) return 'transparent';
-        if (v <= media) return 'rgba(16,185,129,0.85)';
-        if (v <= media * 2) return 'rgba(245,158,11,0.85)';
-        return 'rgba(239,68,68,0.85)';
+        if (v <= media) return _tinte('--color-success');
+        if (v <= media * 2) return _tinte('--color-warning');
+        return _tinte('--color-danger');
       }
 
       var primerDow = new Date(estado.anio, estado.mes - 1, 1).getDay();
@@ -459,9 +469,9 @@
       var leg = $('heatmapLegend5');
       leg.innerHTML =
         '<span><i class="sw" style="background:' + cssVar('--bg-light-secondary') + '"></i>Sin gasto</span>' +
-        '<span><i class="sw" style="background:rgba(16,185,129,0.85)"></i>≤ promedio</span>' +
-        '<span><i class="sw" style="background:rgba(245,158,11,0.85)"></i>&gt; promedio</span>' +
-        '<span><i class="sw" style="background:rgba(239,68,68,0.85)"></i>&gt; 2× promedio</span>';
+        '<span><i class="sw" style="background:' + _tinte('--color-success') + '"></i>≤ promedio</span>' +
+        '<span><i class="sw" style="background:' + _tinte('--color-warning') + '"></i>&gt; promedio</span>' +
+        '<span><i class="sw" style="background:' + _tinte('--color-danger') + '"></i>&gt; 2× promedio</span>';
 
       setEstado(5, 'ok');
     }
@@ -549,7 +559,7 @@
         data: {
           labels: top,
           datasets: [
-            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--text-secondary') },
             { label: 'Mes actual', data: dActual, backgroundColor: cssVar('--color-primary') },
           ],
         },
@@ -576,7 +586,7 @@
       var metas = datos.metas || [];
       if (!metas.length) { setEstado(8, 'vacio'); return; }
 
-      var paleta = ['#059669', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var paleta = PALETA;
       var datasets = [];
       var labelsSet = [];
 
