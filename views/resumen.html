@@ -76,9 +76,9 @@
   <style>
   /* ── Root ──────────────────────────────────────────────── */
   .resumen {
-    --res-verde: #22c55e;
-    --res-ambar: #f59e0b;
-    --res-rojo:  var(--color-danger, #ef4444);
+    --res-verde: var(--color-success);
+    --res-ambar: var(--color-warning);
+    --res-rojo:  var(--color-danger);
     padding: var(--space-lg) var(--space-md);
     max-width: 760px;
     margin: 0 auto;
@@ -371,7 +371,7 @@
       else if (tono === 'balance') cls = valor < 0 ? ' res-kpi-valor--neg' : ' res-kpi-valor--pos';
       return '<div class="res-kpi-card">' +
         '<p class="res-kpi-label">' + escHtml(label) + '</p>' +
-        '<p class="res-kpi-valor' + cls + '">' + escHtml(formatMonto(valor)) + '</p>' +
+        '<p class="res-kpi-valor signature-num' + cls + '">' + escHtml(formatMonto(valor)) + '</p>' +
         renderDelta(delta, invertir) +
       '</div>';
     }
