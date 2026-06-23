@@ -475,21 +475,17 @@ begin
     end if;
 
     if v_asignado > 0 then
-      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-      values (r.id, v_tx.id, v_asignado, v_peso);
+      insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+      values (r.id, v_tx.id, v_asignado, v_peso, v_tx.user_id);
       v_repartido := v_repartido + v_asignado;
-
-      if (r.progreso + v_asignado) >= r.monto_objetivo then
-        update public.metas set estado = 'lograda' where id = r.id;
-      end if;
     end if;
   end loop;
 
   v_aporte_fondo := v_total - v_repartido;
   if v_aporte_fondo > 0 then
     select importancia into v_peso from public.metas where id = v_fondo_id;
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (v_fondo_id, v_tx.id, v_aporte_fondo, v_peso, v_tx.user_id);
   end if;
 end;
 $$;
@@ -655,8 +651,8 @@ begin
   from public.aportes_meta a where a.meta_id = p_meta_id;
 
   if v_meta.es_fondo_emergencia or v_meta.monto_objetivo is null then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (p_meta_id, v_tx_id, p_monto, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (p_meta_id, v_tx_id, p_monto, null, v_uid);
     return v_tx_id;
   end if;
 
@@ -674,8 +670,8 @@ begin
   end if;
 
   if v_a_meta > 0 then
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (p_meta_id, v_tx_id, v_a_meta, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (p_meta_id, v_tx_id, v_a_meta, null, v_uid);
   end if;
 
   if v_a_fondo > 0 then
@@ -689,8 +685,8 @@ begin
     if v_fondo_id is null then
       raise exception 'No existe el fondo de emergencia del ámbito % para el excedente', v_meta.ambito;
     end if;
-    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado)
-    values (v_fondo_id, v_tx_id, v_a_fondo, null);
+    insert into public.aportes_meta (meta_id, transaccion_id, monto, peso_aplicado, user_id)
+    values (v_fondo_id, v_tx_id, v_a_fondo, null, v_uid);
   end if;
 
   return v_tx_id;
