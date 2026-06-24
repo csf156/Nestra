@@ -11,6 +11,15 @@
   <!-- ── SECCIÓN 1.5 — Safe-to-spend (hero) ───────────────────── -->
   <section id="dashSafeToSpend" class="dash-s2s" aria-live="polite"></section>
 
+  <!-- ── SECCIÓN 1.6 — Registro rápido ────────────────────────── -->
+  <div class="card qa-card">
+    <form id="qaForm" class="qa-form" autocomplete="off">
+      <input type="text" id="qaInput" class="qa-input" inputmode="text"
+             placeholder='Ej: "Uber 15", "almuerzo S/12.50 ayer"' aria-label="Registro rápido" />
+      <button type="submit" class="btn btn-primary qa-btn" aria-label="Agregar">+</button>
+    </form>
+  </div>
+
   <!-- Error global de conexión -->
   <div id="dashConnError" class="alert error" role="alert" aria-live="assertive" style="display:none;">
     No se pudo conectar con el servidor. Revisa tu conexión y recarga la página.
@@ -538,6 +547,12 @@
     .sk { animation: none; }
     .dash-meta-bar-fill { transition: none; }
   }
+
+  /* ── Registro rápido ────────────────────────────────────── */
+  .qa-card { padding: var(--space-md); }
+  .qa-form { display: flex; gap: var(--space-sm); }
+  .qa-input { flex: 1; }
+  .qa-btn { min-width: 48px; font-size: 1.4rem; line-height: 1; }
 </style>
 
 <script>
@@ -877,6 +892,39 @@
       const todoFallo = [hogar, personal, alertas, txs, metas]
         .every((r) => r.status === 'rejected');
       if (todoFallo) $('dashConnError').style.display = 'flex';
+    })();
+
+    // ── Registro rápido ───────────────────────────────────────
+    (function initQuickAdd() {
+      const form = document.getElementById('qaForm');
+      const input = document.getElementById('qaInput');
+      if (!form) return;
+      const hoyISO = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const txt = input.value.trim();
+        if (!txt) return;
+        const autocat = (typeof autocatDict === 'function') ? await autocatDict() : {};
+        const keywords = (typeof window.NESTRA_KEYWORDS === 'object' && window.NESTRA_KEYWORDS) ? window.NESTRA_KEYWORDS : {};
+        const parsed = parseQuickAdd(txt, { hoy: hoyISO(), keywords, autocat });
+        // Resolver categoria_keyword (NOMBRE) → categoria_id real
+        if (!parsed.categoria_id && parsed.categoria_keyword) {
+          const cats = await getCategorias();
+          const hit = cats.find((c) => c.nombre && c.nombre.toLowerCase() === parsed.categoria_keyword.toLowerCase());
+          if (hit) parsed.categoria_id = hit.id;
+        }
+        window._editTx = null;
+        window._quickAddPrefill = {
+          tipo: 'gasto', ambito: 'personal',
+          categoria_id: parsed.categoria_id || '', monto: parsed.monto || '',
+          nota: parsed.descripcion || '', fecha: parsed.fecha,
+          _forceCategoriaPick: !parsed.categoria_id,
+        };
+        input.value = '';
+        if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+        else window.location.hash = '#transaccion';
+      });
     })();
   })();
 </script>
