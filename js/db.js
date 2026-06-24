@@ -163,6 +163,10 @@ async function insertTransaccion(datos) {
     if (error) throw error;
     if (data.tipo === 'ahorro') await _distribuirAhorroTx(data);
     await mirrorPut('transacciones', data);
+    if (typeof autocatLearn === 'function' && data.nota && data.categoria_id) {
+      const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(data.nota) : null;
+      if (dn) await autocatLearn(dn, data.categoria_id);
+    }
     return data;
   } catch (err) {
     if (_isNetworkError(err)) {
@@ -1204,4 +1208,115 @@ async function resetearDatosUsuario() {
     console.error('Error en resetearDatosUsuario():', err.message || err);
     throw err;
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PLANTILLAS (Fase 3)
+// ═══════════════════════════════════════════════════════════════════
+async function getPlantillas() {
+  return await _mirroredRead('plantillas', async () => {
+    const { data, error } = await supabase.from('plantillas').select('*').order('orden');
+    if (error) throw error;
+    return data || [];
+  });
+}
+async function insertPlantilla(datos) {
+  const userId = _requireUserId();
+  const fila = {
+    id: crypto.randomUUID(), user_id: userId,
+    nombre: datos.nombre, monto: datos.monto,
+    categoria_id: datos.categoria_id ?? null,
+    tipo: datos.tipo || 'gasto', ambito: datos.ambito || 'personal',
+    orden: datos.orden ?? 0, updated_at: new Date().toISOString(),
+  };
+  if (!navigator.onLine) {
+    await outboxAdd('plantillas', fila);
+    await mirrorPut('plantillas', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
+  try {
+    const { data, error } = await supabase.from('plantillas').insert(fila).select().single();
+    if (error) throw error;
+    await mirrorPut('plantillas', data);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('plantillas', fila);
+      await mirrorPut('plantillas', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
+    console.error('Error en insertPlantilla():', err.message || err); throw err;
+  }
+}
+async function deletePlantilla(id) {
+  try {
+    const { error } = await supabase.from('plantillas').delete().eq('id', id);
+    if (error) throw error;
+    const db = await nestraDB(); await db.delete('plantillas', id);
+  } catch (err) { console.error('Error en deletePlantilla():', err.message || err); throw err; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPLIT (Fase 3) — N transacciones con el mismo split_id
+// ═══════════════════════════════════════════════════════════════════
+// lineas: [{ categoria_id, monto }]. Comparten tipo/ambito/fecha/nota.
+async function insertSplit(comun, lineas) {
+  const splitId = crypto.randomUUID();
+  const creadas = [];
+  for (const ln of lineas) {
+    const row = await insertTransaccion({
+      tipo: comun.tipo, ambito: comun.ambito,
+      categoria_id: ln.categoria_id, monto: ln.monto,
+      fecha: comun.fecha, nota: comun.nota,
+    });
+    row.split_id = splitId;
+    await updateTransaccion(row.id, { split_id: splitId });
+    creadas.push(row);
+  }
+  return { split_id: splitId, transacciones: creadas };
+}
+async function deleteSplit(splitId) {
+  const todas = await getTransacciones();
+  const ids = todas.filter((t) => t.split_id === splitId).map((t) => t.id);
+  for (const id of ids) await deleteTransaccion(id);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RECIBO (Fase 3) — Storage privado, path = {user_id}/{tx_id}.webp
+// ═══════════════════════════════════════════════════════════════════
+async function subirRecibo(transaccionId, blob) {
+  const userId = _requireUserId();
+  const path = `${userId}/${transaccionId}.webp`;
+  if (!navigator.onLine) {
+    await reciboQueueAdd(transaccionId, blob, userId);
+    await outboxAdd('recibo', { id: transaccionId, transaccion_id: transaccionId, path });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { path, _pending: true };
+  }
+  try {
+    const { error } = await supabase.storage.from('recibos')
+      .upload(path, blob, { contentType: 'image/webp', upsert: true });
+    if (error) throw error;
+    await updateTransaccion(transaccionId, { recibo_path: path });
+    return { path };
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await reciboQueueAdd(transaccionId, blob, userId);
+      await outboxAdd('recibo', { id: transaccionId, transaccion_id: transaccionId, path });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { path, _pending: true };
+    }
+    console.error('Error en subirRecibo():', err.message || err); throw err;
+  }
+}
+async function getReciboUrl(path) {
+  if (!path) return null;
+  try {
+    const { data, error } = await supabase.storage.from('recibos').createSignedUrl(path, 3600);
+    if (error) throw error;
+    return data.signedUrl;
+  } catch (err) { console.error('getReciboUrl falló:', err.message || err); return null; }
 }
