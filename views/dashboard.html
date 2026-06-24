@@ -8,6 +8,9 @@
     </div>
   </header>
 
+  <!-- ── SECCIÓN 1.5 — Safe-to-spend (hero) ───────────────────── -->
+  <section id="dashSafeToSpend" class="dash-s2s" aria-live="polite"></section>
+
   <!-- Error global de conexión -->
   <div id="dashConnError" class="alert error" role="alert" aria-live="assertive" style="display:none;">
     No se pudo conectar con el servidor. Revisa tu conexión y recarga la página.
@@ -110,6 +113,40 @@
     font-weight: var(--font-weight-bold);
     color: var(--text-dark);
     line-height: 1.15;
+  }
+
+  /* ── Safe-to-spend (hero) ───────────────────────────────── */
+  .dash-s2s:not(:empty) { margin-bottom: var(--space-lg); }
+  .dash-s2s-card {
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-success));
+    color: #fff;
+    box-shadow: var(--shadow-md);
+  }
+  .dash-s2s-card--excedido {
+    background: linear-gradient(135deg, var(--color-danger), #8a1c1c);
+  }
+  .dash-s2s-label {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+  }
+  .dash-s2s-monto {
+    margin: var(--space-xs) 0 0;
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-s2s-sub {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--font-size-sm);
+    opacity: 0.92;
   }
 
   /* ── Cards base ─────────────────────────────────────────── */
@@ -624,6 +661,28 @@
       cont.innerHTML = `<div class="dash-insights-track">${cards}</div>`;
     }
 
+    // ── Render: safe-to-spend (hero) ──────────────────────────
+    function renderSafeToSpend(res) {
+      const cont = $('dashSafeToSpend');
+      if (!cont) return;
+      if (!res) { cont.innerHTML = ''; return; }
+      if (res.estado === 'excedido') {
+        cont.innerHTML = `
+          <div class="dash-s2s-card dash-s2s-card--excedido">
+            <p class="dash-s2s-label">Este mes</p>
+            <p class="dash-s2s-monto">${esc(formatMonto(res.exceso))}</p>
+            <p class="dash-s2s-sub">Te pasaste de lo disponible. Cuida los próximos ${res.diasRestantes} días.</p>
+          </div>`;
+        return;
+      }
+      cont.innerHTML = `
+        <div class="dash-s2s-card">
+          <p class="dash-s2s-label">Puedes gastar hoy</p>
+          <p class="dash-s2s-monto">${esc(formatMonto(res.diario))}</p>
+          <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${res.diasRestantes} día${res.diasRestantes === 1 ? '' : 's'}.</p>
+        </div>`;
+    }
+
     // ── Render: presupuestos del mes ──────────────────────────
     // Cada presupuesto: chip tintado con el color de la categoría, nombre,
     // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
@@ -781,7 +840,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -794,6 +853,7 @@
         cargarInsights(),
         getCategorias('gasto'),
         getGastosPorCategoriaMes(mes, anio),
+        cargarSafeToSpend(),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
@@ -805,6 +865,7 @@
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
       if (insights.status === 'fulfilled') renderInsights(insights.value);
+      if (safeToSpend.status === 'fulfilled') renderSafeToSpend(safeToSpend.value);
       if (categoriasGasto.status === 'fulfilled') {
         const gMap = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
         renderPresupuestos(categoriasGasto.value, gMap);
