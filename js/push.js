@@ -34,45 +34,71 @@ async function pushIsSubscribed() {
 }
 
 // pushSubscribe() — pide permiso, suscribe y persiste en Supabase.
-// Returns: true si quedó suscrito, false si no (sin soporte/permiso/login).
+// NUNCA lanza: cualquier fallo se atrapa y se devuelve un objeto con la razón
+// para que el llamador refleje el estado real y dé feedback.
+// Returns: { ok, reason } donde reason ∈ 'ok' | 'unsupported' | 'no-session' |
+//          'denied' | 'subscribe-error' | 'save-error'.
 async function pushSubscribe() {
-  if (!pushSupported()) return false;
+  if (!pushSupported()) return { ok: false, reason: 'unsupported' };
   const userId = await _currentUserId();
-  if (!userId) return false;
+  if (!userId) return { ok: false, reason: 'no-session' };
 
-  const permiso = await Notification.requestPermission();
-  if (permiso !== 'granted') return false;
+  let permiso;
+  try {
+    permiso = await Notification.requestPermission();
+  } catch (e) {
+    // En algunos navegadores requestPermission con callback lanza/rechaza.
+    console.error('pushSubscribe requestPermission:', e);
+    return { ok: false, reason: 'denied' };
+  }
+  if (permiso !== 'granted') return { ok: false, reason: 'denied' };
 
-  const reg = await navigator.serviceWorker.ready;
-  let sub = await reg.pushManager.getSubscription();
-  if (!sub) {
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
+  let sub;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+  } catch (e) {
+    // iOS Safari (sin PWA instalada), VAPID inválida, push service inalcanzable…
+    console.error('pushSubscribe subscribe:', e);
+    return { ok: false, reason: 'subscribe-error' };
   }
 
-  const json = sub.toJSON();
-  const { error } = await supabase.from('push_subscriptions').upsert({
-    user_id: userId,
-    endpoint: sub.endpoint,
-    p256dh: json.keys.p256dh,
-    auth: json.keys.auth,
-    user_agent: navigator.userAgent,
-  }, { onConflict: 'endpoint' });
-  if (error) { console.error('pushSubscribe upsert:', error.message); return false; }
-  return true;
+  try {
+    const json = sub.toJSON();
+    const { error } = await supabase.from('push_subscriptions').upsert({
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth,
+      user_agent: navigator.userAgent,
+    }, { onConflict: 'endpoint' });
+    if (error) { console.error('pushSubscribe upsert:', error.message); return { ok: false, reason: 'save-error' }; }
+  } catch (e) {
+    console.error('pushSubscribe upsert:', e);
+    return { ok: false, reason: 'save-error' };
+  }
+  return { ok: true, reason: 'ok' };
 }
 
-// pushUnsubscribe() — cancela la suscripción local y borra la fila.
+// pushUnsubscribe() — cancela la suscripción local y borra la fila. No lanza.
 async function pushUnsubscribe() {
   if (!pushSupported()) return;
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
-  if (!sub) return;
-  const endpoint = sub.endpoint;
-  try { await sub.unsubscribe(); } catch (_) {}
-  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    const endpoint = sub.endpoint;
+    try { await sub.unsubscribe(); } catch (_) {}
+    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  } catch (e) {
+    console.error('pushUnsubscribe:', e);
+  }
 }
 
 // pushOfrecerContextual(clave, mensaje) — ofrece activar push UNA vez por clave.

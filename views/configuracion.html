@@ -1203,12 +1203,31 @@
       if (!row || !toggle) return;
       row.hidden = false;
       toggle.checked = await pushIsSubscribed();
+      var MENSAJES_PUSH = {
+        denied: 'Permiso de notificaciones bloqueado. Actívalo en los ajustes del navegador.',
+        'subscribe-error': 'No se pudo activar. En iPhone instala la app a la pantalla de inicio primero.',
+        'save-error': 'No se pudo guardar la suscripción. Reintenta.',
+        'no-session': 'Inicia sesión para activar las notificaciones.',
+        unsupported: 'Este navegador no soporta notificaciones push.',
+      };
       toggle.addEventListener('change', async function () {
-        if (toggle.checked) {
-          var ok = await pushSubscribe();
-          toggle.checked = ok;
-        } else {
-          await pushUnsubscribe();
+        var quiere = toggle.checked;
+        toggle.disabled = true;
+        try {
+          if (quiere) {
+            var res = await pushSubscribe();
+            if (!res.ok && typeof mostrarToast === 'function') {
+              mostrarToast(MENSAJES_PUSH[res.reason] || 'No se pudo activar las notificaciones.', 5000);
+            }
+          } else {
+            await pushUnsubscribe();
+          }
+        } catch (err) {
+          console.error('pushToggle:', err);
+        } finally {
+          // Verdad de terreno: refleja si quedó realmente (des)suscrito.
+          toggle.checked = await pushIsSubscribed();
+          toggle.disabled = false;
         }
       });
     })();
