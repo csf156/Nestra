@@ -612,6 +612,9 @@
 
     // ── Re-query (servidor) ───────────────────────────────────
     async function recargar() {
+      // Flush any pending optimistic deletes before refetching.
+      if (_delTimer) { clearTimeout(_delTimer); _ejecutarBorrado(); }
+      if (_splitTimer) { clearTimeout(_splitTimer); _ejecutarBorradoSplit(); }
       var token = ++reqToken;
       var body = $('histBody');
       body.setAttribute('aria-busy', 'true');
@@ -1089,91 +1092,74 @@
     }
 
     // ── Borrado ───────────────────────────────────────────────
-    // Todos los borrados requieren confirmación explícita en modal.
-    // Normal: histDeleteModal. Aporte vinculado (aporte_id): histAporteModal.
+    // Normal / split → undo-toast (optimistic, 5 s).
+    // Aporte vinculado (aporte_id) → modal (irreversible: toca 2 filas + metas).
+
+    var _delTimer = null, _delPend = null;        // borrado normal diferido
+    var _splitTimer = null, _splitPend = null;    // borrado split diferido
 
     function pedirBorrado(id, splitId) {
-      // Split synthetic row: delegate to deleteSplit modal path.
-      if (splitId) { abrirModalDeleteSplit(splitId); return; }
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
+      if (!tx && !splitId) return;
+      if (tx && tx.aporte_id) { abrirModalAporte(tx); return; }   // irreversible → modal
+      if (splitId) { borrarSplitConToast(splitId); return; }      // split → undo toast
+      borrarConToast(tx);                                         // normal → undo toast
+    }
+
+    function _ejecutarBorrado() {
+      if (!_delPend) return;
+      var tx = _delPend; _delPend = null; _delTimer = null;
+      deleteTransaccion(tx.id).catch(function () { recargar(); });
+    }
+    function borrarConToast(tx) {
       if (!tx) return;
-      if (tx.aporte_id) { abrirModalAporte(tx); return; }
-      abrirModalDelete(tx);
+      if (_delTimer) { clearTimeout(_delTimer); _ejecutarBorrado(); } // confirma pendiente anterior
+      _delPend = tx;
+      rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
+      aplicarLocalYRender();
+      mostrarToast('Movimiento eliminado', 'Deshacer', function () {
+        clearTimeout(_delTimer); _delTimer = null;
+        var restaurar = _delPend; _delPend = null;
+        if (restaurar) { rawData.push(restaurar); aplicarLocalYRender(); }
+      }, 5000);
+      _delTimer = setTimeout(_ejecutarBorrado, 5000);
     }
 
-    // ── Modal borrado normal ──────────────────────────────────
+    function _ejecutarBorradoSplit() {
+      if (!_splitPend) return;
+      var sid = _splitPend.sid; _splitPend = null; _splitTimer = null;
+      deleteSplit(sid).catch(function () { recargar(); });
+    }
+    function borrarSplitConToast(splitId) {
+      if (_splitTimer) { clearTimeout(_splitTimer); _ejecutarBorradoSplit(); }
+      var backup = rawData.filter(function (t) { return t.split_id === splitId; });
+      if (!backup.length) return;
+      _splitPend = { sid: splitId, backup: backup };
+      rawData = rawData.filter(function (t) { return t.split_id !== splitId; });
+      aplicarLocalYRender();
+      mostrarToast('Movimiento dividido eliminado', 'Deshacer', function () {
+        clearTimeout(_splitTimer); _splitTimer = null;
+        var p = _splitPend; _splitPend = null;
+        if (p) { rawData = rawData.concat(p.backup); aplicarLocalYRender(); }
+      }, 5000);
+      _splitTimer = setTimeout(_ejecutarBorradoSplit, 5000);
+    }
+
+    // Safety net: flush pending deletes if user navigates away.
+    window.addEventListener('beforeunload', function () { _ejecutarBorrado(); _ejecutarBorradoSplit(); });
+
+    // ── Modal borrado normal (kept in DOM; no longer triggered for normal tx) ─
     var deleteModal = $('histDeleteModal');
-    var deleteTxPendiente = null;
-
-    function abrirModalDelete(tx) {
-      deleteTxPendiente = tx;
-      $('histDeleteBody').textContent =
-        '¿Seguro que quieres eliminar este movimiento de ' + formatMonto(tx.monto) + '? Esta acción no se puede deshacer.';
-      $('histDeleteConfirmText').style.display = 'inline';
-      $('histDeleteSpinner').style.display = 'none';
-      $('histDeleteConfirm').disabled = false;
-      $('histDeleteCancel').disabled = false;
-      deleteModal.classList.add('active');
-      setTimeout(function () { $('histDeleteCancel').focus(); }, 50);
-    }
-
     function cerrarModalDelete() {
       deleteModal.classList.remove('active');
-      deleteTxPendiente = null;
-      deleteSplitIdPendiente = null;
       $('histDeleteSpinner').style.display = 'none';
       $('histDeleteConfirmText').style.display = 'inline';
       $('histDeleteConfirm').disabled = false;
       $('histDeleteCancel').disabled = false;
     }
-
-    // ── Modal borrado split (reutiliza histDeleteModal) ───────
-    var deleteSplitIdPendiente = null;
-
-    function abrirModalDeleteSplit(splitId) {
-      deleteSplitIdPendiente = splitId;
-      deleteTxPendiente = null;
-      $('histDeleteBody').textContent =
-        '¿Seguro que quieres eliminar este gasto dividido? Se eliminarán todas sus líneas. Esta acción no se puede deshacer.';
-      $('histDeleteConfirmText').style.display = 'inline';
-      $('histDeleteSpinner').style.display = 'none';
-      $('histDeleteConfirm').disabled = false;
-      $('histDeleteCancel').disabled = false;
-      deleteModal.classList.add('active');
-      setTimeout(function () { $('histDeleteCancel').focus(); }, 50);
-    }
-
     $('histDeleteCancel').addEventListener('click', cerrarModalDelete);
     deleteModal.addEventListener('click', function (e) { if (e.target === e.currentTarget) cerrarModalDelete(); });
     deleteModal.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModalDelete(); });
-
-    $('histDeleteConfirm').addEventListener('click', async function () {
-      if (!deleteTxPendiente && !deleteSplitIdPendiente) return;
-      $('histDeleteConfirm').disabled = true;
-      $('histDeleteCancel').disabled = true;
-      $('histDeleteConfirmText').style.display = 'none';
-      $('histDeleteSpinner').style.display = 'inline-block';
-      try {
-        if (deleteSplitIdPendiente) {
-          var sid = deleteSplitIdPendiente;
-          await deleteSplit(sid);
-          cerrarModalDelete();
-          rawData = rawData.filter(function (t) { return String(t.split_id) !== String(sid); });
-          aplicarLocalYRender();
-          mostrarToast('Gasto dividido eliminado', null, null, 3000);
-        } else {
-          var tx = deleteTxPendiente;
-          await deleteTransaccion(tx.id);
-          cerrarModalDelete();
-          rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
-          aplicarLocalYRender();
-          mostrarToast('Movimiento eliminado', null, null, 3000);
-        }
-      } catch (err) {
-        cerrarModalDelete();
-        mostrarToast('No se pudo borrar. Reintenta.', null, null, 4000);
-      }
-    });
 
     // ── Modal de aporte ───────────────────────────────────────
     var aporteModal = $('histAporteModal');
