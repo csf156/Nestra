@@ -115,6 +115,17 @@
         </div>
       </div>
 
+      <!-- Split: dividir en varias categorías -->
+      <div class="form-group tx-split-toggle">
+        <label><input type="checkbox" id="txSplitOn"> Dividir en varias categorías</label>
+      </div>
+      <div id="txSplitBox" class="tx-split-box" style="display:none;">
+        <div id="txSplitLineas"></div>
+        <button type="button" class="btn btn-secondary btn-small" id="txSplitAdd">+ Línea</button>
+        <p class="form-hint">Suma líneas: <span id="txSplitSuma">0.00</span> / <span id="txSplitTotal">0.00</span></p>
+        <span id="txSplitError" class="form-error" role="alert" style="display:none;"></span>
+      </div>
+
       <!-- Préstamo: deudor + estado (condicional) -->
       <div id="prestamoGroup" class="form-group tx-prestamo-group"
            style="display:none;" aria-live="polite">
@@ -474,6 +485,13 @@
   /* ── Quick-add prefill: highlight categoria faltante ────── */
   .tx-cat-needed select { outline: 2px solid var(--color-warning); outline-offset: 2px; }
 
+  /* ── Split multi-categoría ───────────────────────────────── */
+  .tx-split-box { border:1px solid var(--color-border, var(--border-light)); border-radius:var(--radius-sm); padding:var(--space-sm); margin-bottom:var(--space-md); }
+  .tx-split-linea { display:flex; gap:var(--space-xs); margin-bottom:var(--space-xs); align-items:center; }
+  .tx-split-linea .sp-cat { flex:1; }
+  .tx-split-linea .sp-monto { width:90px; }
+  .tx-split-linea .sp-del { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--color-text-muted, var(--text-secondary)); }
+
   /* ── Plantilla chips ─────────────────────────────────────── */
   .tx-plantillas { display:flex; flex-wrap:wrap; gap:var(--space-xs); margin-bottom:var(--space-md); }
   .chip {
@@ -714,6 +732,53 @@
 
     montoEl.addEventListener('input', () => ocultar(montoError));
 
+    // ── Split multi-categoría ─────────────────────────────────
+    (function initSplit() {
+      const on = document.getElementById('txSplitOn');
+      const box = document.getElementById('txSplitBox');
+      const lineasEl = document.getElementById('txSplitLineas');
+      const sumaEl = document.getElementById('txSplitSuma');
+      const totalEl = document.getElementById('txSplitTotal');
+      if (!on) return;
+      window._splitActivo = false;
+      const catOptions = () => categoriaEl.innerHTML;
+      function addLinea() {
+        const div = document.createElement('div');
+        div.className = 'tx-split-linea';
+        div.innerHTML = `<select class="sp-cat">${catOptions()}</select>` +
+          `<input type="number" class="sp-monto" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00">` +
+          `<button type="button" class="sp-del" aria-label="Quitar">×</button>`;
+        lineasEl.appendChild(div);
+        div.querySelector('.sp-del').onclick = () => { div.remove(); recalc(); };
+        div.querySelector('.sp-monto').addEventListener('input', recalc);
+        recalc();
+      }
+      function recalc() {
+        let s = 0;
+        lineasEl.querySelectorAll('.sp-monto').forEach((i) => { s += parseFloat(i.value) || 0; });
+        sumaEl.textContent = s.toFixed(2);
+        totalEl.textContent = (parseFloat(montoEl.value) || 0).toFixed(2);
+      }
+      on.addEventListener('change', () => {
+        window._splitActivo = on.checked;
+        box.style.display = on.checked ? '' : 'none';
+        document.getElementById('categoriaGroup').style.display = on.checked ? 'none' : '';
+        if (on.checked && !lineasEl.children.length) { addLinea(); addLinea(); }
+        recalc();
+      });
+      document.getElementById('txSplitAdd').onclick = addLinea;
+      montoEl.addEventListener('input', recalc);
+      window._leerSplit = function () {
+        const lineas = [];
+        lineasEl.querySelectorAll('.tx-split-linea').forEach((d) => {
+          const cat = d.querySelector('.sp-cat').value;
+          const m = parseFloat(d.querySelector('.sp-monto').value);
+          if (cat && m > 0) lineas.push({ categoria_id: cat, monto: m });
+        });
+        return lineas;
+      };
+    })();
+
     // ── Validación ────────────────────────────────────────────
     function validar() {
       let ok = true;
@@ -722,7 +787,8 @@
       ocultar(deudorError);
       ocultar(formError);
 
-      if (tipoEl.value !== 'ahorro' && !categoriaEl.value) {
+      // En modo split, la categoría única no es requerida (está oculta).
+      if (!window._splitActivo && tipoEl.value !== 'ahorro' && !categoriaEl.value) {
         const msg = nuevaCatGroup.style.display !== 'none'
           ? 'Completa o cancela la nueva categoría primero.'
           : 'Selecciona una categoría.';
@@ -797,6 +863,26 @@
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       if (!validar()) return;
+
+      // ── Split path ──
+      if (window._splitActivo) {
+        const lineas = window._leerSplit();
+        const total = parseFloat(montoEl.value) || 0;
+        const suma = lineas.reduce((a, l) => a + l.monto, 0);
+        const err = document.getElementById('txSplitError');
+        if (lineas.length < 2) { err.textContent = 'Agrega al menos 2 líneas.'; err.style.display='block'; return; }
+        if (Math.abs(suma - total) > 0.001) { err.textContent = `La suma (${suma.toFixed(2)}) debe igualar el total (${total.toFixed(2)}).`; err.style.display='block'; return; }
+        err.style.display = 'none';
+        try {
+          await insertSplit(
+            { tipo: tipoEl.value, ambito: document.getElementById('ambito').value, fecha: document.getElementById('fecha').value, nota: notaEl.value.trim() || null },
+            lineas
+          );
+          window._splitActivo = false;
+          if (typeof mostrarExito === 'function') mostrarExito(lineas[0].categoria_id);
+        } catch (e) { err.textContent = 'No se pudo guardar la división. Reintenta.'; err.style.display='block'; }
+        return;
+      }
 
       const monto           = parseFloat(montoEl.value);
       const fecha           = fechaEl.value;

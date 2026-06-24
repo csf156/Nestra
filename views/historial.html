@@ -500,6 +500,9 @@
   .hist-aporte-actions { display: flex; gap: var(--space-md); }
   .hist-aporte-actions .btn { flex: 1; }
 
+  /* ── Split badge ────────────────────────────────────────── */
+  .hist-split-badge { font-size:0.72rem; background:var(--color-bg-subtle, #eee); border-radius:4px; padding:1px 6px; margin-left:6px; color:var(--color-text-muted, var(--text-secondary)); }
+
   /* ── Toast ──────────────────────────────────────────────── */
   .hist-toast {
     position: fixed; left: 50%; transform: translateX(-50%);
@@ -747,17 +750,18 @@
       var d = _datosTx(t);
       var iconoHtml = chipCategoria(t);
       var aporteBadge = d.aporte ? '<span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var splitBadge = t._split ? '<span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
-      var btnEditar = (d.aporte || d.directo) ? '' :
+      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
       var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       var usuarioBadge = '<span class="hist-tx-usuario"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</span>';
-      return '<div class="hist-tx" data-id="' + esc(t.id) + '">' +
+      return '<div class="hist-tx" data-id="' + esc(t.id) + '"' + (t._split ? ' data-split-id="' + esc(t.split_id) + '"' : '') + '>' +
           '<div class="hist-tx-row" role="button" tabindex="0" aria-expanded="false" ' +
                'aria-label="' + esc(d.cat) + ', ' + esc(formatMonto(t.monto)) + '. Toca para ver acciones">' +
             '<div class="hist-tx-main">' +
-              '<span class="hist-tx-cat">' + iconoHtml + ' ' + esc(d.cat) + '</span>' +
+              '<span class="hist-tx-cat">' + iconoHtml + ' ' + esc(d.cat) + splitBadge + '</span>' +
               '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + directoBadge + usuarioBadge + nota + '</span>' +
             '</div>' +
             '<span class="hist-tx-monto ' + d.clsM + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</span>' +
@@ -773,15 +777,16 @@
     function rowTx(t) {
       var d = _datosTx(t);
       var aporteMark = d.aporte ? ' <span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var splitMark = t._split ? ' <span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
-      var btnEditar = (d.aporte || d.directo) ? '' :
+      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
         '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-pencil"></use></svg></button>';
       var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
-      return '<tr data-id="' + esc(t.id) + '">' +
+      return '<tr data-id="' + esc(t.id) + '"' + (t._split ? ' data-split-id="' + esc(t.split_id) + '"' : '') + '>' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
-          '<td>' + chipCategoria(t) + ' ' + esc(d.cat) + aporteMark + directoMark + '</td>' +
+          '<td>' + chipCategoria(t) + ' ' + esc(d.cat) + aporteMark + directoMark + splitMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
           '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</td>' +
@@ -798,6 +803,22 @@
       var aria = activo ? (estado.orden.dir === 'asc' ? 'ascending' : 'descending') : 'none';
       return '<th class="hist-th' + (extraCls ? ' ' + extraCls : '') + '" aria-sort="' + aria + '">' +
         '<button type="button" class="hist-th-btn" data-sort="' + campo + '">' + label + ind + '</button></th>';
+    }
+
+    // ── Agrupación de splits ──────────────────────────────────
+    function agruparSplits(rows) {
+      var grupos = {}, salida = [];
+      for (var i = 0; i < rows.length; i++) {
+        var t = rows[i];
+        if (!t.split_id) { salida.push(t); continue; }
+        if (!grupos[t.split_id]) {
+          grupos[t.split_id] = Object.assign({}, t, { _split: true, _lineas: [], monto: 0 });
+          salida.push(grupos[t.split_id]);
+        }
+        grupos[t.split_id]._lineas.push(t);
+        grupos[t.split_id].monto += Number(t.monto);
+      }
+      return salida;
     }
 
     // ── Render: lista (tarjetas móvil + tabla desktop) ────────
@@ -821,7 +842,7 @@
         return;
       }
 
-      var datos = ordenarDatos(datosFiltrados);
+      var datos = agruparSplits(ordenarDatos(datosFiltrados));
       var agrupar = estado.orden.campo === 'fecha';
 
       // ── Tarjetas (móvil) ──
@@ -1071,7 +1092,9 @@
     // Todos los borrados requieren confirmación explícita en modal.
     // Normal: histDeleteModal. Aporte vinculado (aporte_id): histAporteModal.
 
-    function pedirBorrado(id) {
+    function pedirBorrado(id, splitId) {
+      // Split synthetic row: delegate to deleteSplit modal path.
+      if (splitId) { abrirModalDeleteSplit(splitId); return; }
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
       if (!tx) return;
       if (tx.aporte_id) { abrirModalAporte(tx); return; }
@@ -1097,10 +1120,27 @@
     function cerrarModalDelete() {
       deleteModal.classList.remove('active');
       deleteTxPendiente = null;
+      deleteSplitIdPendiente = null;
       $('histDeleteSpinner').style.display = 'none';
       $('histDeleteConfirmText').style.display = 'inline';
       $('histDeleteConfirm').disabled = false;
       $('histDeleteCancel').disabled = false;
+    }
+
+    // ── Modal borrado split (reutiliza histDeleteModal) ───────
+    var deleteSplitIdPendiente = null;
+
+    function abrirModalDeleteSplit(splitId) {
+      deleteSplitIdPendiente = splitId;
+      deleteTxPendiente = null;
+      $('histDeleteBody').textContent =
+        '¿Seguro que quieres eliminar este gasto dividido? Se eliminarán todas sus líneas. Esta acción no se puede deshacer.';
+      $('histDeleteConfirmText').style.display = 'inline';
+      $('histDeleteSpinner').style.display = 'none';
+      $('histDeleteConfirm').disabled = false;
+      $('histDeleteCancel').disabled = false;
+      deleteModal.classList.add('active');
+      setTimeout(function () { $('histDeleteCancel').focus(); }, 50);
     }
 
     $('histDeleteCancel').addEventListener('click', cerrarModalDelete);
@@ -1108,18 +1148,27 @@
     deleteModal.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModalDelete(); });
 
     $('histDeleteConfirm').addEventListener('click', async function () {
-      if (!deleteTxPendiente) return;
-      var tx = deleteTxPendiente;
+      if (!deleteTxPendiente && !deleteSplitIdPendiente) return;
       $('histDeleteConfirm').disabled = true;
       $('histDeleteCancel').disabled = true;
       $('histDeleteConfirmText').style.display = 'none';
       $('histDeleteSpinner').style.display = 'inline-block';
       try {
-        await deleteTransaccion(tx.id);
-        cerrarModalDelete();
-        rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
-        aplicarLocalYRender();
-        mostrarToast('Movimiento eliminado', null, null, 3000);
+        if (deleteSplitIdPendiente) {
+          var sid = deleteSplitIdPendiente;
+          await deleteSplit(sid);
+          cerrarModalDelete();
+          rawData = rawData.filter(function (t) { return String(t.split_id) !== String(sid); });
+          aplicarLocalYRender();
+          mostrarToast('Gasto dividido eliminado', null, null, 3000);
+        } else {
+          var tx = deleteTxPendiente;
+          await deleteTransaccion(tx.id);
+          cerrarModalDelete();
+          rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
+          aplicarLocalYRender();
+          mostrarToast('Movimiento eliminado', null, null, 3000);
+        }
       } catch (err) {
         cerrarModalDelete();
         mostrarToast('No se pudo borrar. Reintenta.', null, null, 4000);
@@ -1198,8 +1247,9 @@
         var cont = actBtn.closest('[data-id]');
         if (!cont) return;
         var id = cont.getAttribute('data-id');
+        var splitId = cont.getAttribute('data-split-id') || null;
         if (actBtn.getAttribute('data-act') === 'editar') abrirEdicion(id);
-        else pedirBorrado(id);
+        else pedirBorrado(id, splitId);
         return;
       }
 
