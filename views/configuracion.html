@@ -79,6 +79,19 @@
     </div>
   </section>
 
+  <!-- S3b: Plantillas rápidas -->
+  <section class="cfg-card" id="cfgPlantillasSection" style="display:none">
+    <h2 class="cfg-section-label">Plantillas rápidas</h2>
+    <p class="cfg-plantillas-hint">Atajos de 1 toque para registrar gastos frecuentes.</p>
+    <div id="cfgPlantillasLista"></div>
+    <form id="cfgPlantillaForm" class="cfg-plantilla-form" autocomplete="off">
+      <input type="text" id="cpNombre" class="cfg-input" placeholder="Nombre (ej: Pasaje)" maxlength="40" required>
+      <input type="number" id="cpMonto" class="cfg-input" step="0.01" min="0.01" inputmode="decimal" placeholder="Monto" required>
+      <select id="cpCategoria" class="cfg-select"></select>
+      <button type="submit" class="btn btn-primary btn-sm">Crear</button>
+    </form>
+  </section>
+
   <!-- S4: Datos -->
   <section class="cfg-card cfg-card--datos" id="cfgDatosSection" style="display:none">
     <h2 class="cfg-section-label">Datos</h2>
@@ -551,6 +564,16 @@
     .cfg-picker-item:hover { border-color: var(--color-primary); }
     .cfg-picker-item .cat-icono { width: 20px; height: 20px; }
     .cfg-picker-item--sel { border: 2px solid var(--color-primary); background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+
+    /* Plantillas rápidas */
+    .cfg-plantillas-hint { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-sm); }
+    .cfg-plantilla-form { display:flex; flex-wrap:wrap; gap:var(--space-xs); align-items:center; margin-top:var(--space-sm); }
+    .cfg-plantilla-form .cfg-input, .cfg-plantilla-form .cfg-select { min-width:0; }
+    .cfg-plantilla-form #cpNombre { flex:1 1 140px; }
+    .cfg-plantilla-form #cpMonto { width:100px; }
+    .cfg-plantilla-item { display:flex; justify-content:space-between; align-items:center; padding:var(--space-xs) 0; border-bottom:1px solid var(--border-light); }
+    .cfg-plantilla-item:last-child { border-bottom:none; }
+    .cfg-plantillas-vacia { font-size:var(--font-size-sm); color:var(--text-secondary); margin:0 0 var(--space-sm); }
 
     /* Toast */
     .cfg-toast {
@@ -1267,6 +1290,67 @@
           toggle.disabled = false;
         }
       });
+    })();
+
+    /* ── Plantillas rápidas ─────────────────────────────── */
+    (function initCfgPlantillas() {
+      var lista = $('cfgPlantillasLista');
+      var form  = $('cfgPlantillaForm');
+      var selCat = $('cpCategoria');
+      if (!form || typeof getPlantillas !== 'function') return;
+
+      async function cargarCats() {
+        var cats = await getCategorias();
+        selCat.innerHTML = '<option value="">Sin categoría</option>' +
+          cats.map(function (c) {
+            return '<option value="' + escHtml(c.id) + '">' + escHtml(c.nombre) + '</option>';
+          }).join('');
+      }
+
+      async function pintar() {
+        var ps = await getPlantillas();
+        lista.innerHTML = ps.length
+          ? ps.map(function (p) {
+              return '<div class="cfg-plantilla-item">' +
+                '<span>' + escHtml(p.nombre) + ' · S/' + escHtml(String(p.monto)) + '</span>' +
+                '<button type="button" class="btn btn-danger btn-sm" data-del="' + escHtml(p.id) + '">Borrar</button>' +
+              '</div>';
+            }).join('')
+          : '<p class="cfg-plantillas-vacia">Aún no hay plantillas.</p>';
+
+        lista.querySelectorAll('[data-del]').forEach(function (b) {
+          b.onclick = async function () {
+            b.disabled = true;
+            try { await deletePlantilla(b.dataset.del); } catch (_) {}
+            pintar();
+          };
+        });
+      }
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var nombre = $('cpNombre').value.trim();
+        var monto  = parseFloat($('cpMonto').value);
+        if (!nombre || !(monto > 0)) return;
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+          await insertPlantilla({
+            nombre: nombre,
+            monto: monto,
+            categoria_id: selCat.value || null,
+            tipo: 'gasto',
+            ambito: 'personal',
+          });
+          form.reset();
+        } catch (_) {}
+        btn.disabled = false;
+        pintar();
+      });
+
+      cargarCats();
+      pintar();
+      $('cfgPlantillasSection').style.display = 'block';
     })();
 
   })();
