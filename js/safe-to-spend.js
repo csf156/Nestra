@@ -127,8 +127,29 @@ function calcularFijosComprometidos(personales, hoy) {
   return total;
 }
 
-// Stub reemplazado en Task 5.
-function calcularAporteMetas(_metas, _hoy, _diasRestantes, _diasDelMes) { return 0; }
+// calcularAporteMetas — reserva la cuota de ahorro pendiente del mes. Por cada meta
+// personal en curso (no fondo emergencia) con objetivo>0 y fecha_limite futura:
+// planMensual = (objetivo−actual)/mesesRestantes; reserva planMensual×(díasRest/díasMes).
+function calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes) {
+  let total = 0;
+  for (const m of (metas || [])) {
+    if (m.ambito !== 'personal') continue;
+    if (m.estado !== 'en_curso') continue;
+    if (m.es_fondo_emergencia) continue;
+    const objetivo = Number(m.monto_objetivo) || 0;
+    const actual = Number(m.monto_actual) || 0;
+    if (objetivo <= 0) continue;
+    if (!m.fecha_limite) continue;
+    const restante = objetivo - actual;
+    if (restante <= 0) continue;
+    const diasHastaLimite = Math.floor((parseFechaISO(m.fecha_limite) - hoy) / 86400000);
+    if (diasHastaLimite <= 0) continue; // límite vencido → no se prorratea aquí
+    const mesesRestantes = Math.max(1, Math.ceil(diasHastaLimite / 30));
+    const planMensual = restante / mesesRestantes;
+    total += planMensual * (diasRestantes / diasDelMes);
+  }
+  return total;
+}
 
 async function cargarSafeToSpend() {
   try {

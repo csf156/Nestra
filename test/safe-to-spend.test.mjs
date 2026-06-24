@@ -77,3 +77,36 @@ test('categoría con un solo mes cerrado no es fija', () => {
   const out = calcularSafeToSpend(txs, [], { hoy: HOY });
   assert.strictEqual(out.diario, 300); // 2100/7, sin reserva
 });
+
+function meta(over) {
+  return Object.assign({
+    id: 'm1', ambito: 'personal', estado: 'en_curso', es_fondo_emergencia: false,
+    monto_objetivo: 1200, monto_actual: 0, fecha_limite: '2026-12-31',
+  }, over);
+}
+
+test('aporte de meta prorratea la cuota mensual por días restantes', () => {
+  const out = calcularSafeToSpend([ing2(2100, '2026-06-03')], [meta()], { hoy: HOY });
+  assert.strictEqual(out.estado, 'ok');
+  assert.strictEqual(out.diario, 294);
+});
+
+test('meta fondo de emergencia se ignora', () => {
+  const out = calcularSafeToSpend([ing2(2100, '2026-06-03')], [meta({ es_fondo_emergencia: true })], { hoy: HOY });
+  assert.strictEqual(out.diario, 300);
+});
+
+test('meta de hogar se ignora (solo personal)', () => {
+  const out = calcularSafeToSpend([ing2(2100, '2026-06-03')], [meta({ ambito: 'hogar' })], { hoy: HOY });
+  assert.strictEqual(out.diario, 300);
+});
+
+test('meta ya cubierta (actual ≥ objetivo) no reserva', () => {
+  const out = calcularSafeToSpend([ing2(2100, '2026-06-03')], [meta({ monto_actual: 1200 })], { hoy: HOY });
+  assert.strictEqual(out.diario, 300);
+});
+
+test('meta sin fecha_limite se ignora', () => {
+  const out = calcularSafeToSpend([ing2(2100, '2026-06-03')], [meta({ fecha_limite: null })], { hoy: HOY });
+  assert.strictEqual(out.diario, 300);
+});
