@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v10';
+const SHELL_VERSION = 'v11';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -56,10 +56,18 @@ precaching.precacheAndRoute([
   { url: 'assets/fonts/PlayfairDisplay-SemiBold.woff2', revision: SHELL_VERSION },
 ]);
 
-// Vistas HTML (views/*.html) — el router las hace fetch. Stale-while-revalidate.
+// Vistas HTML (views/*.html) — el router las hace fetch. NetworkFirst: online
+// siempre trae la última versión (así los cambios se ven sin esperar a un 2º
+// reload); offline cae al último cacheado. SWR servía la copia vieja primero.
 routing.registerRoute(
   ({ url }) => /\/views\/.*\.html$/.test(url.pathname),
-  new strategies.StaleWhileRevalidate({ cacheName: 'nestra-views' })
+  new strategies.NetworkFirst({
+    cacheName: 'nestra-views',
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  })
 );
 
 // CDNs de terceros usados por el shell (supabase-js, xlsx, chart.js): cache-first.
