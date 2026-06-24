@@ -106,8 +106,9 @@ function calcularFijosComprometidos(personales, hoy) {
   const gastadoEsteMes = new Map();
   for (const t of personales) {
     if (t.tipo !== 'gasto') continue;
+    if (t.categoria_id == null) continue; // sin categoría → muy poca señal para inferir "fija"
     const ym = t.fecha.slice(0, 7);
-    const cat = t.categoria_id != null ? t.categoria_id : '∅';
+    const cat = t.categoria_id;
     const monto = Number(t.monto) || 0;
     if (ym === ymActual) {
       gastadoEsteMes.set(cat, (gastadoEsteMes.get(cat) || 0) + monto);
@@ -143,7 +144,7 @@ function calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes) {
     const restante = objetivo - actual;
     if (restante <= 0) continue;
     const diasHastaLimite = Math.floor((parseFechaISO(m.fecha_limite) - hoy) / 86400000);
-    if (diasHastaLimite <= 0) continue; // límite vencido → no se prorratea aquí
+    if (!(diasHastaLimite > 0)) continue; // vencido, NaN o fecha inválida → no prorratear
     const mesesRestantes = Math.max(1, Math.ceil(diasHastaLimite / 30));
     const planMensual = restante / mesesRestantes;
     total += planMensual * (diasRestantes / diasDelMes);
