@@ -155,6 +155,10 @@ async function insertTransaccion(datos) {
     await outboxAdd('transacciones', fila);
     await mirrorPut('transacciones', { ...fila, _pending: true });
     if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    if (typeof autocatLearn === 'function' && fila.nota && fila.categoria_id) {
+      const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(fila.nota) : null;
+      if (dn) await autocatLearn(dn, fila.categoria_id);
+    }
     return { ...fila, _pending: true };
   }
 
@@ -174,6 +178,10 @@ async function insertTransaccion(datos) {
       await outboxAdd('transacciones', fila);
       await mirrorPut('transacciones', { ...fila, _pending: true });
       if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      if (typeof autocatLearn === 'function' && fila.nota && fila.categoria_id) {
+        const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(fila.nota) : null;
+        if (dn) await autocatLearn(dn, fila.categoria_id);
+      }
       return { ...fila, _pending: true };
     }
     console.error('Error en insertTransaccion():', err.message || err);
@@ -234,31 +242,33 @@ async function updateTransaccion(id, datos) {
   }
 }
 
-// deleteTransaccion(id) — borra una transacción.
-// Si tiene aporte_id, borra ambas mitades del aporte de forma conjunta
-// (gasto personal + ingreso hogar). prestamos se borra en cascada (FK).
-// Returns: undefined. Lanza Error en fallo.
+// _serverDeleteTransaccion(id) — borra en el servidor. Si la fila tiene
+// aporte_id, borra ambas mitades. Usado online y en el replay de la outbox.
+async function _serverDeleteTransaccion(id) {
+  const { data: fila, error: errLeer } = await supabase
+    .from('transacciones').select('id, aporte_id').eq('id', id).single();
+  if (errLeer) throw errLeer;
+  let query = supabase.from('transacciones').delete();
+  query = (fila && fila.aporte_id) ? query.eq('aporte_id', fila.aporte_id) : query.eq('id', id);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+// deleteTransaccion(id) — borra una transacción (offline-first).
+// Online: borra en servidor + espejo. Offline / error de red: quita del espejo
+// y encola un op 'delete_transaccion' que se replica al reconectar.
 async function deleteTransaccion(id) {
+  async function _offline() {
+    try { const db = await nestraDB(); await db.delete('transacciones', id); } catch (_) {}
+    await outboxAdd('delete_transaccion', { id });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+  }
+  if (!navigator.onLine) { await _offline(); return; }
   try {
-    // Leer la fila para saber si es parte de un aporte vinculado.
-    const { data: fila, error: errLeer } = await supabase
-      .from('transacciones')
-      .select('id, aporte_id')
-      .eq('id', id)
-      .single();
-    if (errLeer) throw errLeer;
-
-    let query = supabase.from('transacciones').delete();
-    if (fila && fila.aporte_id) {
-      // Borra las dos mitades del aporte de una sola vez.
-      query = query.eq('aporte_id', fila.aporte_id);
-    } else {
-      query = query.eq('id', id);
-    }
-
-    const { error } = await query;
-    if (error) throw error;
+    await _serverDeleteTransaccion(id);
+    try { const db = await nestraDB(); await db.delete('transacciones', id); } catch (_) {}
   } catch (err) {
+    if (_isNetworkError(err)) { await _offline(); return; }
     console.error('Error en deleteTransaccion():', err.message || err);
     throw err;
   }

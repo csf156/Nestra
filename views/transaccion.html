@@ -1053,7 +1053,7 @@
     // ── B) Autocat prefill al salir del campo nota ────────────
     notaEl.addEventListener('blur', async function () {
       if (categoriaEl.value) return; // no pisar elección manual/previa
-      if (typeof autocatDict !== 'function' || typeof matchAutocat !== 'function') return;
+      if (typeof autocatDict !== 'function' || typeof matchAutocat !== 'function' || typeof normalizeDesc !== 'function') return;
       const dict = await autocatDict();
       const catId = matchAutocat(normalizeDesc(notaEl.value), dict);
       if (catId) { categoriaEl.value = catId; categoriaEl.dispatchEvent(new Event('change')); }

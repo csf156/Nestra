@@ -624,8 +624,8 @@
     // ── Re-query (servidor) ───────────────────────────────────
     async function recargar() {
       // Flush any pending optimistic deletes before refetching.
-      if (_delTimer) { clearTimeout(_delTimer); _ejecutarBorrado(); }
-      if (_splitTimer) { clearTimeout(_splitTimer); _ejecutarBorradoSplit(); }
+      if (_delTimer) { clearTimeout(_delTimer); await _ejecutarBorrado(); }
+      if (_splitTimer) { clearTimeout(_splitTimer); await _ejecutarBorradoSplit(); }
       var token = ++reqToken;
       var body = $('histBody');
       body.setAttribute('aria-busy', 'true');
@@ -1119,9 +1119,9 @@
     }
 
     function _ejecutarBorrado() {
-      if (!_delPend) return;
+      if (!_delPend) return Promise.resolve();
       var tx = _delPend; _delPend = null; _delTimer = null;
-      deleteTransaccion(tx.id).catch(function () { recargar(); });
+      return deleteTransaccion(tx.id).catch(function () { recargar(); });
     }
     function borrarConToast(tx) {
       if (!tx) return;
@@ -1138,9 +1138,9 @@
     }
 
     function _ejecutarBorradoSplit() {
-      if (!_splitPend) return;
+      if (!_splitPend) return Promise.resolve();
       var sid = _splitPend.sid; _splitPend = null; _splitTimer = null;
-      deleteSplit(sid).catch(function () { recargar(); });
+      return deleteSplit(sid).catch(function () { recargar(); });
     }
     function borrarSplitConToast(splitId) {
       if (_splitTimer) { clearTimeout(_splitTimer); _ejecutarBorradoSplit(); }

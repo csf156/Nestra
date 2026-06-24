@@ -28,15 +28,29 @@ async function _replayOp(op) {
       const { error } = await supabase.storage.from('recibos')
         .upload(op.payload.path, pend.blob, { contentType: 'image/webp', upsert: true });
       if (error) throw error;
-      const { error: upErr } = await supabase.from('transacciones')
+      const { data: upd, error: upErr } = await supabase.from('transacciones')
         .update({ recibo_path: op.payload.path, updated_at: new Date().toISOString() })
-        .eq('id', op.payload.transaccion_id);
-      if (upErr) throw upErr; // no borrar el blob si no se pudo persistir el path
+        .eq('id', op.payload.transaccion_id).select('id');
+      if (upErr) throw upErr;
+      if (!upd || !upd.length) return 'retry'; // la tx aún no existe en server (insert pendiente) → reintentar, conservar blob
       await reciboQueueRemove(op.payload.transaccion_id);
       return 'done';
     } catch (err) {
       if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) return 'retry';
       console.error('Sync recibo falló:', err.message || err);
+      await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
+      return 'skip';
+    }
+  }
+
+  if (op.entity === 'delete_transaccion') {
+    try {
+      await _serverDeleteTransaccion(op.payload.id);
+      try { const db = await nestraDB(); await db.delete('transacciones', op.payload.id); } catch (_) {}
+      return 'done';
+    } catch (err) {
+      if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) return 'retry';
+      console.error('Sync delete falló:', err.message || err);
       await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
       return 'skip';
     }
