@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v9';
+const SHELL_VERSION = 'v10';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -39,6 +39,8 @@ precaching.precacheAndRoute([
   { url: 'js/pwa.js', revision: SHELL_VERSION },
   { url: 'js/push.js', revision: SHELL_VERSION },
   { url: 'js/share-parse.js', revision: SHELL_VERSION },
+  { url: 'js/autocat.js', revision: SHELL_VERSION },
+  { url: 'js/parse-quickadd.js', revision: SHELL_VERSION },
   { url: 'js/share-target.js', revision: SHELL_VERSION },
   { url: 'js/webauthn.js', revision: SHELL_VERSION },
   { url: 'js/vendor/idb-umd.js', revision: SHELL_VERSION },

@@ -6,8 +6,8 @@
 //   { op_id, entity, payload, status:'pending'|'syncing'|'error', error?, created_at }
 
 const NESTRA_IDB_NAME = 'nestra';
-const NESTRA_IDB_VERSION = 2;
-const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos'];
+const NESTRA_IDB_VERSION = 3;
+const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos', 'plantillas'];
 
 let _nestraDbPromise = null;
 
@@ -24,6 +24,12 @@ function nestraDB() {
           const ob = db.createObjectStore('outbox', { keyPath: 'op_id', autoIncrement: true });
           ob.createIndex('status', 'status');
           ob.createIndex('created_at', 'created_at');
+        }
+        if (!db.objectStoreNames.contains('autocat')) {
+          db.createObjectStore('autocat', { keyPath: 'desc_norm' });
+        }
+        if (!db.objectStoreNames.contains('recibos_pendientes')) {
+          db.createObjectStore('recibos_pendientes', { keyPath: 'transaccion_id' });
         }
       },
     });
@@ -100,6 +106,41 @@ async function outboxRemove(op_id) {
   await db.delete('outbox', op_id);
 }
 
+// ── autocat: diccionario descripcion→categoria aprendido ──────
+async function autocatLearn(descNorm, categoriaId) {
+  if (!descNorm || !categoriaId) return;
+  try {
+    const db = await nestraDB();
+    const prev = await db.get('autocat', descNorm);
+    await db.put('autocat', {
+      desc_norm: descNorm, categoria_id: categoriaId,
+      count: ((prev && prev.count) || 0) + 1, updated_at: new Date().toISOString(),
+    });
+  } catch (err) { console.error('autocatLearn falló:', err); }
+}
+async function autocatDict() {
+  try {
+    const db = await nestraDB();
+    const all = await db.getAll('autocat');
+    const dict = {};
+    for (const r of all) dict[r.desc_norm] = r.categoria_id;
+    return dict;
+  } catch (err) { console.error('autocatDict falló:', err); return {}; }
+}
+// ── recibos pendientes (foto offline) ──────────────────────────
+async function reciboQueueAdd(transaccionId, blob, userId) {
+  const db = await nestraDB();
+  await db.put('recibos_pendientes', { transaccion_id: transaccionId, blob, user_id: userId, created_at: new Date().toISOString() });
+}
+async function reciboQueueGet(transaccionId) {
+  const db = await nestraDB();
+  return await db.get('recibos_pendientes', transaccionId);
+}
+async function reciboQueueRemove(transaccionId) {
+  const db = await nestraDB();
+  await db.delete('recibos_pendientes', transaccionId);
+}
+
 window.nestraDB = nestraDB;
 window.mirrorReplace = mirrorReplace;
 window.mirrorPut = mirrorPut;
@@ -109,3 +150,8 @@ window.outboxPending = outboxPending;
 window.outboxCount = outboxCount;
 window.outboxSetStatus = outboxSetStatus;
 window.outboxRemove = outboxRemove;
+window.autocatLearn = autocatLearn;
+window.autocatDict = autocatDict;
+window.reciboQueueAdd = reciboQueueAdd;
+window.reciboQueueGet = reciboQueueGet;
+window.reciboQueueRemove = reciboQueueRemove;
