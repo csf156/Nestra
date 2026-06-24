@@ -138,9 +138,19 @@ document.addEventListener('DOMContentLoaded', function () {
   const unlockBtn = document.getElementById('bioUnlock');
   const passBtn = document.getElementById('bioUsePassword');
   if (unlockBtn) unlockBtn.addEventListener('click', _bioAttempt);
-  if (passBtn) passBtn.addEventListener('click', function () {
-    _bioUnlockUI();
-    if (typeof logout === 'function') logout();
+  if (passBtn) passBtn.addEventListener('click', async function () {
+    // Mantener el overlay hasta cerrar sesión. Si logout() falla (p.ej. offline),
+    // limpiar el token localmente y forzar la ruta de login igualmente, para no
+    // dejar la app desbloqueada con sesión viva.
+    passBtn.disabled = true;
+    try {
+      if (typeof logout === 'function') await logout();
+    } catch (e) {
+      try { localStorage.removeItem('sb-token'); } catch (_) {}
+    } finally {
+      window.location.hash = '#login';
+      _bioUnlockUI();
+    }
   });
 });
 

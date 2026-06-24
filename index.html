@@ -14,6 +14,7 @@
       (function () {
         try {
           if (localStorage.getItem('nestra-bio-enabled') === '1' &&
+              localStorage.getItem('nestra-bio-credid') &&
               localStorage.getItem('sb-token')) {
             document.documentElement.classList.add('bio-locked');
           }
