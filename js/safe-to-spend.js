@@ -75,9 +75,59 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   };
 }
 
-// Stubs reemplazados en Tasks 4 y 5.
-function baselineIngreso(_personales, _ymActual) { return 0; }
-function calcularFijosComprometidos(_personales, _hoy) { return 0; }
+// baselineIngreso — promedio del ingreso personal de hasta 3 meses calendario
+// CERRADOS previos (ym < ymActual). Cubre el bug día-1 (sueldo que aún no cae).
+function baselineIngreso(personales, ymActual) {
+  const porMes = new Map();
+  for (const t of personales) {
+    if (t.tipo !== 'ingreso') continue;
+    const ym = t.fecha.slice(0, 7);
+    if (ym >= ymActual) continue;
+    porMes.set(ym, (porMes.get(ym) || 0) + (Number(t.monto) || 0));
+  }
+  const cerrados = [...porMes.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 3);
+  if (!cerrados.length) return 0;
+  return cerrados.reduce((s, [, v]) => s + v, 0) / cerrados.length;
+}
+
+// calcularFijosComprometidos — infiere categorías "fijas" del historial (sin esquema):
+// gasto personal en ≥2 de los 3 meses cerrados previos. estimadoMensual = mediana de
+// sus totales mensuales. Reserva max(0, estimado − gastadoEsteMes) (remanente no pagado).
+function calcularFijosComprometidos(personales, hoy) {
+  const ymActual = diaISO(hoy).slice(0, 7);
+  // 3 meses cerrados previos (YYYY-MM).
+  const cerrados = [];
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    cerrados.push(diaISO(d).slice(0, 7));
+  }
+  // catId → { ym → total } sobre los meses cerrados.
+  const porCat = new Map();
+  const gastadoEsteMes = new Map();
+  for (const t of personales) {
+    if (t.tipo !== 'gasto') continue;
+    const ym = t.fecha.slice(0, 7);
+    const cat = t.categoria_id != null ? t.categoria_id : '∅';
+    const monto = Number(t.monto) || 0;
+    if (ym === ymActual) {
+      gastadoEsteMes.set(cat, (gastadoEsteMes.get(cat) || 0) + monto);
+    } else if (cerrados.includes(ym)) {
+      let m = porCat.get(cat);
+      if (!m) { m = new Map(); porCat.set(cat, m); }
+      m.set(ym, (m.get(ym) || 0) + monto);
+    }
+  }
+  let total = 0;
+  for (const [cat, porMes] of porCat) {
+    if (porMes.size < 2) continue; // <2 meses cerrados → no fija
+    const estimado = mediana([...porMes.values()]);
+    const yaPagado = gastadoEsteMes.get(cat) || 0;
+    total += Math.max(0, estimado - yaPagado);
+  }
+  return total;
+}
+
+// Stub reemplazado en Task 5.
 function calcularAporteMetas(_metas, _hoy, _diasRestantes, _diasDelMes) { return 0; }
 
 async function cargarSafeToSpend() {

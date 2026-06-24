@@ -36,3 +36,44 @@ test('solo cuenta ámbito personal', () => {
   const out = calcularSafeToSpend(txs, [], { hoy: HOY });
   assert.strictEqual(out.diario, 300);
 });
+
+function ing2(monto, fechaISO) { return { tipo: 'ingreso', ambito: 'personal', monto, fecha: fechaISO }; }
+function gas2(monto, fechaISO, categoria_id) { return { tipo: 'gasto', ambito: 'personal', monto, fecha: fechaISO, categoria_id }; }
+
+test('baseline cubre el bug día-1: sueldo aún no cae este mes', () => {
+  const txs = [ing2(3000, '2026-04-10'), ing2(3000, '2026-05-10')];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.estado, 'ok');
+  assert.strictEqual(out.diario, 429); // round(3000/7)
+});
+
+test('usa el mayor entre ingreso del mes y baseline', () => {
+  const txs = [ing2(3000, '2026-04-10'), ing2(4000, '2026-06-03')];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.diario, 571); // round(4000/7)
+});
+
+test('categoría fija reserva su remanente no pagado', () => {
+  const txs = [
+    ing2(2400, '2026-06-03'),
+    gas2(1000, '2026-04-02', 'alquiler'), gas2(1000, '2026-05-02', 'alquiler'),
+  ];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.diario, 200); // (2400-1000)/7
+});
+
+test('fija ya pagada este mes no se vuelve a reservar', () => {
+  const txs = [
+    ing2(2400, '2026-06-03'),
+    gas2(1000, '2026-04-02', 'alquiler'), gas2(1000, '2026-05-02', 'alquiler'),
+    gas2(1000, '2026-06-02', 'alquiler'),
+  ];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.diario, 200); // (2400-1000-0)/7
+});
+
+test('categoría con un solo mes cerrado no es fija', () => {
+  const txs = [ing2(2100, '2026-06-03'), gas2(800, '2026-05-02', 'viaje')];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.diario, 300); // 2100/7, sin reserva
+});
