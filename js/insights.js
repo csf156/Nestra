@@ -302,6 +302,41 @@ function detectBuenMes(transacciones, opts) {
   }];
 }
 
+// detectPrestamosSinCobro(prestamos, { hoy, diasUmbral? })
+// Préstamos DADOS pendientes agrupados por deudor; si el más antiguo lleva más
+// de `diasUmbral` días sin cobrar → warn. Sumamos el monto del deudor y usamos
+// su préstamo más antiguo para los días. Asimétrico a propósito: el esquema solo
+// modela préstamos dados (no deudas propias). Ordena por monto×días.
+function detectPrestamosSinCobro(prestamos, opts) {
+  const hoy = opts.hoy;
+  const UMBRAL = opts.diasUmbral != null ? opts.diasUmbral : 30;
+  const porDeudor = new Map();
+  for (const p of (prestamos || [])) {
+    if (!p || p.estado !== 'pendiente') continue;
+    const tx = p.transacciones;
+    if (!tx || !tx.fecha) continue;
+    const deudor = (p.deudor || '').trim() || 'alguien';
+    let g = porDeudor.get(deudor);
+    if (!g) { g = { deudor, monto: 0, fechaMin: tx.fecha }; porDeudor.set(deudor, g); }
+    g.monto += Number(tx.monto) || 0;
+    if (tx.fecha < g.fechaMin) g.fechaMin = tx.fecha;
+  }
+  const out = [];
+  for (const g of porDeudor.values()) {
+    const dias = Math.floor((hoy - parseFechaISO(g.fechaMin)) / 86400000);
+    if (dias <= UMBRAL) continue;
+    out.push({
+      id: 'prestamo:' + g.deudor, tipo: 'warn', icono: 'cash',
+      titulo: `Te deben ${fmtS(g.monto)}`,
+      subtexto: `${dias} días sin cobrar a ${g.deudor}`,
+      accion: { label: 'Ver préstamos', href: '#prestamos' },
+      meta: { deudor: g.deudor, dias, monto: g.monto, magnitud: Math.min(1, dias / 90) },
+    });
+  }
+  out.sort((a, b) => (b.meta.monto * b.meta.dias) - (a.meta.monto * a.meta.dias));
+  return out;
+}
+
 const PESO_TIPO = { alert: 3, warn: 2, good: 1.5, info: 1 };
 
 // priorizar(insights, { cap? }) — calcula score, ordena desc y capa (default 6).
@@ -356,4 +391,4 @@ if (typeof window !== 'undefined') {
   window.cargarInsights = cargarInsights;
 }
 
-export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes, priorizar, generarInsights, cargarInsights };
+export { diaISO, restarDias, parseFechaISO, fmtS, filtrarVentana, detectCrecimiento, detectDiaAnomalo, detectProyeccionMeta, detectRitmoMensual, detectBuenMes, detectPrestamosSinCobro, priorizar, generarInsights, cargarInsights };
