@@ -28,9 +28,10 @@ async function _replayOp(op) {
       const { error } = await supabase.storage.from('recibos')
         .upload(op.payload.path, pend.blob, { contentType: 'image/webp', upsert: true });
       if (error) throw error;
-      await supabase.from('transacciones')
+      const { error: upErr } = await supabase.from('transacciones')
         .update({ recibo_path: op.payload.path, updated_at: new Date().toISOString() })
         .eq('id', op.payload.transaccion_id);
+      if (upErr) throw upErr; // no borrar el blob si no se pudo persistir el path
       await reciboQueueRemove(op.payload.transaccion_id);
       return 'done';
     } catch (err) {
