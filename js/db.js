@@ -144,6 +144,7 @@ async function insertTransaccion(datos) {
     categoria_id: datos.categoria_id,
     monto:        datos.monto,
     nota:         datos.nota ?? null,
+    split_id:     datos.split_id ?? null,
     user_id:      userId,
     fecha:        datos.fecha || undefined,
     updated_at:   new Date().toISOString(),
@@ -1271,9 +1272,8 @@ async function insertSplit(comun, lineas) {
       tipo: comun.tipo, ambito: comun.ambito,
       categoria_id: ln.categoria_id, monto: ln.monto,
       fecha: comun.fecha, nota: comun.nota,
+      split_id: splitId,
     });
-    row.split_id = splitId;
-    await updateTransaccion(row.id, { split_id: splitId });
     creadas.push(row);
   }
   return { split_id: splitId, transacciones: creadas };
