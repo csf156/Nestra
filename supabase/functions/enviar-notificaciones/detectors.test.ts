@@ -7,16 +7,25 @@ import { detectarPresupuestos, detectarMetas, detectarPrestamos } from './detect
 const HOY = new Date('2026-06-23T08:00:00Z');
 
 test('presupuesto: gasto >= límite produce aviso', () => {
-  const presupuestos = [{ id: 'p1', categoria_id: 'c1', monto_limite: 100, categoria_nombre: 'Comida' }];
-  const r = detectarPresupuestos(presupuestos, new Map([['c1', 120]]), HOY);
+  const categorias = [{ id: 'c1', nombre: 'Comida', limite_mensual: 100 }];
+  const r = detectarPresupuestos(categorias, new Map([['c1', 120]]), HOY);
   assert.equal(r.length, 1);
-  assert.equal(r[0].clave_dedupe, 'presupuesto:p1:2026-06');
+  assert.equal(r[0].clave_dedupe, 'presupuesto:c1:2026-06');
   assert.equal(r[0].tipo, 'presupuesto');
 });
 
 test('presupuesto: gasto < límite NO produce aviso', () => {
-  const presupuestos = [{ id: 'p1', categoria_id: 'c1', monto_limite: 100, categoria_nombre: 'Comida' }];
-  const r = detectarPresupuestos(presupuestos, new Map([['c1', 80]]), HOY);
+  const categorias = [{ id: 'c1', nombre: 'Comida', limite_mensual: 100 }];
+  const r = detectarPresupuestos(categorias, new Map([['c1', 80]]), HOY);
+  assert.equal(r.length, 0);
+});
+
+test('presupuesto: categoría sin límite (null/0) NO produce aviso', () => {
+  const categorias = [
+    { id: 'c1', nombre: 'Comida', limite_mensual: null },
+    { id: 'c2', nombre: 'Ocio', limite_mensual: 0 },
+  ];
+  const r = detectarPresupuestos(categorias, new Map([['c1', 500], ['c2', 500]]), HOY);
   assert.equal(r.length, 0);
 });
 

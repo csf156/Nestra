@@ -627,17 +627,17 @@
     // ── Render: presupuestos del mes ──────────────────────────
     // Cada presupuesto: chip tintado con el color de la categoría, nombre,
     // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
-    function renderPresupuestos(presupuestos, gastoPorCat) {
+    function renderPresupuestos(categorias, gastoPorCat) {
       const card = $('dashPresupCard');
       const body = $('dashPresupBody');
       if (!card || !body) return;
-      const lista = presupuestos || [];
+      // Fuente única: categorias.limite_mensual (misma que alertas in-app y push).
+      const lista = (categorias || []).filter((c) => Number(c.limite_mensual) > 0);
       if (!lista.length) { card.style.display = 'none'; return; }
 
-      const rows = lista.map((p) => {
-        const cat = p.categorias || {};
-        const limite = Number(p.monto_limite) || 0;
-        const gastado = Number((gastoPorCat || {})[p.categoria_id] || 0);
+      const rows = lista.map((cat) => {
+        const limite = Number(cat.limite_mensual) || 0;
+        const gastado = Number((gastoPorCat || {})[cat.id] || 0);
         const est = (typeof estadoPresupuesto === 'function')
           ? estadoPresupuesto(gastado, limite) : null;
         if (!est) return '';
@@ -781,7 +781,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, presupuestos, gastosCat] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -792,7 +792,7 @@
         getAhorrosHogar(mes, anio),
         getAhorrosPersonal(mes, anio),
         cargarInsights(),
-        getPresupuestos(),
+        getCategorias('gasto'),
         getGastosPorCategoriaMes(mes, anio),
       ]);
 
@@ -805,9 +805,9 @@
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
       if (insights.status === 'fulfilled') renderInsights(insights.value);
-      if (presupuestos.status === 'fulfilled') {
+      if (categoriasGasto.status === 'fulfilled') {
         const gMap = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
-        renderPresupuestos(presupuestos.value, gMap);
+        renderPresupuestos(categoriasGasto.value, gMap);
       }
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);

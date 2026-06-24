@@ -16,21 +16,25 @@ function periodoMes(hoy: Date): string {
   return `${y}-${m}`;
 }
 
-export interface PresupuestoRow {
-  id: string; categoria_id: string; monto_limite: number; categoria_nombre: string;
+// Fuente única de presupuesto: categorias.limite_mensual (misma que las alertas
+// in-app de alerts.js y el widget del dashboard). No hay tabla `presupuestos`.
+export interface CategoriaPresupRow {
+  id: string; nombre: string; limite_mensual: number | null;
 }
 export function detectarPresupuestos(
-  presupuestos: PresupuestoRow[], gastoPorCat: Map<string, number>, hoy: Date,
+  categorias: CategoriaPresupRow[], gastoPorCat: Map<string, number>, hoy: Date,
 ): Aviso[] {
   const mes = periodoMes(hoy);
   const out: Aviso[] = [];
-  for (const p of presupuestos) {
-    const gasto = gastoPorCat.get(p.categoria_id) || 0;
-    if (gasto >= p.monto_limite) {
+  for (const c of categorias) {
+    const limite = Number(c.limite_mensual);
+    if (!limite || limite <= 0) continue; // sin límite → sin aviso
+    const gasto = gastoPorCat.get(c.id) || 0;
+    if (gasto >= limite) {
       out.push({
-        tipo: 'presupuesto', ref_id: p.id, clave_dedupe: `presupuesto:${p.id}:${mes}`,
+        tipo: 'presupuesto', ref_id: c.id, clave_dedupe: `presupuesto:${c.id}:${mes}`,
         title: 'Presupuesto superado',
-        body: `Te pasaste del límite en ${p.categoria_nombre}.`,
+        body: `Te pasaste del límite en ${c.nombre}.`,
         url: '/#/configuracion',
       });
     }

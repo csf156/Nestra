@@ -70,11 +70,14 @@ Deno.serve(async () => {
 async function evaluarUsuario(
   db: ReturnType<typeof createClient>, userId: string, hoy: Date, desde: string, hasta: string,
 ): Promise<Aviso[]> {
-  // Presupuestos + gasto del mes por categoría.
-  const { data: presup } = await db
-    .from('presupuestos')
-    .select('id, categoria_id, monto_limite, categorias(nombre)')
-    .eq('user_id', userId).eq('periodo', 'mensual');
+  // Presupuesto = categorias.limite_mensual (fuente única; misma que alertas in-app).
+  // Categorías son globales (user_id null) o propias del usuario. Replicamos la RLS
+  // `user_id IS NULL OR auth.uid() = user_id` aquí porque service-role la bypasea.
+  const { data: cats } = await db
+    .from('categorias')
+    .select('id, nombre, limite_mensual')
+    .or(`user_id.is.null,user_id.eq.${userId}`)
+    .eq('tipo', 'gasto').eq('estado', 'activa');
   const { data: gastos } = await db
     .from('transacciones')
     .select('categoria_id, monto')
@@ -83,9 +86,10 @@ async function evaluarUsuario(
   for (const g of (gastos || [])) {
     gastoPorCat.set(g.categoria_id, (gastoPorCat.get(g.categoria_id) || 0) + Number(g.monto));
   }
-  const presupuestos = (presup || []).map((p) => ({
-    id: p.id, categoria_id: p.categoria_id, monto_limite: Number(p.monto_limite),
-    categoria_nombre: (p.categorias && (p.categorias as { nombre: string }).nombre) || 'una categoría',
+  const categoriasPresup = (cats || []).map((c) => ({
+    id: c.id as string,
+    nombre: (c.nombre as string) || 'una categoría',
+    limite_mensual: c.limite_mensual == null ? null : Number(c.limite_mensual),
   }));
 
   // Metas + qué metas tienen aporte este mes.
@@ -110,7 +114,7 @@ async function evaluarUsuario(
   }));
 
   return [
-    ...detectarPresupuestos(presupuestos, gastoPorCat, hoy),
+    ...detectarPresupuestos(categoriasPresup, gastoPorCat, hoy),
     ...detectarMetas(metasRows, conAporte, hoy),
     ...detectarPrestamos(prestamosRows, hoy),
   ];

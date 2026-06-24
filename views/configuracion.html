@@ -46,13 +46,6 @@
     </div>
   </section>
 
-  <!-- S2.5: Presupuestos -->
-  <section class="cfg-card" id="cfgPresupSection" style="display:none">
-    <h2 class="cfg-section-label">Presupuestos mensuales</h2>
-    <p class="cfg-presup-hint">Define un límite mensual por categoría de gasto. El dashboard mostrará tu avance.</p>
-    <ul class="cfg-presup-lista" id="cfgPresupLista" role="list"></ul>
-  </section>
-
   <!-- S3: Preferencias -->
   <section class="cfg-card" id="cfgPrefSection" style="display:none">
     <h2 class="cfg-section-label">Preferencias</h2>
@@ -483,54 +476,6 @@
       margin: 0 0 var(--space-sm);
     }
 
-    /* Presupuestos */
-    .cfg-presup-hint {
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-      margin: 0 0 var(--space-md);
-      line-height: 1.4;
-    }
-    .cfg-presup-lista { list-style: none; padding: 0; margin: 0; }
-    .cfg-presup-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-sm);
-      padding: var(--space-sm) 0;
-      border-bottom: 1px solid var(--border-light);
-    }
-    .cfg-presup-item:last-child { border-bottom: none; }
-    .cfg-presup-chip {
-      width: 32px; height: 32px; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: var(--radius-sm);
-      background: var(--bg-light);
-      color: var(--text-secondary);
-    }
-    .cfg-presup-chip .cat-icono { width: 18px; height: 18px; }
-    .cfg-presup-nombre {
-      flex: 1; min-width: 0;
-      font-weight: var(--font-weight-medium);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .cfg-presup-input-wrap {
-      display: flex; align-items: center; gap: 4px;
-      flex-shrink: 0;
-    }
-    .cfg-presup-prefijo { font-size: var(--font-size-sm); color: var(--text-secondary); }
-    .cfg-presup-input {
-      width: 96px;
-      padding: var(--space-sm);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
-      background: var(--bg-light);
-      color: inherit;
-      font-size: var(--font-size-sm);
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      box-sizing: border-box;
-    }
-    .cfg-presup-input:focus { outline: none; border-color: var(--color-primary); }
-
     /* Modal */
     .cfg-modal-overlay {
       position: fixed; inset: 0;
@@ -832,6 +777,11 @@
         cerrarEdicion();
         renderCategorias(_cats);
         mostrarToast('Categoría actualizada', 3000);
+        // Al fijar un límite mensual, ofrecer push de presupuesto (una vez por clave).
+        if (datos.limite_mensual > 0 && typeof pushOfrecerContextual === 'function') {
+          pushOfrecerContextual('presupuesto',
+            '¿Quieres que te avise si te pasas del límite de una categoría?');
+        }
       } catch (err) {
         mostrarToast('No se pudo guardar la categoría', 4000);
       } finally {
@@ -1082,90 +1032,15 @@
         $('cfgCatForm').style.display = 'none';
         $('cfgCatAddBtn').setAttribute('aria-expanded', 'false');
         mostrarToast('Categoría creada', 3000);
+        // Si la categoría nace con límite, ofrecer push de presupuesto.
+        if (datos.limite_mensual > 0 && typeof pushOfrecerContextual === 'function') {
+          pushOfrecerContextual('presupuesto',
+            '¿Quieres que te avise si te pasas del límite de una categoría?');
+        }
       } catch (err) {
         mostrarToast('No se pudo crear la categoría', 4000);
       } finally {
         btn.disabled = false;
-      }
-    });
-
-    /* ── Presupuestos ───────────────────────────────────────── */
-    var _presupuestos = []; // filas existentes: { id, categoria_id, monto_limite, ... }
-
-    function _presupDeCat(catId) {
-      return _presupuestos.find(function (p) { return p.categoria_id === catId; }) || null;
-    }
-
-    function renderPresupItem(cat) {
-      var p = _presupDeCat(cat.id);
-      var val = p ? p.monto_limite : '';
-      var icono = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
-      return '<li class="cfg-presup-item" data-cat-id="' + escHtml(cat.id) + '">' +
-        '<span class="cfg-presup-chip">' + icono + '</span>' +
-        '<span class="cfg-presup-nombre">' + escHtml(cat.nombre) + '</span>' +
-        '<span class="cfg-presup-input-wrap">' +
-          '<span class="cfg-presup-prefijo">S/</span>' +
-          '<input type="number" class="cfg-presup-input" min="0" step="0.01" ' +
-            'inputmode="decimal" placeholder="—" ' +
-            'value="' + escHtml(String(val)) + '" ' +
-            'aria-label="Límite mensual de ' + escHtml(cat.nombre) + '">' +
-        '</span>' +
-      '</li>';
-    }
-
-    function renderPresupuestos(cats, presupuestos) {
-      _presupuestos = presupuestos || [];
-      var gasto = (cats || []).filter(function (c) {
-        return c.tipo === 'gasto' && c.estado !== 'archivada';
-      });
-      var ul = $('cfgPresupLista');
-      if (!gasto.length) {
-        ul.innerHTML = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">Sin categorías de gasto.</li>';
-      } else {
-        ul.innerHTML = gasto.map(renderPresupItem).join('');
-      }
-      $('cfgPresupSection').style.display = 'block';
-    }
-
-    // Guardar al perder foco / cambiar el input (insert / update / delete).
-    $('cfgPresupLista').addEventListener('change', async function (e) {
-      var input = e.target.closest('.cfg-presup-input');
-      if (!input) return;
-      var li = input.closest('.cfg-presup-item');
-      var catId = li.dataset.catId;
-      var existente = _presupDeCat(catId);
-      var raw = input.value.trim();
-      var monto = raw === '' ? null : parseFloat(raw);
-
-      input.disabled = true;
-      try {
-        if (monto === null || isNaN(monto) || monto <= 0) {
-          if (existente) {
-            await deletePresupuesto(existente.id);
-            _presupuestos = _presupuestos.filter(function (p) { return p.id !== existente.id; });
-            input.value = '';
-            mostrarToast('Presupuesto eliminado', 3000);
-          } else {
-            input.value = '';
-          }
-        } else if (existente) {
-          var act = await updatePresupuesto(existente.id, { monto_limite: monto });
-          existente.monto_limite = act.monto_limite;
-          mostrarToast('Presupuesto actualizado', 3000);
-        } else {
-          var nuevo = await insertPresupuesto({ categoria_id: catId, monto_limite: monto });
-          _presupuestos.push(nuevo);
-          mostrarToast('Presupuesto guardado', 3000);
-          if (typeof pushOfrecerContextual === 'function') {
-            pushOfrecerContextual('presupuesto',
-              '¿Quieres que te avise si te pasas del límite de un presupuesto?');
-          }
-        }
-      } catch (err) {
-        mostrarToast('No se pudo guardar el presupuesto', 4000);
-        input.value = existente ? existente.monto_limite : '';
-      } finally {
-        input.disabled = false;
       }
     });
 
@@ -1304,11 +1179,9 @@
         var res = await Promise.all([
           getProfiles(),
           getCategoriasConFavorito(null, true),
-          getPresupuestos(),
         ]);
         renderPerfiles(res[0]);
         renderCategorias(res[1]);
-        renderPresupuestos(res[1], res[2]);
         delegarCats('cfgCatListaGastos');
         delegarCats('cfgCatListaIngresos');
         initPreferencias();

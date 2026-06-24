@@ -914,20 +914,6 @@ async function insertAporteDirecto(meta_id, monto, fecha, nota) {
 // PRESUPUESTOS
 // ═══════════════════════════════════════════════════════════════════
 
-// getPresupuestos() — presupuestos del usuario activo (RLS los acota),
-// con la categoría embebida (nombre, icono, color, tipo) para el render.
-// Online: query a Supabase + espejo. Offline: espejo local.
-// Returns: array o [].
-async function getPresupuestos() {
-  return _mirroredRead('presupuestos', async () => {
-    const { data, error } = await supabase
-      .from('presupuestos')
-      .select('*, categorias(nombre, icono, color, tipo)');
-    if (error) throw error;
-    return data || [];
-  });
-}
-
 // getGastosPorCategoriaMes(mes, anio) — gasto del usuario activo por
 // categoría en el mes dado. Solo tipo='gasto' y user_id = usuario activo
 // (cualquier ámbito). Usa getTransacciones (espejado) para que funcione
@@ -951,81 +937,6 @@ async function getGastosPorCategoriaMes(mes, anio) {
   } catch (err) {
     console.error('Error en getGastosPorCategoriaMes():', err.message || err);
     return {};
-  }
-}
-
-// insertPresupuesto(datos) — crea un presupuesto.
-// datos: { categoria_id, monto_limite }. periodo se fija a 'mensual'.
-// user_id se fuerza al usuario activo (RLS exige auth.uid()=user_id).
-// Soporta offline (outbox + espejo), igual que insertMeta.
-// Returns: fila insertada (o fila optimista _pending:true). Lanza en fallo.
-async function insertPresupuesto(datos) {
-  const fila = {
-    id:           crypto.randomUUID(),
-    categoria_id: datos.categoria_id,
-    monto_limite: datos.monto_limite,
-    periodo:      'mensual',
-    user_id:      _requireUserId(),
-    updated_at:   new Date().toISOString(),
-  };
-
-  if (!navigator.onLine) {
-    await outboxAdd('presupuestos', fila);
-    await mirrorPut('presupuestos', { ...fila, _pending: true });
-    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-    return { ...fila, _pending: true };
-  }
-  try {
-    const { data, error } = await supabase
-      .from('presupuestos').insert(fila).select().single();
-    if (error) throw error;
-    await mirrorPut('presupuestos', data);
-    return data;
-  } catch (err) {
-    if (_isNetworkError(err)) {
-      await outboxAdd('presupuestos', fila);
-      await mirrorPut('presupuestos', { ...fila, _pending: true });
-      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      return { ...fila, _pending: true };
-    }
-    console.error('Error en insertPresupuesto():', err.message || err);
-    throw err;
-  }
-}
-
-// updatePresupuesto(id, datos) — actualiza un presupuesto (p.ej. monto_limite).
-// Online-only; refresca el espejo con la fila devuelta (incluye el updated_at
-// que sella el trigger set_updated_at, para LWW). Returns: fila. Lanza en fallo.
-async function updatePresupuesto(id, datos) {
-  try {
-    const { data, error } = await supabase
-      .from('presupuestos')
-      .update(datos)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) throw error;
-    await mirrorPut('presupuestos', data);
-    return data;
-  } catch (err) {
-    console.error('Error en updatePresupuesto():', err.message || err);
-    throw err;
-  }
-}
-
-// deletePresupuesto(id) — borra un presupuesto (quita el límite de la categoría).
-// Online-only. Returns: undefined. Lanza en fallo.
-async function deletePresupuesto(id) {
-  try {
-    const { error } = await supabase
-      .from('presupuestos')
-      .delete()
-      .eq('id', id);
-    if (error) throw error;
-    if (typeof mirrorDelete === 'function') await mirrorDelete('presupuestos', id);
-  } catch (err) {
-    console.error('Error en deletePresupuesto():', err.message || err);
-    throw err;
   }
 }
 
