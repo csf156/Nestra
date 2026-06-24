@@ -356,6 +356,7 @@ function priorizar(insights, opts) {
 function generarInsights(datos) {
   const transacciones = datos.transacciones || [];
   const metas = datos.metas || [];
+  const prestamos = datos.prestamos || [];
   const opts = { hoy: datos.hoy || new Date() };
   let all = [];
   const corre = (fn, arg) => { try { all = all.concat(fn(arg, opts)); } catch (e) { console.error('insight detector falló:', e && e.message); } };
@@ -364,6 +365,7 @@ function generarInsights(datos) {
   corre(detectProyeccionMeta, metas);
   corre(detectRitmoMensual, transacciones);
   corre(detectBuenMes, transacciones);
+  corre(detectPrestamosSinCobro, prestamos);
   return priorizar(all, {});
 }
 
@@ -372,14 +374,15 @@ function generarInsights(datos) {
 // el dashboard). No se unit-testea; la lógica de recorte vive en filtrarVentana.
 async function cargarInsights() {
   try {
-    const [transacciones, categorias, metas] = await Promise.all([
+    const [transacciones, categorias, metas, prestamos] = await Promise.all([
       window.getTransacciones(),
       window.getCategorias(),
       window.getMetas(),
+      window.getPrestamos('pendiente'),
     ]);
     const hoy = new Date();
     const recientes = filtrarVentana(transacciones || [], hoy, 90);
-    return generarInsights({ transacciones: recientes, categorias: categorias || [], metas: metas || [], hoy });
+    return generarInsights({ transacciones: recientes, categorias: categorias || [], metas: metas || [], prestamos: prestamos || [], hoy });
   } catch (err) {
     console.error('Error en cargarInsights():', err && (err.message || err));
     return [];

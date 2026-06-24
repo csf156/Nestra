@@ -108,6 +108,15 @@ test('datos vacíos devuelven array vacío', () => {
   );
 });
 
+// ── Test 6: préstamos ─────────────────────────────────────────────
+
+test('generarInsights incluye insight de préstamos cuando se pasan', () => {
+  const hoy = new Date(2026, 5, 24);
+  const prestamos = [{ deudor: 'Ana', estado: 'pendiente', transacciones: { fecha: '2026-04-01', monto: 300 } }];
+  const out = generarInsights({ transacciones: [], categorias: [], metas: [], prestamos, hoy });
+  assert.ok(out.some((i) => i.id === 'prestamo:Ana'));
+});
+
 // ── Test 5: cap a 6 ───────────────────────────────────────────────
 
 test('cap a 6 cards aunque haya más insights posibles', () => {
