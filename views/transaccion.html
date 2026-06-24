@@ -56,6 +56,9 @@
         <input type="hidden" id="tipo" value="gasto">
       </div>
 
+      <!-- Plantillas de 1 toque -->
+      <div id="txPlantillas" class="tx-plantillas" aria-label="Plantillas"></div>
+
       <!-- Ámbito -->
       <div class="form-group tx-toggle-group">
         <label>Ámbito</label>
@@ -467,6 +470,29 @@
     display: block;
     margin: 0 auto var(--space-xs);
   }
+
+  /* ── Quick-add prefill: highlight categoria faltante ────── */
+  .tx-cat-needed select { outline: 2px solid var(--color-warning); outline-offset: 2px; }
+
+  /* ── Plantilla chips ─────────────────────────────────────── */
+  .tx-plantillas { display:flex; flex-wrap:wrap; gap:var(--space-xs); margin-bottom:var(--space-md); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full, 9999px);
+    border: 1px solid var(--border-light);
+    background: var(--bg-light-secondary);
+    color: var(--text-dark);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .chip:hover { background: var(--border-light); border-color: var(--color-primary); }
+  .chip:disabled { opacity: 0.5; cursor: not-allowed; }
+  .chip-plantilla { cursor: pointer; }
 </style>
 
 <script>
@@ -849,8 +875,33 @@
 
       cargarCategorias(editTx.categoria_id);
     } else {
-      cargarCategorias();
+      // Prefill desde Quick-Add del dashboard. Tiene prioridad sobre share prefill.
+      // Se resuelve DESPUÉS de cargarCategorias() porque categoria_id se pasa
+      // como autoSelectId para que el <option> ya exista cuando se asigne.
+      const qp = window._quickAddPrefill || null;
+      window._quickAddPrefill = null;
+
+      if (qp) {
+        // Campos que no dependen de las opciones de categoría.
+        _setTipo(qp.tipo || 'gasto');
+        if (qp.monto) montoEl.value = qp.monto;
+        if (qp.nota)  notaEl.value  = qp.nota;
+        if (qp.fecha) fechaEl.value  = qp.fecha;
+        // cargarCategorias pre-selecciona el id si se le pasa; si no hay id
+        // se señala visualmente que hace falta elegir categoría.
+        cargarCategorias(qp.categoria_id || null).then(() => {
+          if (qp.categoria_id) {
+            categoriaEl.dispatchEvent(new Event('change'));
+          } else if (qp._forceCategoriaPick) {
+            document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+          }
+        });
+      } else {
+        cargarCategorias();
+      }
+
       _mostrarAporteHogar();
+
       // Prefill desde Web Share Target (captura de Yape, etc.). Se consume una vez.
       const sp = window._sharePrefill || null;
       window._sharePrefill = null;
@@ -868,5 +919,36 @@
         }
       }
     }
+
+    // ── B) Autocat prefill al salir del campo nota ────────────
+    notaEl.addEventListener('blur', async function () {
+      if (categoriaEl.value) return; // no pisar elección manual/previa
+      if (typeof autocatDict !== 'function' || typeof matchAutocat !== 'function') return;
+      const dict = await autocatDict();
+      const catId = matchAutocat(normalizeDesc(notaEl.value), dict);
+      if (catId) { categoriaEl.value = catId; categoriaEl.dispatchEvent(new Event('change')); }
+    });
+
+    // ── C) Plantillas de 1 toque ──────────────────────────────
+    (async function pintarPlantillas() {
+      const cont = document.getElementById('txPlantillas');
+      if (!cont || typeof getPlantillas !== 'function') return;
+      const ps = await getPlantillas();
+      if (!ps || !ps.length) return;
+      cont.innerHTML = ps.map((p) =>
+        `<button type="button" class="chip chip-plantilla" data-id="${esc(String(p.id))}">${esc(p.nombre)} · S/${esc(String(p.monto))}</button>`
+      ).join('');
+      cont.querySelectorAll('[data-id]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const p = ps.find((x) => String(x.id) === btn.dataset.id);
+          if (!p) return;
+          btn.disabled = true;
+          try {
+            await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
+            if (typeof mostrarExito === 'function') mostrarExito(p.categoria_id);
+          } catch (_) { btn.disabled = false; }
+        });
+      });
+    })();
   })();
 </script>
