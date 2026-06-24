@@ -163,6 +163,13 @@
         <textarea id="nota" name="nota" rows="2" placeholder="Descripción libre..."></textarea>
       </div>
 
+      <!-- Recibo -->
+      <div class="form-group">
+        <label for="reciboFile">Recibo <span class="label-opcional">(opcional)</span></label>
+        <input type="file" id="reciboFile" accept="image/*" capture="environment">
+        <img id="reciboPreview" class="recibo-preview" alt="Vista previa del recibo" style="display:none;">
+      </div>
+
       <!-- Error general -->
       <div id="formError" class="alert error" role="alert"
            aria-live="assertive" style="display:none;"></div>
@@ -492,6 +499,9 @@
   .tx-split-linea .sp-monto { width:90px; }
   .tx-split-linea .sp-del { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--color-text-muted, var(--text-secondary)); }
 
+  /* ── Recibo preview ─────────────────────────────────────── */
+  .recibo-preview { max-width: 120px; border-radius: var(--radius-sm); margin-top: var(--space-sm); display:block; }
+
   /* ── Plantilla chips ─────────────────────────────────────── */
   .tx-plantillas { display:flex; flex-wrap:wrap; gap:var(--space-xs); margin-bottom:var(--space-md); }
   .chip {
@@ -577,6 +587,9 @@
     function ocultar(el)      { el.style.display = 'none'; el.textContent = ''; }
 
     function _salir() {
+      _reciboBlob = null;
+      var prev = document.getElementById('reciboPreview');
+      if (prev) { prev.src = ''; prev.style.display = 'none'; }
       if (window._modalMode && typeof cerrarModal === 'function') {
         cerrarModal();
       } else {
@@ -731,6 +744,33 @@
     });
 
     montoEl.addEventListener('input', () => ocultar(montoError));
+
+    // ── Recibo: compresión y previsualización ─────────────────
+    function comprimirImagen(file, maxLado, calidad) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () {
+          var w = img.width, h = img.height;
+          if (w > h && w > maxLado) { h = Math.round(h * maxLado / w); w = maxLado; }
+          else if (h > maxLado) { w = Math.round(w * maxLado / h); h = maxLado; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('toBlob null')); }, 'image/webp', calidad);
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+    var _reciboBlob = null;
+    document.getElementById('reciboFile').addEventListener('change', async function (e) {
+      var file = e.target.files[0]; if (!file) { _reciboBlob = null; return; }
+      try {
+        _reciboBlob = await comprimirImagen(file, 1280, 0.7);
+        var prev = document.getElementById('reciboPreview');
+        prev.src = URL.createObjectURL(_reciboBlob); prev.style.display = 'block';
+      } catch (_) { _reciboBlob = null; }
+    });
 
     // ── Split multi-categoría ─────────────────────────────────
     (function initSplit() {
@@ -921,6 +961,10 @@
           });
           if (prestamoGroup.style.display !== 'none') {
             await insertPrestamo(tx.id, deudorEl.value.trim(), estadoPrestamoEl.value);
+          }
+          if (_reciboBlob && tx && tx.id && typeof subirRecibo === 'function') {
+            try { await subirRecibo(tx.id, _reciboBlob); } catch (_) {}
+            _reciboBlob = null;
           }
         }
         await mostrarExito(savedCatId);

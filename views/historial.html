@@ -500,6 +500,10 @@
   .hist-aporte-actions { display: flex; gap: var(--space-md); }
   .hist-aporte-actions .btn { flex: 1; }
 
+  /* ── Recibo thumbnail ───────────────────────────────────── */
+  .recibo-thumb { max-width: 100%; max-height: 180px; border-radius: var(--radius-sm); margin-top: var(--space-sm); }
+  .recibo-cont { padding: 0 0 var(--space-sm); }
+
   /* ── Split badge ────────────────────────────────────────── */
   .hist-split-badge { font-size:0.72rem; background:var(--color-bg-subtle, #eee); border-radius:4px; padding:1px 6px; margin-left:6px; color:var(--color-text-muted, var(--text-secondary)); }
 
@@ -557,6 +561,13 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
     function $(id) { return document.getElementById(id); }
+
+    // ── Recibo: cargar thumbnail firmado ──────────────────────
+    async function pintarRecibo(containerEl, path) {
+      if (!path || !containerEl || typeof getReciboUrl !== 'function') return;
+      var url = await getReciboUrl(path);
+      if (url) containerEl.innerHTML = '<img src="' + url + '" class="recibo-thumb" alt="Recibo">';
+    }
 
     // ── Estado ────────────────────────────────────────────────
     var ahora = mesActual();
@@ -773,6 +784,7 @@
           '<div class="hist-tx-actions" hidden>' + btnEditar +
             '<button type="button" class="btn btn-danger btn-small" data-act="eliminar">Eliminar</button>' +
           '</div>' +
+          (t.recibo_path ? '<div class="recibo-cont" data-recibo="' + esc(t.recibo_path) + '"></div>' : '') +
         '</div>';
     }
 
@@ -1220,6 +1232,14 @@
       card.classList.toggle('hist-tx--open', abrir);
       rowEl.setAttribute('aria-expanded', String(abrir));
       if (actions) actions.hidden = !abrir;
+      // Carga thumbnail de recibo la primera vez que se abre la tarjeta.
+      if (abrir) {
+        var reciboEl = card.querySelector('.recibo-cont[data-recibo]');
+        if (reciboEl && !reciboEl.dataset.loaded) {
+          reciboEl.dataset.loaded = '1';
+          pintarRecibo(reciboEl, reciboEl.dataset.recibo);
+        }
+      }
     }
 
     $('histBody').addEventListener('click', function (e) {
