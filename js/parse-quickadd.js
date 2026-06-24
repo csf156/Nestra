@@ -35,10 +35,10 @@ function parseQuickAdd(text, opts = {}) {
   let str = String(text).trim();
   if (!str) return out;
 
-  // 1. Fecha relativa: token aislado.
+  // 1. Fecha relativa: token aislado. Sin opts.hoy no ajustamos (no lanzar).
   let fecha = hoy;
   str = str.replace(/\b(anteayer|ayer|hoy|mañana|manana)\b/i, (m) => {
-    fecha = _addDays(hoy, _FECHAS[m.toLowerCase()] ?? 0);
+    if (hoy) fecha = _addDays(hoy, _FECHAS[m.toLowerCase()] ?? 0);
     return ' ';
   });
   out.fecha = fecha;
@@ -50,14 +50,14 @@ function parseQuickAdd(text, opts = {}) {
     monto = _normalizeNum(conS[1]);
     str = str.replace(conS[0], ' ');
   } else {
-    const nums = str.match(/\d[\d.,]*\d|\d/g) || [];
-    let best = null, bestRaw = null;
-    for (const raw of nums) {
-      const n = _normalizeNum(raw);
-      if (n != null && (best == null || n > best)) { best = n; bestRaw = raw; }
+    const re = /\d[\d.,]*\d|\d/g;
+    let m, best = null, bestRaw = null, bestIdx = -1;
+    while ((m = re.exec(str)) !== null) {
+      const n = _normalizeNum(m[0]);
+      if (n != null && (best == null || n > best)) { best = n; bestRaw = m[0]; bestIdx = m.index; }
     }
     monto = best;
-    if (bestRaw != null) str = str.replace(bestRaw, ' ');
+    if (bestIdx >= 0) str = str.slice(0, bestIdx) + ' ' + str.slice(bestIdx + bestRaw.length);
   }
   out.monto = (monto != null && monto > 0) ? monto : null;
 

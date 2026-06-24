@@ -67,3 +67,15 @@ test('nunca lanza con entrada vacía/null', () => {
   assert.equal(parseQuickAdd('', { hoy: HOY }).monto, null);
   assert.equal(parseQuickAdd(null, { hoy: HOY }).monto, null);
 });
+
+test('no lanza si falta opts.hoy aunque haya token de fecha', () => {
+  assert.doesNotThrow(() => parseQuickAdd('mañana taxi 5', {}));
+  assert.equal(parseQuickAdd('mañana taxi 5', {}).monto, 5);
+});
+
+test('token de monto elegido se quita por su posición', () => {
+  // documenta comportamiento: gana el mayor (2026), se retira ese token exacto
+  const r = parseQuickAdd('compra 2026 cosas 50', { hoy: '2026-06-24' });
+  assert.equal(r.monto, 2026);
+  assert.equal(r.descripcion, 'compra cosas 50');
+});

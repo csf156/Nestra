@@ -3,7 +3,7 @@
 
 function normalizeDesc(s) {
   return String(s ?? '').toLowerCase().normalize('NFD')
-    .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    .replace(/[\u0300-\u036F]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 // matchAutocat(descNorm, dict) → categoria_id o null.
