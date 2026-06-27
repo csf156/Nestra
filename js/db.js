@@ -155,9 +155,8 @@ async function insertTransaccion(datos) {
     await outboxAdd('transacciones', fila);
     await mirrorPut('transacciones', { ...fila, _pending: true });
     if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-    if (typeof autocatLearn === 'function' && fila.nota && fila.categoria_id) {
-      const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(fila.nota) : null;
-      if (dn) await autocatLearn(dn, fila.categoria_id);
+    if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && fila.nota && fila.categoria_id) {
+      await autocatLearnTokens(tokenize(fila.nota), fila.categoria_id);
     }
     return { ...fila, _pending: true };
   }
@@ -168,9 +167,8 @@ async function insertTransaccion(datos) {
     if (error) throw error;
     if (data.tipo === 'ahorro') await _distribuirAhorroTx(data);
     await mirrorPut('transacciones', data);
-    if (typeof autocatLearn === 'function' && data.nota && data.categoria_id) {
-      const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(data.nota) : null;
-      if (dn) await autocatLearn(dn, data.categoria_id);
+    if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && data.nota && data.categoria_id) {
+      await autocatLearnTokens(tokenize(data.nota), data.categoria_id);
     }
     return data;
   } catch (err) {
@@ -178,9 +176,8 @@ async function insertTransaccion(datos) {
       await outboxAdd('transacciones', fila);
       await mirrorPut('transacciones', { ...fila, _pending: true });
       if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      if (typeof autocatLearn === 'function' && fila.nota && fila.categoria_id) {
-        const dn = (typeof normalizeDesc === 'function') ? normalizeDesc(fila.nota) : null;
-        if (dn) await autocatLearn(dn, fila.categoria_id);
+      if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && fila.nota && fila.categoria_id) {
+        await autocatLearnTokens(tokenize(fila.nota), fila.categoria_id);
       }
       return { ...fila, _pending: true };
     }
