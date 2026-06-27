@@ -19,6 +19,31 @@
 
   <div class="card tx-card">
 
+    <!-- ── Panel rápido (entrada principal) ───────────────────────── -->
+    <div id="txQuickPanel" class="tx-quick" style="display:none;">
+      <label for="txQuickInput" class="tx-quick-label">Registro rápido</label>
+      <div class="tx-quick-row">
+        <input type="text" id="txQuickInput" class="tx-quick-input" autocomplete="off"
+               inputmode="text" placeholder='Ej: "Uber 15", "ahorro hogar 50", "ingreso trabajo 100"'
+               aria-label="Registro rápido de transacción" />
+        <button type="button" id="txQuickAdd" class="btn btn-primary tx-quick-add">Agregar</button>
+      </div>
+      <div id="txQuickChips" class="tx-plantillas" aria-label="Plantillas"></div>
+      <p id="txQuickError" class="form-error" role="alert" style="display:none;"></p>
+      <button type="button" id="txQuickMas" class="tx-quick-mas">Más opciones (formulario completo)</button>
+    </div>
+    <div id="txQuickConfirm" class="tx-quick-confirm" style="display:none;" aria-live="polite">
+      <p id="txQuickConfirmMsg" class="tx-quick-confirm-msg"></p>
+      <div id="txQuickEditCat" style="display:none; margin:var(--space-sm) 0;">
+        <select id="txQuickEditSelect" class="cfg-select"></select>
+      </div>
+      <div class="tx-quick-confirm-actions">
+        <button type="button" id="txQuickUndo" class="btn btn-secondary btn-sm">Deshacer</button>
+        <button type="button" id="txQuickEditBtn" class="btn btn-secondary btn-sm">Editar categoría</button>
+        <button type="button" id="txQuickDone" class="btn btn-primary btn-sm">Listo</button>
+      </div>
+    </div>
+
     <!-- ── Pantalla de éxito (oculta hasta guardar) ─────────────── -->
     <div id="txExito" class="tx-exito" style="display:none;" aria-live="polite">
       <div class="tx-exito-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg></div>
@@ -502,6 +527,69 @@
   /* ── Recibo preview ─────────────────────────────────────── */
   .recibo-preview { max-width: 120px; border-radius: var(--radius-sm); margin-top: var(--space-sm); display:block; }
 
+  /* ── Quick-add panel ────────────────────────────────────── */
+  .tx-quick {
+    padding: var(--space-md) 0 var(--space-sm);
+  }
+  .tx-quick-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: var(--space-sm);
+  }
+  .tx-quick-row {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+  }
+  .tx-quick-input {
+    flex: 1;
+    min-width: 0;
+  }
+  .tx-quick-add {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .tx-quick-mas {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    padding: var(--space-xs) 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .tx-quick-mas:hover { opacity: 0.8; }
+
+  /* ── Quick-add confirmation ──────────────────────────────── */
+  .tx-quick-confirm {
+    padding: var(--space-lg) 0 var(--space-md);
+    animation: txFadeIn 0.25s ease-out;
+  }
+  .tx-quick-confirm-msg {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    margin: 0 0 var(--space-md);
+    line-height: 1.4;
+  }
+  .tx-quick-confirm-msg .qc-em {
+    color: var(--color-primary);
+  }
+  .tx-quick-confirm-actions {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+  .btn-sm {
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--font-size-sm);
+  }
+
   /* ── Plantilla chips ─────────────────────────────────────── */
   .tx-plantillas { display:flex; flex-wrap:wrap; gap:var(--space-xs); margin-bottom:var(--space-md); }
   .chip {
@@ -564,6 +652,23 @@
     const txExito          = document.getElementById('txExito');
     const txAlertaPost     = document.getElementById('txAlertaPost');
     const txExitoContinuar = document.getElementById('txExitoContinuar');
+
+    // ── Panel rápido: modo helpers ────────────────────────────
+    const elQuickPanel = document.getElementById('txQuickPanel');
+    const elHeader = document.querySelector('.tx-header');
+    function _modoRapido() {
+      elQuickPanel.style.display = 'block';
+      form.style.display = 'none';
+      if (elHeader) elHeader.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      setTimeout(() => { document.getElementById('txQuickInput').focus(); }, 50);
+    }
+    function _modoForm() {
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      if (elHeader) elHeader.style.display = '';
+      form.style.display = '';
+    }
 
     const CAT_PRESTAMO = 'Dinero que prestamos';
 
@@ -1048,37 +1153,168 @@
           }
         }
       }
+
+      // Decidir modo inicial: panel rápido solo para altas nuevas sin prefill.
+      const _esAltaNueva = !qp && !sp;
+      if (_esAltaNueva) _modoRapido(); else _modoForm();
     }
 
+    // ── Panel rápido: parse + guardado directo ────────────────
+    function _hoyISO() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    async function _ctxPara(tipo) {
+      const learned = (typeof autocatLearned === 'function') ? await autocatLearned() : {};
+      const cats = await getCategorias(tipo === 'ahorro' ? 'gasto' : tipo);
+      const seed = window.NESTRA_SEED || {};
+      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed };
+    }
+    let _quickTokens = [], _quickTxId = null, _quickTipo = 'gasto';
+
+    function _prefillForm(r) {
+      _setTipo(r.tipo); _setAmbito(r.ambito);
+      montoEl.value = r.monto || '';
+      notaEl.value = r.descripcion || '';
+      if (r.fecha) fechaEl.value = r.fecha;
+    }
+
+    async function _quickAgregar() {
+      const errEl = document.getElementById('txQuickError');
+      errEl.style.display = 'none';
+      const txt = document.getElementById('txQuickInput').value.trim();
+      if (!txt) return;
+      const pre = parseQuickAdd(txt, { hoy: _hoyISO(), ctx: {} });
+      const ctx = await _ctxPara(pre.tipo);
+      const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
+      if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
+      _quickTokens = tokenize(r.descripcion || '');
+      _quickTipo = r.tipo;
+      if (r.tipo !== 'ahorro' && !r.categoria_id) {
+        _prefillForm(r);
+        _modoForm();
+        document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+        return;
+      }
+      try {
+        const tx = await insertTransaccion({
+          tipo: r.tipo, ambito: r.ambito,
+          categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
+          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+        });
+        _quickTxId = tx && tx.id;
+        await _mostrarConfirm(r);
+      } catch (e) {
+        errEl.textContent = 'No se pudo guardar. Reintenta.'; errEl.style.display = 'block';
+      }
+    }
+
+    // ── Panel rápido: confirmación + deshacer + editar cat ────
+    function _fmtMonto(m) { return 'S/' + Number(m).toFixed(2); }
+    function _nombreCat(id, cats) { const c = cats.find((x) => x.id === id); return c ? c.nombre : ''; }
+    async function _mostrarConfirm(r) {
+      const msg = document.getElementById('txQuickConfirmMsg');
+      const cats = r.tipo === 'ahorro' ? [] : await getCategorias(r.tipo);
+      const tipoTxt = r.tipo === 'gasto' ? 'gasto' : (r.tipo === 'ingreso' ? 'ingreso' : 'ahorro');
+      const hogar = r.ambito === 'hogar' ? ' (hogar)' : '';
+      if (r.tipo === 'ahorro') {
+        msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>' + esc(hogar);
+      } else {
+        const cn = _nombreCat(r.categoria_id, cats);
+        msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> por <b class="qc-em">' + esc(_fmtMonto(r.monto)) +
+          '</b> en <b class="qc-em">' + esc(cn) + '</b>' + esc(hogar);
+      }
+      const editWrap = document.getElementById('txQuickEditCat');
+      const sel = document.getElementById('txQuickEditSelect');
+      const editBtn = document.getElementById('txQuickEditBtn');
+      editWrap.style.display = 'none';
+      if (r.tipo === 'ahorro') { editBtn.style.display = 'none'; }
+      else {
+        editBtn.style.display = '';
+        sel.innerHTML = cats.map((c) => '<option value="' + c.id + '"' + (c.id === r.categoria_id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
+      }
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'block';
+      if (window._modalMode) window._modalRefresh = true;
+    }
+    document.getElementById('txQuickAdd').addEventListener('click', _quickAgregar);
+    document.getElementById('txQuickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _quickAgregar(); } });
+    document.getElementById('txQuickMas').addEventListener('click', () => { _modoForm(); });
+    document.getElementById('txQuickDone').addEventListener('click', () => { _salir(); });
+    document.getElementById('txQuickUndo').addEventListener('click', async () => {
+      if (_quickTxId) { try { await deleteTransaccion(_quickTxId); } catch (_) {} }
+      _quickTxId = null; window._modalRefresh = true; _salir();
+    });
+    document.getElementById('txQuickEditBtn').addEventListener('click', () => {
+      document.getElementById('txQuickEditCat').style.display = 'block';
+    });
+    document.getElementById('txQuickEditSelect').addEventListener('change', async (e) => {
+      const nuevo = e.target.value;
+      if (!_quickTxId || !nuevo) return;
+      try {
+        await updateTransaccion(_quickTxId, { categoria_id: nuevo });
+        if (typeof autocatLearnTokens === 'function') await autocatLearnTokens(_quickTokens, nuevo);
+        const cats = await getCategorias(_quickTipo);
+        document.getElementById('txQuickConfirmMsg').innerHTML =
+          'Actualicé la categoría a <b class="qc-em">' + esc(_nombreCat(nuevo, cats)) + '</b>';
+        document.getElementById('txQuickEditCat').style.display = 'none';
+      } catch (_) {}
+    });
+
     // ── B) Autocat prefill al salir del campo nota ────────────
-    notaEl.addEventListener('blur', async function () {
-      if (categoriaEl.value) return; // no pisar elección manual/previa
-      if (typeof autocatDict !== 'function' || typeof matchAutocat !== 'function' || typeof normalizeDesc !== 'function') return;
-      const dict = await autocatDict();
-      const catId = matchAutocat(normalizeDesc(notaEl.value), dict);
+    notaEl.addEventListener('blur', async () => {
+      if (categoriaEl.value) return;
+      if (typeof matchCategoria !== 'function' || typeof tokenize !== 'function' || typeof autocatLearned !== 'function') return;
+      if (tipoEl.value === 'ahorro') return;
+      const cats = await getCategorias(tipoEl.value);
+      const ctx = { learned: await autocatLearned(), categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed: window.NESTRA_SEED || {} };
+      const catId = matchCategoria(tokenize(notaEl.value), ctx);
       if (catId) { categoriaEl.value = catId; categoriaEl.dispatchEvent(new Event('change')); }
     });
 
     // ── C) Plantillas de 1 toque ──────────────────────────────
     (async function pintarPlantillas() {
       const cont = document.getElementById('txPlantillas');
-      if (!cont || typeof getPlantillas !== 'function') return;
+      const contQ = document.getElementById('txQuickChips');
+      if (typeof getPlantillas !== 'function') return;
       const ps = await getPlantillas();
       if (!ps || !ps.length) return;
-      cont.innerHTML = ps.map((p) =>
+      const chipsHtml = ps.map((p) =>
         `<button type="button" class="chip chip-plantilla" data-id="${esc(String(p.id))}">${esc(p.nombre)} · S/${esc(String(p.monto))}</button>`
       ).join('');
-      cont.querySelectorAll('[data-id]').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          const p = ps.find((x) => String(x.id) === btn.dataset.id);
-          if (!p) return;
-          btn.disabled = true;
-          try {
-            await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
-            if (typeof mostrarExito === 'function') mostrarExito(p.categoria_id);
-          } catch (_) { btn.disabled = false; }
+      // Chips en el formulario clásico
+      if (cont) {
+        cont.innerHTML = chipsHtml;
+        cont.querySelectorAll('[data-id]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const p = ps.find((x) => String(x.id) === btn.dataset.id);
+            if (!p) return;
+            btn.disabled = true;
+            try {
+              await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
+              if (typeof mostrarExito === 'function') mostrarExito(p.categoria_id);
+            } catch (_) { btn.disabled = false; }
+          });
         });
-      });
+      }
+      // Chips en el panel rápido — guardado directo + confirmación
+      if (contQ) {
+        contQ.innerHTML = chipsHtml;
+        contQ.querySelectorAll('[data-id]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const p = ps.find((x) => String(x.id) === btn.dataset.id);
+            if (!p) return;
+            btn.disabled = true;
+            try {
+              const tx = await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
+              _quickTxId = tx && tx.id;
+              _quickTipo = p.tipo;
+              _quickTokens = (typeof tokenize === 'function') ? tokenize(p.nombre) : [];
+              await _mostrarConfirm({ tipo: p.tipo, ambito: p.ambito, monto: p.monto, categoria_id: p.categoria_id });
+            } catch (_) { btn.disabled = false; }
+          });
+        });
+      }
     })();
   })();
 </script>
