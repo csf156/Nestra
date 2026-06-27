@@ -6,7 +6,7 @@
 //   { op_id, entity, payload, status:'pending'|'syncing'|'error', error?, created_at }
 
 const NESTRA_IDB_NAME = 'nestra';
-const NESTRA_IDB_VERSION = 3;
+const NESTRA_IDB_VERSION = 4;
 const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos', 'plantillas'];
 
 let _nestraDbPromise = null;
@@ -30,6 +30,12 @@ function nestraDB() {
         }
         if (!db.objectStoreNames.contains('recibos_pendientes')) {
           db.createObjectStore('recibos_pendientes', { keyPath: 'transaccion_id' });
+        }
+        if (!db.objectStoreNames.contains('autocat_tok')) {
+          db.createObjectStore('autocat_tok', { keyPath: 'token' });
+        }
+        if (db.objectStoreNames.contains('autocat')) {
+          db.deleteObjectStore('autocat'); // store viejo desc→cat (sin uso)
         }
       },
     });
@@ -106,26 +112,30 @@ async function outboxRemove(op_id) {
   await db.delete('outbox', op_id);
 }
 
-// ── autocat: diccionario descripcion→categoria aprendido ──────
-async function autocatLearn(descNorm, categoriaId) {
-  if (!descNorm || !categoriaId) return;
+// ── autocat por token: { token, cats:{ [catId]: count } } ──────
+async function autocatLearnTokens(tokens, categoriaId) {
+  if (!categoriaId || !tokens || !tokens.length) return;
   try {
     const db = await nestraDB();
-    const prev = await db.get('autocat', descNorm);
-    await db.put('autocat', {
-      desc_norm: descNorm, categoria_id: categoriaId,
-      count: ((prev && prev.count) || 0) + 1, updated_at: new Date().toISOString(),
-    });
-  } catch (err) { console.error('autocatLearn falló:', err); }
+    const tx = db.transaction('autocat_tok', 'readwrite');
+    for (const token of tokens) {
+      if (!token) continue;
+      const prev = await tx.store.get(token);
+      const cats = (prev && prev.cats) || {};
+      cats[categoriaId] = (cats[categoriaId] || 0) + 1;
+      await tx.store.put({ token, cats });
+    }
+    await tx.done;
+  } catch (err) { console.error('autocatLearnTokens falló:', err); }
 }
-async function autocatDict() {
+async function autocatLearned() {
   try {
     const db = await nestraDB();
-    const all = await db.getAll('autocat');
-    const dict = {};
-    for (const r of all) dict[r.desc_norm] = r.categoria_id;
-    return dict;
-  } catch (err) { console.error('autocatDict falló:', err); return {}; }
+    const all = await db.getAll('autocat_tok');
+    const out = {};
+    for (const r of all) out[r.token] = r.cats || {};
+    return out;
+  } catch (err) { console.error('autocatLearned falló:', err); return {}; }
 }
 // ── recibos pendientes (foto offline) ──────────────────────────
 async function reciboQueueAdd(transaccionId, blob, userId) {
@@ -150,8 +160,8 @@ window.outboxPending = outboxPending;
 window.outboxCount = outboxCount;
 window.outboxSetStatus = outboxSetStatus;
 window.outboxRemove = outboxRemove;
-window.autocatLearn = autocatLearn;
-window.autocatDict = autocatDict;
+window.autocatLearnTokens = autocatLearnTokens;
+window.autocatLearned = autocatLearned;
 window.reciboQueueAdd = reciboQueueAdd;
 window.reciboQueueGet = reciboQueueGet;
 window.reciboQueueRemove = reciboQueueRemove;
