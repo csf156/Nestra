@@ -1,6 +1,6 @@
 // js/parse-quickadd.js — parser de reglas para quick-add (free-text → transacción).
 // Sin AI. Carga: <script type="module"> (expone window.parseQuickAdd) y ESM en Node.
-import { normalizeDesc } from './autocat.js';
+import { tokenize, matchCategoria } from './autocat.js';
 
 function _normalizeNum(raw) {
   let s = String(raw).replace(/\s/g, '');
@@ -28,14 +28,13 @@ const _FECHAS = { hoy: 0, ayer: -1, anteayer: -2, 'mañana': 1, manana: 1 };
 
 function parseQuickAdd(text, opts = {}) {
   const hoy = opts.hoy;
-  const keywords = opts.keywords || {};
-  const autocat = opts.autocat || {};
-  const out = { descripcion: null, monto: null, categoria_id: null, categoria_keyword: null, fecha: hoy };
+  const ctx = opts.ctx || {};
+  const out = { tipo: 'gasto', ambito: 'personal', descripcion: null, monto: null, categoria_id: null, fecha: hoy };
   if (text == null) return out;
   let str = String(text).trim();
   if (!str) return out;
 
-  // 1. Fecha relativa: token aislado. Sin opts.hoy no ajustamos (no lanzar).
+  // 1. Fecha relativa.
   let fecha = hoy;
   str = str.replace(/\b(anteayer|ayer|hoy|mañana|manana)\b/i, (m) => {
     if (hoy) fecha = _addDays(hoy, _FECHAS[m.toLowerCase()] ?? 0);
@@ -43,7 +42,13 @@ function parseQuickAdd(text, opts = {}) {
   });
   out.fecha = fecha;
 
-  // 2. Monto. Si hay S/<num>, ese gana. Si no, el mayor número plausible.
+  // 2. Tipo (default gasto).
+  str = str.replace(/\b(ingreso|ahorro)\b/i, (m) => { out.tipo = m.toLowerCase(); return ' '; });
+
+  // 3. Ámbito (default personal).
+  str = str.replace(/\b(hogar|personal)\b/i, (m) => { out.ambito = m.toLowerCase(); return ' '; });
+
+  // 4. Monto. Si hay S/<num>, ese gana; si no, el mayor.
   let monto = null;
   const conS = str.match(/S\/\.?\s*([\d.,]+)/i);
   if (conS) {
@@ -61,18 +66,13 @@ function parseQuickAdd(text, opts = {}) {
   }
   out.monto = (monto != null && monto > 0) ? monto : null;
 
-  // 3. Descripción: lo que queda, sin S/ sobrante, espacios colapsados.
-  let desc = str.replace(/S\/\.?/ig, ' ').replace(/\s+/g, ' ').trim();
+  // 5. Descripción.
+  const desc = str.replace(/S\/\.?/ig, ' ').replace(/\s+/g, ' ').trim();
   out.descripcion = desc || null;
 
-  // 4. Categoría: autocat (por desc normalizada) prioritario; luego keyword substring.
-  const descNorm = normalizeDesc(desc);
-  if (descNorm && autocat[descNorm]) {
-    out.categoria_id = autocat[descNorm];
-  } else if (descNorm) {
-    for (const kw in keywords) {
-      if (descNorm.includes(normalizeDesc(kw))) { out.categoria_keyword = keywords[kw]; break; }
-    }
+  // 6. Categoría: ahorro no lleva; resto vía matcher por tokens.
+  if (out.tipo !== 'ahorro') {
+    out.categoria_id = matchCategoria(tokenize(desc), ctx);
   }
   return out;
 }

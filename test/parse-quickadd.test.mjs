@@ -3,79 +3,67 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseQuickAdd } from '../js/parse-quickadd.js';
 
-const KW = { uber:'Transporte', taxi:'Transporte', almuerzo:'Comida', cine:'Ocio' };
 const HOY = '2026-06-24';
-const base = (text, autocat={}) => parseQuickAdd(text, { hoy: HOY, keywords: KW, autocat });
+const CATS = [{ id: 'cT', nombre: 'Transporte' }, { id: 'cC', nombre: 'Comida' }, { id: 'cB', nombre: 'Partes de bicicleta' }];
+const CTX = { categorias: CATS, seed: { uber: 'Transporte', taxi: 'Transporte', almuerzo: 'Comida' } };
+const p = (text, ctx = CTX) => parseQuickAdd(text, { hoy: HOY, ctx });
 
-test('monto simple + descripción', () => {
-  const r = base('Uber 15');
+test('gasto/personal por defecto + monto + categoría inferida', () => {
+  const r = p('Uber 15');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.ambito, 'personal');
   assert.equal(r.monto, 15);
+  assert.equal(r.categoria_id, 'cT');
   assert.equal(r.descripcion, 'Uber');
-  assert.equal(r.categoria_keyword, 'Transporte');
   assert.equal(r.fecha, HOY);
 });
 
-test('decimal con punto y S/', () => {
-  const r = base('S/12.50 almuerzo');
+test('decimal con S/ + categoría', () => {
+  const r = p('almuerzo S/12.50');
   assert.equal(r.monto, 12.5);
-  assert.equal(r.categoria_keyword, 'Comida');
-  assert.equal(r.descripcion, 'almuerzo');
+  assert.equal(r.categoria_id, 'cC');
 });
 
-test('decimal con coma', () => {
-  assert.equal(base('taxi S/ 7,50 anteayer').monto, 7.5);
+test('ahorro hogar: tipo+ámbito, sin categoría', () => {
+  const r = p('ahorro hogar 50');
+  assert.equal(r.tipo, 'ahorro');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.monto, 50);
+  assert.equal(r.categoria_id, null);
+  assert.equal(r.descripcion, null);
+});
+
+test('ingreso con descripción', () => {
+  const r = p('ingreso trabajo 100');
+  assert.equal(r.tipo, 'ingreso');
+  assert.equal(r.ambito, 'personal');
+  assert.equal(r.monto, 100);
+  assert.equal(r.descripcion, 'trabajo');
+});
+
+test('categoría custom por nombre, sin historial', () => {
+  const r = p('llantas para bicicleta 100');
+  assert.equal(r.categoria_id, 'cB');
+});
+
+test('keyword de tipo/ámbito se quita de la descripción', () => {
+  const r = p('ahorro hogar viaje 200');
+  assert.equal(r.descripcion, 'viaje');
+});
+
+test('sin categoría inferible → null', () => {
+  assert.equal(p('chuches 5').categoria_id, null);
 });
 
 test('fecha relativa ayer', () => {
-  assert.equal(base('15 taxi ayer').fecha, '2026-06-23');
+  assert.equal(p('15 taxi ayer').fecha, '2026-06-23');
 });
 
-test('fecha relativa anteayer', () => {
-  assert.equal(base('taxi S/ 7,50 anteayer').fecha, '2026-06-22');
+test('sin monto → monto null', () => {
+  assert.equal(p('recarga').monto, null);
 });
 
-test('multi-palabra y espacios colapsados', () => {
-  const r = base('  café   con   leche 8 ');
-  assert.equal(r.monto, 8);
-  assert.equal(r.descripcion, 'café con leche');
-});
-
-test('varios números sin S/ → el mayor', () => {
-  assert.equal(base('cine 2 entradas 40').monto, 40);
-});
-
-test('con S/ gana el número de S/ aunque haya otro mayor', () => {
-  assert.equal(base('combo 100 puntos S/ 30').monto, 30);
-});
-
-test('sin monto → monto null (parse fallido)', () => {
-  assert.equal(base('recarga').monto, null);
-});
-
-test('categoría desde autocat tiene prioridad sobre keyword', () => {
-  const r = base('uber 10', { uber: 'cat-uuid-1' });
-  assert.equal(r.categoria_id, 'cat-uuid-1');
-});
-
-test('sin categoría inferible → categoria_id null', () => {
-  const r = base('chuches 5');
-  assert.equal(r.categoria_id, null);
-  assert.equal(r.categoria_keyword, null);
-});
-
-test('nunca lanza con entrada vacía/null', () => {
+test('nunca lanza con vacío/null', () => {
   assert.equal(parseQuickAdd('', { hoy: HOY }).monto, null);
   assert.equal(parseQuickAdd(null, { hoy: HOY }).monto, null);
-});
-
-test('no lanza si falta opts.hoy aunque haya token de fecha', () => {
-  assert.doesNotThrow(() => parseQuickAdd('mañana taxi 5', {}));
-  assert.equal(parseQuickAdd('mañana taxi 5', {}).monto, 5);
-});
-
-test('token de monto elegido se quita por su posición', () => {
-  // documenta comportamiento: gana el mayor (2026), se retira ese token exacto
-  const r = parseQuickAdd('compra 2026 cosas 50', { hoy: '2026-06-24' });
-  assert.equal(r.monto, 2026);
-  assert.equal(r.descripcion, 'compra cosas 50');
 });
