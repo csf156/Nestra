@@ -33,6 +33,7 @@
       <button type="button" id="txQuickMas" class="tx-quick-mas">Más opciones (formulario completo)</button>
     </div>
     <div id="txQuickConfirm" class="tx-quick-confirm" style="display:none;" aria-live="polite">
+      <div class="tx-quick-confirm-check" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg></div>
       <p id="txQuickConfirmMsg" class="tx-quick-confirm-msg"></p>
       <div id="txQuickEditCat" style="display:none; margin:var(--space-sm) 0;">
         <select id="txQuickEditSelect" class="cfg-select"></select>
@@ -529,15 +530,15 @@
 
   /* ── Quick-add panel ────────────────────────────────────── */
   .tx-quick {
-    padding: var(--space-md) 0 var(--space-sm);
+    padding: var(--space-sm) 0 var(--space-md);
   }
   .tx-quick-label {
     display: block;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     margin-bottom: var(--space-sm);
   }
   .tx-quick-row {
@@ -548,46 +549,87 @@
   .tx-quick-input {
     flex: 1;
     min-width: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-sm) var(--space-md);
+    min-height: 48px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: var(--text-dark);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .tx-quick-input::placeholder { color: var(--text-secondary); opacity: 0.7; font-weight: var(--font-weight-normal); }
+  .tx-quick-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
   }
   .tx-quick-add {
     flex-shrink: 0;
     white-space: nowrap;
+    min-height: 48px;
+    padding-inline: var(--space-lg);
+    font-weight: var(--font-weight-semibold);
   }
   .tx-quick-mas {
+    display: block;
+    margin-top: var(--space-sm);
     background: none;
     border: none;
-    color: var(--color-primary);
+    color: var(--text-secondary);
     font-size: var(--font-size-sm);
     cursor: pointer;
     padding: var(--space-xs) 0;
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
   }
-  .tx-quick-mas:hover { opacity: 0.8; }
+  .tx-quick-mas:hover { color: var(--color-primary); }
 
   /* ── Quick-add confirmation ──────────────────────────────── */
   .tx-quick-confirm {
-    padding: var(--space-lg) 0 var(--space-md);
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
     animation: txFadeIn 0.25s ease-out;
   }
+  .tx-quick-confirm-check {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto var(--space-md);
+    color: var(--color-success);
+    animation: txPop 0.3s ease-out;
+  }
+  .tx-quick-confirm-check svg { width: 100%; height: 100%; }
   .tx-quick-confirm-msg {
     font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-dark);
-    margin: 0 0 var(--space-md);
-    line-height: 1.4;
+    font-weight: var(--font-weight-normal);
+    color: var(--text-secondary);
+    margin: 0 auto var(--space-lg);
+    line-height: 1.5;
+    max-width: 28ch;
   }
   .tx-quick-confirm-msg .qc-em {
     color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
   }
   .tx-quick-confirm-actions {
     display: flex;
     gap: var(--space-sm);
     flex-wrap: wrap;
+    justify-content: center;
   }
   .btn-sm {
     padding: var(--space-xs) var(--space-md);
     font-size: var(--font-size-sm);
+    min-height: 40px;
+  }
+
+  @media (max-width: 480px) {
+    .tx-quick-row { flex-direction: column; }
+    .tx-quick-add { width: 100%; }
+    .tx-quick-confirm-actions { flex-direction: column; }
+    .tx-quick-confirm-actions .btn { width: 100%; }
   }
 
   /* ── Plantilla chips ─────────────────────────────────────── */
