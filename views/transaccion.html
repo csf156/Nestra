@@ -44,6 +44,17 @@
         <button type="button" id="txQuickDone" class="btn btn-primary btn-sm">Listo</button>
       </div>
     </div>
+    <div id="txQuickAsk" class="tx-quick-confirm" style="display:none;" aria-live="polite">
+      <p id="txQuickAskMsg" class="tx-quick-confirm-msg"></p>
+      <div class="tx-quick-ask-cat">
+        <select id="txQuickAskSelect"></select>
+      </div>
+      <p id="txQuickAskError" class="form-error" role="alert" style="display:none;"></p>
+      <div class="tx-quick-confirm-actions">
+        <button type="button" id="txQuickAskSave" class="btn btn-primary btn-sm">Guardar</button>
+        <button type="button" id="txQuickAskMas" class="btn btn-secondary btn-sm">Más opciones</button>
+      </div>
+    </div>
 
     <!-- ── Pantalla de éxito (oculta hasta guardar) ─────────────── -->
     <div id="txExito" class="tx-exito" style="display:none;" aria-live="polite">
@@ -1247,9 +1258,7 @@
         _quickTokens = tokenize(r.descripcion || '');
         _quickTipo = r.tipo;
         if (r.tipo !== 'ahorro' && !r.categoria_id) {
-          _prefillForm(r);
-          _modoForm();
-          document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+          await _mostrarAsk(r);
           return;
         }
         const tx = await insertTransaccion({
@@ -1291,9 +1300,57 @@
         sel.innerHTML = cats.map((c) => '<option value="' + c.id + '"' + (c.id === r.categoria_id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
       }
       elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickAsk').style.display = 'none';
       document.getElementById('txQuickConfirm').style.display = 'block';
       if (window._modalMode) window._modalRefresh = true;
     }
+    let _askR = null;
+    async function _mostrarAsk(r) {
+      _askR = r;
+      _quickTokens = tokenize(r.descripcion || '');
+      _quickTipo = r.tipo;
+      const msg = document.getElementById('txQuickAskMsg');
+      const tipoTxt = r.tipo === 'ingreso' ? 'ingreso' : 'gasto';
+      if (r.descripcion) {
+        msg.innerHTML = '«<b class="qc-em">' + esc(r.descripcion) + '</b>» es nuevo para mí. ¿A qué categoría lo agrego?';
+      } else {
+        msg.innerHTML = '¿A qué categoría agrego este ' + tipoTxt + ' de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>?';
+      }
+      const sel = document.getElementById('txQuickAskSelect');
+      const cats = await getCategorias(r.tipo);
+      sel.innerHTML = '<option value="">Selecciona…</option>' +
+        cats.map((c) => '<option value="' + c.id + '">' + esc(c.nombre) + '</option>').join('');
+      if (typeof searchableSelect === 'function') searchableSelect(sel, { placeholder: 'Buscar categoría…' });
+      else sel.style.display = '';
+      document.getElementById('txQuickAskError').style.display = 'none';
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      document.getElementById('txQuickAsk').style.display = 'block';
+    }
+    document.getElementById('txQuickAskSave').addEventListener('click', async () => {
+      const sel = document.getElementById('txQuickAskSelect');
+      const errEl = document.getElementById('txQuickAskError');
+      const catId = sel.value;
+      if (!catId) { errEl.textContent = 'Elige una categoría.'; errEl.style.display = 'block'; return; }
+      try {
+        const r = _askR;
+        const tx = await insertTransaccion({
+          tipo: r.tipo, ambito: r.ambito, categoria_id: catId,
+          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+        });
+        _quickTxId = tx && tx.id;
+        if (typeof autocatLearnTokens === 'function') await autocatLearnTokens(_quickTokens, catId);
+        await _mostrarConfirm(Object.assign({}, r, { categoria_id: catId }));
+      } catch (e) {
+        console.error('quickAsk save:', e);
+        errEl.textContent = 'No se pudo guardar. Reintenta.'; errEl.style.display = 'block';
+      }
+    });
+    document.getElementById('txQuickAskMas').addEventListener('click', () => {
+      if (_askR) _prefillForm(_askR);
+      document.getElementById('txQuickAsk').style.display = 'none';
+      _modoForm();
+    });
     document.getElementById('txQuickAdd').addEventListener('click', _quickAgregar);
     document.getElementById('txQuickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _quickAgregar(); } });
     document.getElementById('txQuickMas').addEventListener('click', () => { _modoForm(); });
