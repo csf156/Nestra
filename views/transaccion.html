@@ -815,6 +815,10 @@
           '<option value="__nueva__">+ Nueva categoría</option>';
         if (autoSelectId) categoriaEl.value = autoSelectId;
         if (_esPrestamo() && !editTx) _mostrarPrestamo();
+        if (typeof searchableSelect === 'function') {
+          searchableSelect(categoriaEl, { specialItems: [{ value: '__nueva__', text: '+ Nueva categoría' }], placeholder: 'Buscar categoría…' });
+          if (categoriaEl._ssSync) categoriaEl._ssSync();
+        }
       } catch (err) {
         console.error('Error cargando categorías:', err);
         categoriaEl.innerHTML = '<option value="">Error al cargar</option>';
@@ -840,6 +844,7 @@
         var icono = opt ? opt.getAttribute('data-icono') : null;
         icoEl.innerHTML = (categoriaEl.value && typeof iconoCategoria === 'function') ? iconoCategoria(icono) : '';
       })();
+      if (categoriaEl._ssSync) categoriaEl._ssSync();
     });
 
     // ── Nueva categoría al vuelo ──────────────────────────────
