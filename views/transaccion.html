@@ -1298,6 +1298,7 @@
       else {
         editBtn.style.display = '';
         sel.innerHTML = cats.map((c) => '<option value="' + c.id + '"' + (c.id === r.categoria_id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
+        if (typeof searchableSelect === 'function') { searchableSelect(sel, { placeholder: 'Buscar categoría…' }); if (sel._ssSync) sel._ssSync(); }
       }
       elQuickPanel.style.display = 'none';
       document.getElementById('txQuickAsk').style.display = 'none';
