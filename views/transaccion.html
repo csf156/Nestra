@@ -1224,21 +1224,29 @@
     async function _quickAgregar() {
       const errEl = document.getElementById('txQuickError');
       errEl.style.display = 'none';
-      const txt = document.getElementById('txQuickInput').value.trim();
-      if (!txt) return;
-      const pre = parseQuickAdd(txt, { hoy: _hoyISO(), ctx: {} });
-      const ctx = await _ctxPara(pre.tipo);
-      const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
-      if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
-      _quickTokens = tokenize(r.descripcion || '');
-      _quickTipo = r.tipo;
-      if (r.tipo !== 'ahorro' && !r.categoria_id) {
-        _prefillForm(r);
-        _modoForm();
-        document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+      // Guard de versión: si el SW del teléfono sirve JS viejo (sin estos globales)
+      // mientras la vista es nueva, avisamos en vez de morir en silencio.
+      if (typeof parseQuickAdd !== 'function' || typeof tokenize !== 'function' ||
+          typeof matchCategoria !== 'function' || typeof insertTransaccion !== 'function') {
+        errEl.textContent = 'Hay una versión nueva de la app. Ciérrala por completo y vuelve a abrirla.';
+        errEl.style.display = 'block';
         return;
       }
       try {
+        const txt = document.getElementById('txQuickInput').value.trim();
+        if (!txt) return;
+        const pre = parseQuickAdd(txt, { hoy: _hoyISO(), ctx: {} });
+        const ctx = await _ctxPara(pre.tipo);
+        const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
+        if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
+        _quickTokens = tokenize(r.descripcion || '');
+        _quickTipo = r.tipo;
+        if (r.tipo !== 'ahorro' && !r.categoria_id) {
+          _prefillForm(r);
+          _modoForm();
+          document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+          return;
+        }
         const tx = await insertTransaccion({
           tipo: r.tipo, ambito: r.ambito,
           categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
@@ -1247,7 +1255,9 @@
         _quickTxId = tx && tx.id;
         await _mostrarConfirm(r);
       } catch (e) {
-        errEl.textContent = 'No se pudo guardar. Reintenta.'; errEl.style.display = 'block';
+        console.error('quickAgregar falló:', e);
+        errEl.textContent = 'No se pudo guardar. Reintenta.';
+        errEl.style.display = 'block';
       }
     }
 

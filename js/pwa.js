@@ -2,6 +2,18 @@
 
 // ── Registro del Service Worker ───────────────────────────────
 if ('serviceWorker' in navigator) {
+  // Si YA había un SW controlando esta página y aparece uno nuevo (deploy),
+  // recargamos UNA vez para que JS precacheado y vistas (NetworkFirst) queden
+  // en la misma versión y no haya skew (ej: vista nueva + autocat.js viejo).
+  // En la primera instalación no hay controller → no recarga.
+  if (navigator.serviceWorker.controller) {
+    let _swRefreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (_swRefreshing) return;
+      _swRefreshing = true;
+      window.location.reload();
+    });
+  }
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js')
       .then(function (reg) { console.log('SW registrado, scope:', reg.scope); })
