@@ -68,3 +68,42 @@ create trigger trg_hogar_cap before insert on public.hogar_miembros
   for each row execute function public.hogar_check_cap();
 
 commit;
+
+-- ── Helper: hogar del usuario actual (evita recursión de RLS) ─────────
+begin;
+
+create or replace function public.auth_hogar_id()
+returns uuid language sql stable security definer set search_path = public as $$
+  select hogar_id from public.hogar_miembros where user_id = (select auth.uid()) limit 1;
+$$;
+grant execute on function public.auth_hogar_id() to authenticated;
+
+-- ── Trigger de invariante ambito ↔ hogar_id en transacciones/metas ────
+-- ambito='hogar'    ⇒ hogar_id = hogar del que escribe (impide inyección).
+-- ambito='personal' ⇒ hogar_id = NULL.
+create or replace function public.sync_hogar_id()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_hogar uuid := public.auth_hogar_id();
+begin
+  if new.ambito = 'hogar' then
+    if v_hogar is null then
+      raise exception 'No puedes marcar ambito=hogar sin pertenecer a un hogar';
+    end if;
+    new.hogar_id := v_hogar;
+  else
+    new.hogar_id := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_hogar_id_tx on public.transacciones;
+create trigger trg_sync_hogar_id_tx before insert or update on public.transacciones
+  for each row execute function public.sync_hogar_id();
+
+drop trigger if exists trg_sync_hogar_id_metas on public.metas;
+create trigger trg_sync_hogar_id_metas before insert or update on public.metas
+  for each row execute function public.sync_hogar_id();
+
+commit;
