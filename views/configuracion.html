@@ -5,7 +5,10 @@
   </header>
 
   <div id="cfgLoading" class="cfg-loading" role="status" aria-label="Cargando">
-    <div class="cfg-spinner"></div>
+    <div class="skeleton skeleton-card" style="height:60px"></div>
+    <div class="skeleton skeleton-card" style="height:60px"></div>
+    <div class="skeleton skeleton-card" style="height:60px"></div>
+    <div class="skeleton skeleton-card" style="height:60px"></div>
   </div>
 
   <!-- S1: Perfiles -->
@@ -365,8 +368,9 @@
     .cfg-section-header-row .cfg-section-label { margin: 0; }
     .cfg-loading {
       display: flex;
-      justify-content: center;
-      padding: var(--space-xl) 0;
+      flex-direction: column;
+      gap: var(--space-md);
+      padding: var(--space-md) 0;
     }
     .cfg-spinner {
       width: 32px; height: 32px;

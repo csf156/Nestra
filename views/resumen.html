@@ -13,7 +13,10 @@
 
   <!-- Loading -->
   <div id="resLoading" class="res-loading" role="status" aria-label="Cargando">
-    <div class="res-spinner"></div>
+    <div class="skeleton skeleton-card" style="height:88px"></div>
+    <div class="skeleton skeleton-card" style="height:88px"></div>
+    <div class="skeleton-text skeleton-title" style="width:50%"></div>
+    <div class="skeleton skeleton-card" style="height:120px"></div>
   </div>
 
   <!-- S1: Hogar -->
@@ -115,8 +118,9 @@
   /* ── Loading ───────────────────────────────────────────── */
   .resumen .res-loading {
     display: flex;
-    justify-content: center;
-    padding: var(--space-xl) 0;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-md) 0;
   }
   .resumen .res-spinner {
     width: 36px; height: 36px;

@@ -8,7 +8,9 @@
 
   <!-- ── Loading ─────────────────────────────────────────────── -->
   <div id="prestLoading" class="prest-loading" role="status" aria-label="Cargando">
-    <div class="prest-spinner-big"></div>
+    <div class="skeleton skeleton-card" style="height:96px"></div>
+    <div class="skeleton-row"><div class="skeleton-avatar"></div><div class="skeleton-row-content"><div class="skeleton-text skeleton-title"></div><div class="skeleton-text"></div></div></div>
+    <div class="skeleton-row"><div class="skeleton-avatar"></div><div class="skeleton-row-content"><div class="skeleton-text skeleton-title"></div><div class="skeleton-text"></div></div></div>
   </div>
 
   <!-- ── Sección: Total pendiente (card resumen, arriba de lista) -->
@@ -206,8 +208,9 @@
     /* Loading */
     .prest-loading {
       display: flex;
-      justify-content: center;
-      padding: var(--space-xl) 0;
+      flex-direction: column;
+      gap: var(--space-md);
+      padding: var(--space-md) 0;
     }
     .prest-spinner-big {
       width: 36px;

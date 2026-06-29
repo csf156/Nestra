@@ -202,10 +202,10 @@
         if (est === 'vacio') {
           box.innerHTML = '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-chart-dots"></use></svg>' +
             '<span class="empty-state-title">Sin movimientos este mes</span>';
+        } else if (est === 'cargando') {
+          box.innerHTML = '<div class="skeleton skeleton-card" style="width:100%;height:200px"></div>';
         } else {
-          box.textContent = est === 'cargando' ? 'Cargando…'
-            : est === 'error' ? 'No se pudo cargar'
-            : '';
+          box.textContent = est === 'error' ? 'No se pudo cargar' : '';
         }
       }
     }
