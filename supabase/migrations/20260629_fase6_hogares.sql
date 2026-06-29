@@ -107,3 +107,54 @@ create trigger trg_sync_hogar_id_metas before insert or update on public.metas
   for each row execute function public.sync_hogar_id();
 
 commit;
+
+-- ── RLS compartida ───────────────────────────────────────────────────
+begin;
+
+-- transacciones: ver propias O las del hogar (ambito='hogar').
+drop policy if exists "transacciones_select" on public.transacciones;
+create policy "transacciones_select" on public.transacciones for select
+  to authenticated using (
+    (select auth.uid()) = user_id
+    or (hogar_id is not null and hogar_id = (select public.auth_hogar_id()))
+  );
+-- insert/update/delete siguen siendo solo-propias (el trigger fija hogar_id).
+-- (Las policies de insert/update/delete de Fase 0 ya exigen auth.uid()=user_id;
+--  no se tocan.)
+
+-- metas: ver propias O las del hogar.
+drop policy if exists "metas_select" on public.metas;
+create policy "metas_select" on public.metas for select
+  to authenticated using (
+    (select auth.uid()) = user_id
+    or (hogar_id is not null and hogar_id = (select public.auth_hogar_id()))
+  );
+
+-- hogares: visible si soy miembro.
+alter table public.hogares enable row level security;
+drop policy if exists "hogares_select" on public.hogares;
+create policy "hogares_select" on public.hogares for select
+  to authenticated using (id = (select public.auth_hogar_id()));
+
+-- hogar_miembros: visibles los miembros de mi hogar.
+alter table public.hogar_miembros enable row level security;
+drop policy if exists "hogar_miembros_select" on public.hogar_miembros;
+create policy "hogar_miembros_select" on public.hogar_miembros for select
+  to authenticated using (hogar_id = (select public.auth_hogar_id()));
+
+-- hogar_codigos: visibles solo a miembros (la validación de unión va por RPC).
+alter table public.hogar_codigos enable row level security;
+drop policy if exists "hogar_codigos_select" on public.hogar_codigos;
+create policy "hogar_codigos_select" on public.hogar_codigos for select
+  to authenticated using (hogar_id = (select public.auth_hogar_id()));
+
+-- hogar_liquidaciones: visibles a miembros del hogar.
+alter table public.hogar_liquidaciones enable row level security;
+drop policy if exists "hogar_liquidaciones_select" on public.hogar_liquidaciones;
+create policy "hogar_liquidaciones_select" on public.hogar_liquidaciones for select
+  to authenticated using (hogar_id = (select public.auth_hogar_id()));
+
+-- Sin policies de INSERT/UPDATE/DELETE directas en las tablas de hogar:
+-- toda mutación pasa por los RPCs SECURITY DEFINER (Task 4).
+
+commit;
