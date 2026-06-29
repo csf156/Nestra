@@ -244,7 +244,11 @@ $$;
 
 -- Disuelve el hogar: reparte el ahorro neto por % de aporte de ingresos,
 -- reasigna metas/fondo de hogar al creador, registra liquidación final,
--- borra membresías y el hogar. Devuelve el statement.
+-- y borra las membresías. La fila `hogares` NO se borra: las transacciones
+-- conservan su `hogar_id` como historial (FK on delete set null lo anularía).
+-- Tras disolver, auth_hogar_id() devuelve null para ambos, así que el hogar
+-- y su liquidación final quedan fuera de RLS (el statement se devuelve en el
+-- jsonb de retorno). Devuelve el statement.
 create or replace function public.disolver_hogar()
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
