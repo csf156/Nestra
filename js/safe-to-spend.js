@@ -169,6 +169,7 @@ async function cargarSafeToSpend() {
 if (typeof window !== 'undefined') {
   window.calcularSafeToSpend = calcularSafeToSpend;
   window.cargarSafeToSpend = cargarSafeToSpend;
+  window.calcularAporteMetas = calcularAporteMetas;
 }
 
 export { fmtS, mediana, calcularSafeToSpend, baselineIngreso, calcularFijosComprometidos, calcularAporteMetas, cargarSafeToSpend };

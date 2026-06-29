@@ -700,15 +700,15 @@
 
       var recs = (datos.recurrentes || []).filter(function (r) { return r.activo !== false; });
 
-      // Aportes a metas: aporte mensual planificado, al último día del mes.
+      // Aportes a metas: cuota de ahorro pendiente del mes (reusa la fórmula de
+      // safe-to-spend), descontada al último día del mes.
       var ultimoDia = new Date(anioVista, mesVista, 0).getDate();
+      var diasRestantes = ultimoDia - hoy.getDate() + 1;
+      var metasObjs = (datos.metas || []).map(function (mw) { return mw.meta; });
       var aportesMeta = [];
-      (datos.metas || []).forEach(function (mw) {
-        var mt = mw.meta;
-        var restante = Number(mt.monto_objetivo) - Number(mt.monto_actual);
-        if (restante > 0) aportesMeta.push({ dia: ultimoDia, monto: 0 });
-      });
-      // Nota: monto 0 por ahora (v1 refleja recurrentes; metas se suman cuando haya fuente fiable).
+      var aporteTotal = (typeof calcularAporteMetas === 'function')
+        ? calcularAporteMetas(metasObjs, hoy, diasRestantes, ultimoDia) : 0;
+      if (aporteTotal > 0) aportesMeta.push({ dia: ultimoDia, monto: aporteTotal });
 
       if (!recs.length && neto === 0) { setEstado(9, 'vacio'); return; }
 
