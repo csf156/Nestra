@@ -70,6 +70,12 @@
       <div class="graf-state" data-card="8"></div>
       <div class="graf-canvas-wrap"><canvas id="chart8" aria-label="Proyección de metas"></canvas></div>
     </section>
+    <section class="graf-card" id="card9">
+      <h2 class="graf-card-title">Proyección de saldo</h2>
+      <p class="graf-card-desc">Saldo proyectado del mes según recurrentes y aportes. ¿Llegas a fin de mes?</p>
+      <div class="graf-state" data-card="9"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart9" aria-label="Proyección de saldo del mes"></canvas></div>
+    </section>
   </div>
 </div>
 
@@ -232,6 +238,7 @@
       for (var i = 0; i < 6; i++) { meses6.unshift(cur); cur = mesAnterior(cur.mes, cur.anio); }
 
       var categoriasGasto = await getCategorias('gasto');
+      var recurrentes = await getRecurrentes();
 
       if (ambito === 'personal') {
         var resPers = await Promise.all([
@@ -256,6 +263,7 @@
             return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resPers[2][i] || {}).balance || 0 };
           }),
           metas: metasP.map(function (mt, i) { return { meta: mt, aportes: aportesP[i] || [] }; }),
+          recurrentes: recurrentes || [],
           rango: r,
         };
       }
@@ -282,6 +290,7 @@
           return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resHog[4][i] || {}).balance || 0 };
         }),
         metas: metasH.map(function (mt, i) { return { meta: mt, aportes: aportesH[i] || [] }; }),
+        recurrentes: recurrentes || [],
         rango: r,
       };
     }
@@ -676,10 +685,75 @@
       });
     }
 
-    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
+    function render9(datos) {
+      var hoy = new Date();
+      var mesVista = estado.mes, anioVista = estado.anio;
+      // Solo proyecta el mes en curso (proyección hacia adelante).
+      if (mesVista !== hoy.getMonth() + 1 || anioVista !== hoy.getFullYear()) {
+        setEstado(9, 'vacio'); return;
+      }
+
+      // Saldo inicial = neto del mes hasta hoy (ingresos − gastos de txMes).
+      var neto = (datos.txMes || []).reduce(function (s, t) {
+        return s + (t.tipo === 'ingreso' ? Number(t.monto) : -Number(t.monto));
+      }, 0);
+
+      var recs = (datos.recurrentes || []).filter(function (r) { return r.activo !== false; });
+
+      // Aportes a metas: aporte mensual planificado, al último día del mes.
+      var ultimoDia = new Date(anioVista, mesVista, 0).getDate();
+      var aportesMeta = [];
+      (datos.metas || []).forEach(function (mw) {
+        var mt = mw.meta;
+        var restante = Number(mt.monto_objetivo) - Number(mt.monto_actual);
+        if (restante > 0) aportesMeta.push({ dia: ultimoDia, monto: 0 });
+      });
+      // Nota: monto 0 por ahora (v1 refleja recurrentes; metas se suman cuando haya fuente fiable).
+
+      if (!recs.length && neto === 0) { setEstado(9, 'vacio'); return; }
+
+      var proy = proyectarFlujo({ saldoInicial: neto, hoy: hoy, recurrentes: recs, aportesMeta: aportesMeta });
+      if (!proy.dias.length) { setEstado(9, 'vacio'); return; }
+
+      setEstado(9, 'ok');
+      var labels = proy.dias.map(function (d) { return Number(d.fecha.slice(8, 10)); });
+      var valores = proy.dias.map(function (d) { return d.saldo; });
+      var negIdx = proy.primerDiaNegativo
+        ? proy.dias.findIndex(function (d) { return d.fecha === proy.primerDiaNegativo; })
+        : -1;
+
+      charts.chart9 = new Chart($('chart9'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Saldo proyectado',
+            data: valores,
+            borderColor: cssVar('--color-primary'),
+            backgroundColor: 'transparent',
+            pointRadius: valores.map(function (_, i) { return i === negIdx ? 5 : 0; }),
+            pointBackgroundColor: cssVar('--color-danger'),
+            tension: 0.2,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (it) { return ' S/ ' + Number(it.raw).toFixed(2); } } },
+          },
+          scales: {
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
+
+    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8, render9];
 
     function visiblesPara(ambito) {
-      return ambito === 'personal' ? [1, 2, 4, 5, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8];
+      return ambito === 'personal' ? [1, 2, 4, 5, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
     }
 
     async function recargarTodo() {
@@ -734,7 +808,7 @@
     });
 
     if (typeof Chart === 'undefined') {
-      for (var n = 1; n <= 8; n++) setEstado(n, 'error');
+      for (var n = 1; n <= 9; n++) setEstado(n, 'error');
       console.error('Chart.js no cargó');
       return;
     }
