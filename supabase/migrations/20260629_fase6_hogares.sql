@@ -172,13 +172,15 @@ begin
    where hogar_id = p_hogar_id and usado = false;
   loop
     v_cod := lpad((floor(random()*1000000))::int::text, 6, '0');
-    exit when not exists (select 1 from public.hogar_codigos where codigo = v_cod and usado = false);
-    v_try := v_try + 1;
-    if v_try > 50 then raise exception 'No se pudo generar un código único'; end if;
+    begin
+      insert into public.hogar_codigos (hogar_id, codigo, expira_at)
+      values (p_hogar_id, v_cod, now() + interval '24 hours');
+      return v_cod;
+    exception when unique_violation then
+      v_try := v_try + 1;
+      if v_try > 50 then raise exception 'No se pudo generar un código único'; end if;
+    end;
   end loop;
-  insert into public.hogar_codigos (hogar_id, codigo, expira_at)
-  values (p_hogar_id, v_cod, now() + interval '24 hours');
-  return v_cod;
 end;
 $$;
 
@@ -192,6 +194,9 @@ begin
   insert into public.hogares (nombre, creado_por) values (coalesce(nullif(trim(p_nombre),''),'Hogar'), v_uid)
     returning id into v_hogar;
   insert into public.hogar_miembros (hogar_id, user_id, rol) values (v_hogar, v_uid, 'creador');
+  -- backfill: filas ambito='hogar' previas del creador se asocian al hogar
+  update public.transacciones set hogar_id = v_hogar where user_id = v_uid and ambito = 'hogar';
+  update public.metas         set hogar_id = v_hogar where user_id = v_uid and ambito = 'hogar';
   v_cod := public._gen_codigo_hogar(v_hogar);
   return jsonb_build_object('hogar_id', v_hogar, 'codigo', v_cod);
 end;
@@ -216,6 +221,8 @@ begin
   select * into v_row from public.hogar_codigos
    where codigo = p_codigo and usado = false and expira_at > now() limit 1;
   if not found then raise exception 'Código inválido o expirado'; end if;
+  -- serializa uniones concurrentes al mismo hogar (cierra la race del cap 2)
+  perform pg_advisory_xact_lock(hashtext('hogar_join:' || v_row.hogar_id::text));
   if (select count(*) from public.hogar_miembros where hogar_id = v_row.hogar_id) >= 2 then
     raise exception 'El hogar ya está completo';
   end if;
@@ -277,6 +284,10 @@ begin
     from public.transacciones where hogar_id = v_hogar and ambito='hogar';
   if v_ahorro < 0 then v_ahorro := 0; end if;
   v_recibe_otro := round(v_ahorro * (1 - v_pct_creador), 2);
+
+  -- reasignar aportes de esas metas al creador (antes de soltar el hogar_id)
+  update public.aportes_meta set user_id = v_creador
+   where meta_id in (select id from public.metas where hogar_id = v_hogar and ambito = 'hogar');
 
   -- reasignar metas/fondo de hogar al creador como personales
   update public.metas set ambito='personal', hogar_id=null, user_id=v_creador
