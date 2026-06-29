@@ -1062,6 +1062,22 @@ html.light .badge-personal {
   opacity: 0.45;
   margin-bottom: var(--space-xs);
 }
+/* Variante SVG (sprite Tabler) del ícono de empty state */
+svg.empty-state-icon {
+  width: 44px;
+  height: 44px;
+  stroke: currentColor;
+}
+
+.empty-state-cta {
+  margin-top: var(--space-md);
+}
+
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+  opacity: 0.9;
+}
 
 .empty-state-title {
   font-size: var(--font-size-base);
