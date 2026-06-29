@@ -158,3 +158,148 @@ create policy "hogar_liquidaciones_select" on public.hogar_liquidaciones for sel
 -- toda mutación pasa por los RPCs SECURITY DEFINER (Task 4).
 
 commit;
+
+-- ── RPCs de hogar (SECURITY DEFINER) ─────────────────────────────────
+begin;
+
+-- Genera un código de 6 dígitos único entre los activos.
+create or replace function public._gen_codigo_hogar(p_hogar_id uuid)
+returns char(6) language plpgsql security definer set search_path = public as $$
+declare v_cod char(6); v_try int := 0;
+begin
+  -- invalida códigos activos previos del hogar
+  update public.hogar_codigos set usado = true
+   where hogar_id = p_hogar_id and usado = false;
+  loop
+    v_cod := lpad((floor(random()*1000000))::int::text, 6, '0');
+    exit when not exists (select 1 from public.hogar_codigos where codigo = v_cod and usado = false);
+    v_try := v_try + 1;
+    if v_try > 50 then raise exception 'No se pudo generar un código único'; end if;
+  end loop;
+  insert into public.hogar_codigos (hogar_id, codigo, expira_at)
+  values (p_hogar_id, v_cod, now() + interval '24 hours');
+  return v_cod;
+end;
+$$;
+
+create or replace function public.crear_hogar(p_nombre text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := (select auth.uid()); v_hogar uuid; v_cod char(6);
+begin
+  if exists (select 1 from public.hogar_miembros where user_id = v_uid) then
+    raise exception 'Ya perteneces a un hogar; sal primero';
+  end if;
+  insert into public.hogares (nombre, creado_por) values (coalesce(nullif(trim(p_nombre),''),'Hogar'), v_uid)
+    returning id into v_hogar;
+  insert into public.hogar_miembros (hogar_id, user_id, rol) values (v_hogar, v_uid, 'creador');
+  v_cod := public._gen_codigo_hogar(v_hogar);
+  return jsonb_build_object('hogar_id', v_hogar, 'codigo', v_cod);
+end;
+$$;
+
+create or replace function public.generar_codigo()
+returns char(6) language plpgsql security definer set search_path = public as $$
+declare v_hogar uuid := public.auth_hogar_id();
+begin
+  if v_hogar is null then raise exception 'No perteneces a un hogar'; end if;
+  return public._gen_codigo_hogar(v_hogar);
+end;
+$$;
+
+create or replace function public.unirse_hogar(p_codigo char(6))
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := (select auth.uid()); v_row public.hogar_codigos%rowtype;
+begin
+  if exists (select 1 from public.hogar_miembros where user_id = v_uid) then
+    raise exception 'Ya perteneces a un hogar; sal primero';
+  end if;
+  select * into v_row from public.hogar_codigos
+   where codigo = p_codigo and usado = false and expira_at > now() limit 1;
+  if not found then raise exception 'Código inválido o expirado'; end if;
+  if (select count(*) from public.hogar_miembros where hogar_id = v_row.hogar_id) >= 2 then
+    raise exception 'El hogar ya está completo';
+  end if;
+  insert into public.hogar_miembros (hogar_id, user_id, rol) values (v_row.hogar_id, v_uid, 'miembro');
+  update public.hogar_codigos set usado = true where id = v_row.id;
+  -- backfill: filas ambito='hogar' previas del que se une se asocian al hogar
+  update public.transacciones set hogar_id = v_row.hogar_id where user_id = v_uid and ambito = 'hogar';
+  update public.metas         set hogar_id = v_row.hogar_id where user_id = v_uid and ambito = 'hogar';
+  return jsonb_build_object('hogar_id', v_row.hogar_id);
+end;
+$$;
+
+-- Registra una liquidación en la dirección del neto que pasa el cliente.
+create or replace function public.saldar_hogar(p_de uuid, p_a uuid, p_monto numeric, p_nota text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := (select auth.uid()); v_hogar uuid := public.auth_hogar_id(); v_id uuid;
+begin
+  if v_hogar is null then raise exception 'No perteneces a un hogar'; end if;
+  if v_uid not in (p_de, p_a) then raise exception 'No autorizado'; end if;
+  if p_monto is null or p_monto <= 0 then raise exception 'Monto inválido'; end if;
+  insert into public.hogar_liquidaciones (hogar_id, de_user, a_user, monto, nota)
+  values (v_hogar, p_de, p_a, round(p_monto,2), p_nota) returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- Disuelve el hogar: reparte el ahorro neto por % de aporte de ingresos,
+-- reasigna metas/fondo de hogar al creador, registra liquidación final,
+-- borra membresías y el hogar. Devuelve el statement.
+create or replace function public.disolver_hogar()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := (select auth.uid());
+  v_hogar uuid := public.auth_hogar_id();
+  v_creador uuid; v_otro uuid;
+  v_ing_creador numeric := 0; v_ing_otro numeric := 0; v_pct_creador numeric;
+  v_ahorro numeric := 0; v_recibe_otro numeric;
+begin
+  if v_hogar is null then raise exception 'No perteneces a un hogar'; end if;
+  select creado_por into v_creador from public.hogares where id = v_hogar;
+  select user_id into v_otro from public.hogar_miembros where hogar_id = v_hogar and user_id <> v_creador limit 1;
+
+  -- aportes históricos de ingresos hogar por miembro
+  select coalesce(sum(monto),0) into v_ing_creador from public.transacciones
+    where hogar_id = v_hogar and ambito='hogar' and tipo='ingreso' and user_id = v_creador;
+  if v_otro is not null then
+    select coalesce(sum(monto),0) into v_ing_otro from public.transacciones
+      where hogar_id = v_hogar and ambito='hogar' and tipo='ingreso' and user_id = v_otro;
+  end if;
+  if (v_ing_creador + v_ing_otro) = 0 then v_pct_creador := 0.5;
+  else v_pct_creador := v_ing_creador / (v_ing_creador + v_ing_otro); end if;
+
+  -- ahorro neto del hogar = ingresos hogar - gastos hogar
+  select coalesce(sum(case when tipo='ingreso' then monto else -monto end),0) into v_ahorro
+    from public.transacciones where hogar_id = v_hogar and ambito='hogar';
+  if v_ahorro < 0 then v_ahorro := 0; end if;
+  v_recibe_otro := round(v_ahorro * (1 - v_pct_creador), 2);
+
+  -- reasignar metas/fondo de hogar al creador como personales
+  update public.metas set ambito='personal', hogar_id=null, user_id=v_creador
+    where hogar_id = v_hogar and ambito='hogar';
+
+  -- liquidación final: el creador (retiene metas) debe al otro su parte
+  if v_otro is not null and v_recibe_otro > 0 then
+    insert into public.hogar_liquidaciones (hogar_id, de_user, a_user, monto, nota)
+    values (v_hogar, v_creador, v_otro, v_recibe_otro, 'Liquidación final de disolución');
+  end if;
+
+  -- borrar membresías (las transacciones conservan hogar_id como historial)
+  delete from public.hogar_miembros where hogar_id = v_hogar;
+
+  return jsonb_build_object(
+    'pct_creador', round(v_pct_creador,4),
+    'ahorro', v_ahorro,
+    'recibe_creador', round(v_ahorro * v_pct_creador,2),
+    'recibe_otro', v_recibe_otro
+  );
+end;
+$$;
+
+grant execute on function public.crear_hogar(text)                          to authenticated;
+grant execute on function public.generar_codigo()                           to authenticated;
+grant execute on function public.unirse_hogar(char)                         to authenticated;
+grant execute on function public.saldar_hogar(uuid, uuid, numeric, text)    to authenticated;
+grant execute on function public.disolver_hogar()                           to authenticated;
+
+commit;
