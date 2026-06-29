@@ -308,6 +308,18 @@
     border-bottom: 1px solid var(--border-light);
   }
   .hist-day:first-child { margin-top: 0; }
+  .hist-catgrupo {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0 var(--space-xs);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border-light);
+  }
+  .hist-catgrupo:first-child { margin-top: 0; }
+  .hist-catgrupo-nombre {
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+  }
   .hist-day-label {
     font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
     color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
@@ -862,10 +874,33 @@
 
       var datos = agruparSplits(ordenarDatos(datosFiltrados));
       var agrupar = estado.orden.campo === 'fecha';
+      var agruparCat = estado.orden.campo === 'categoria';
 
       // ── Tarjetas (móvil) ──
       var cardsHtml;
-      if (agrupar) {
+      if (agruparCat) {
+        // Agrupado por categoría: header con nombre + sparkline de 7 días de gasto.
+        var gruposC = [], mapaC = {};
+        datos.forEach(function (t) {
+          var key = t.categoria_id || 'sin';
+          if (!mapaC[key]) {
+            mapaC[key] = { cat: t.categorias || {}, categoria_id: t.categoria_id, items: [] };
+            gruposC.push(mapaC[key]);
+          }
+          mapaC[key].items.push(t);
+        });
+        cardsHtml = gruposC.map(function (g) {
+          var spark = '';
+          if (typeof agruparGasto7dias === 'function' && typeof sparklineSVG === 'function' && g.categoria_id) {
+            spark = sparklineSVG(agruparGasto7dias(datos, g.categoria_id, new Date()));
+          }
+          var nombre = g.cat && g.cat.nombre ? g.cat.nombre : 'Sin categoría';
+          var header = '<div class="hist-catgrupo"><span class="hist-catgrupo-nombre">' +
+            esc(nombre) + '</span>' + spark + '</div>';
+          var filas = g.items.map(function (t) { return cardTx(t, true); }).join('');
+          return header + filas;
+        }).join('');
+      } else if (agrupar) {
         var grupos = [], mapa = {};
         datos.forEach(function (t) {
           var dia = String(t.fecha).split('T')[0];
