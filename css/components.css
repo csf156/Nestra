@@ -1439,3 +1439,31 @@ body.nestra-offline main { padding-top: var(--offline-banner-h, 0px); }
 .install-prompt-text { margin: 0; font-size: var(--font-size-xs); color: var(--text-secondary); }
 .install-prompt-actions { display: flex; flex-direction: column; gap: var(--space-xs); flex-shrink: 0; }
 @media (min-width: 420px) { .install-prompt-actions { flex-direction: row; } }
+
+/* ── Onboarding (Fase 5) — mobile-first ───────────────────────── */
+.onboarding {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-lg); background: var(--bg-light);
+  overflow-y: auto;
+}
+.ob-card { width: 100%; max-width: 28rem; }
+.ob-dots { display: flex; gap: var(--space-sm); justify-content: center; margin-bottom: var(--space-xl); }
+.ob-dot { width: 28px; height: 2px; background: var(--border-light); border-radius: 1px; transition: background 0.2s; }
+.ob-dot.is-active { background: var(--color-primary); }
+.ob-step { display: none; flex-direction: column; gap: var(--space-md); }
+.ob-step.is-active { display: flex; }
+.ob-title { font-family: var(--font-display); font-weight: 400; }
+.ob-desc { color: var(--text-secondary); }
+.ob-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-size-sm); }
+.ob-cats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm); }
+.ob-cat-chip {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md); border: 1px solid var(--border-light);
+  border-radius: var(--radius-md); background: var(--bg-light-secondary);
+  color: var(--text-dark); cursor: pointer; text-align: left;
+}
+.ob-cat-chip .cat-icono { width: 18px; height: 18px; }
+.ob-cat-chip.is-on { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.ob-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-lg); }
+.ob-actions .btn-primary { margin-left: auto; }
