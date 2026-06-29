@@ -139,7 +139,7 @@
         <div class="form-group">
           <label for="monto">Monto</label>
           <div class="tx-monto-wrap">
-            <span class="tx-currency" aria-hidden="true">S/</span>
+            <span class="tx-currency" id="txCurrency" aria-hidden="true">S/</span>
             <input type="number" id="monto" name="monto" step="0.01" min="0.01"
                    inputmode="decimal" placeholder="0.00" required />
           </div>
@@ -712,6 +712,11 @@
 
 <script>
   (function () {
+    // Símbolo de moneda activa en el prefijo del input de monto.
+    (function () {
+      var cur = document.getElementById('txCurrency');
+      if (cur && typeof monedaSimbolo === 'function') cur.textContent = monedaSimbolo();
+    })();
     const form           = document.getElementById('transaccionForm');
     const tipoEl         = document.getElementById('tipo');
     const ambitoEl       = document.getElementById('ambito');
@@ -1322,7 +1327,7 @@
     }
 
     // ── Panel rápido: confirmación + deshacer + editar cat ────
-    function _fmtMonto(m) { return 'S/' + Number(m).toFixed(2); }
+    function _fmtMonto(m) { return (typeof formatMonto === 'function') ? formatMonto(m) : ('S/ ' + Number(m).toFixed(2)); }
     function _nombreCat(id, cats) { const c = cats.find((x) => x.id === id); return c ? c.nombre : ''; }
     async function _mostrarConfirm(r) {
       const msg = document.getElementById('txQuickConfirmMsg');
@@ -1441,7 +1446,7 @@
       const ps = await getPlantillas();
       if (!ps || !ps.length) return;
       const chipsHtml = ps.map((p) =>
-        `<button type="button" class="chip chip-plantilla" data-id="${esc(String(p.id))}">${esc(p.nombre)} · S/${esc(String(p.monto))}</button>`
+        `<button type="button" class="chip chip-plantilla" data-id="${esc(String(p.id))}">${esc(p.nombre)} · ${esc(formatMonto(p.monto))}</button>`
       ).join('');
       // Chips en el formulario clásico
       if (cont) {

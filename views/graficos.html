@@ -526,7 +526,7 @@
             tooltip: {
               callbacks: {
                 label: function (item) {
-                  return ' S/ ' + Math.abs(Number(item.raw)).toFixed(2);
+                  return ' ' + formatMonto(Math.abs(Number(item.raw)));
                 },
               },
             },
@@ -747,7 +747,7 @@
           responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: function (it) { return ' S/ ' + Number(it.raw).toFixed(2); } } },
+            tooltip: { callbacks: { label: function (it) { return ' ' + formatMonto(Number(it.raw)); } } },
           },
           scales: {
             x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },

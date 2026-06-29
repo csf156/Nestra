@@ -1306,7 +1306,7 @@
               '<span class="rec-desc">' + escHtml(c.descripcion) + '</span>' +
               '<span class="rec-sub">' + escHtml(String(c.ocurrencias)) + ' veces · día ' + escHtml(String(c.dia_cargo || '—')) + '</span>' +
             '</div>' +
-            '<span class="rec-monto">S/ ' + escHtml(Number(c.monto).toFixed(2)) + '</span>' +
+            '<span class="rec-monto">' + escHtml(formatMonto(c.monto)) + '</span>' +
             '<button type="button" class="cfg-btn-add" style="font-size:var(--font-size-sm)" data-add="' + i + '">Marcar</button>' +
             '<button type="button" class="cfg-icon-btn cfg-icon-btn--danger" data-skip="' + i + '" aria-label="Descartar">&#x2715;</button>' +
           '</li>';
@@ -1349,7 +1349,7 @@
             total += Number(r.monto) * (factor[r.frecuencia] || 1);
           }
         });
-        $('recTotalMes').textContent = 'S/ ' + total.toFixed(2);
+        $('recTotalMes').textContent = formatMonto(total);
 
         // Render lista
         var ul = $('recLista');
@@ -1362,7 +1362,7 @@
             var icono = (typeof iconoCategoria === 'function') ? iconoCategoria(cat ? cat.icono : null) : '';
             var chip  = '<span class="cat-chip" style="--chip-color:' + color + '">' + icono + '</span>';
             var signo = r.tipo === 'ingreso' ? '+' : '&#x2212;';
-            var montoTxt = signo + ' S/ ' + Number(r.monto).toFixed(2);
+            var montoTxt = signo + ' ' + formatMonto(r.monto);
             var sub   = escHtml(r.frecuencia || 'mensual') + (r.dia_cargo ? ' · día ' + escHtml(String(r.dia_cargo)) : '');
             return '<li class="cfg-rec-item">' +
               chip +
