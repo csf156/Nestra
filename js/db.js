@@ -954,6 +954,91 @@ async function getGastosPorCategoriaMes(mes, anio) {
 
 
 // ═══════════════════════════════════════════════════════════════════
+// RECURRENTES (Fase 4)
+// ═══════════════════════════════════════════════════════════════════
+
+// getRecurrentes() — recurrentes del usuario activo (espejado, offline-safe).
+// Returns: array ordenado por created_at, o [] en error.
+async function getRecurrentes() {
+  const rows = await _mirroredRead('recurrentes', async () => {
+    const { data, error } = await supabase
+      .from('recurrentes')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  });
+  return rows || [];
+}
+
+// upsertRecurrente(fila) — alta o edición. Si `fila.id` falta, genera uno.
+// Online: upsert + mirror. Offline: outbox + mirror optimista.
+// Returns: fila persistida (o optimista con _pending:true). Lanza Error en fallo real.
+async function upsertRecurrente(fila) {
+  const row = {
+    id: fila.id || crypto.randomUUID(),
+    user_id: _requireUserId(),
+    descripcion: fila.descripcion,
+    monto: Number(fila.monto),
+    tipo: fila.tipo === 'ingreso' ? 'ingreso' : 'gasto',
+    categoria_id: fila.categoria_id || null,
+    frecuencia: fila.frecuencia || 'mensual',
+    dia_cargo: fila.dia_cargo != null ? Number(fila.dia_cargo) : null,
+    proximo_cargo: fila.proximo_cargo || null,
+    activo: fila.activo !== false,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!navigator.onLine) {
+    await outboxAdd('recurrentes', row);
+    await mirrorPut('recurrentes', { ...row, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...row, _pending: true };
+  }
+  try {
+    const { data, error } = await supabase
+      .from('recurrentes').upsert(row, { onConflict: 'id' }).select().single();
+    if (error) throw error;
+    await mirrorPut('recurrentes', data);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('recurrentes', row);
+      await mirrorPut('recurrentes', { ...row, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...row, _pending: true };
+    }
+    console.error('Error en upsertRecurrente():', err.message || err);
+    throw err;
+  }
+}
+
+// deleteRecurrente(id) — borra. Online: server + espejo. Offline: outbox.
+async function deleteRecurrente(id) {
+  if (!navigator.onLine) {
+    await outboxAdd('delete_recurrente', { id });
+    try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return;
+  }
+  try {
+    const { error } = await supabase.from('recurrentes').delete().eq('id', id);
+    if (error) throw error;
+    try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('delete_recurrente', { id });
+      try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return;
+    }
+    console.error('Error en deleteRecurrente():', err.message || err);
+    throw err;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
 // PRÉSTAMOS
 // ═══════════════════════════════════════════════════════════════════
 

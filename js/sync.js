@@ -56,6 +56,20 @@ async function _replayOp(op) {
     }
   }
 
+  if (op.entity === 'delete_recurrente') {
+    try {
+      const { error } = await supabase.from('recurrentes').delete().eq('id', op.payload.id);
+      if (error) throw error;
+      try { const db = await nestraDB(); await db.delete('recurrentes', op.payload.id); } catch (_) {}
+      return 'done';
+    } catch (err) {
+      if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) return 'retry';
+      console.error('Sync delete_recurrente falló:', err.message || err);
+      await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
+      return 'skip';
+    }
+  }
+
   try {
     const server = await _serverRow(entity, payload.id);
     const winner = window.lwwWinner(payload, server);
