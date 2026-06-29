@@ -9,140 +9,217 @@
   </div>
 
   <!-- S1: Perfiles -->
-  <section class="cfg-card" id="cfgPerfilesSection" style="display:none">
-    <h2 class="cfg-section-label">Perfiles</h2>
-    <div id="cfgPerfilesCont"></div>
+  <section class="cfg-card cfg-acord" id="cfgPerfilesSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPerfilesBody">
+      <span class="cfg-acord-title">Perfiles</span>
+      <span class="cfg-acord-summary" data-summary="perfiles"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgPerfilesBody">
+      <div id="cfgPerfilesCont"></div>
+    </div>
   </section>
 
   <!-- S2: Categorías -->
-  <section class="cfg-card" id="cfgCatSection" style="display:none">
-    <div class="cfg-section-header-row">
-      <h2 class="cfg-section-label">Categorías</h2>
-      <button type="button" class="cfg-btn-add" id="cfgCatAddBtn" aria-expanded="false">
-        <span aria-hidden="true">+</span> Nueva
-      </button>
-    </div>
-
-    <div id="cfgCatForm" class="cfg-cat-form" style="display:none">
-      <input id="cfgCatNombre" type="text" class="cfg-input" placeholder="Nombre de categoría" maxlength="50">
-      <select id="cfgCatTipo" class="cfg-select">
-        <option value="gasto">Gasto</option>
-        <option value="ingreso">Ingreso</option>
-      </select>
-      <input id="cfgCatLimite" type="number" class="cfg-input" placeholder="Límite mensual (opcional)" min="0" step="0.01">
-      <div class="cfg-cat-form-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="cfgCatFormCancelar">Cancelar</button>
-        <button type="button" class="btn btn-primary btn-sm" id="cfgCatFormGuardar">Guardar</button>
+  <section class="cfg-card cfg-acord" id="cfgCatSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgCatBody">
+      <span class="cfg-acord-title">Categorías</span>
+      <span class="cfg-acord-summary" data-summary="categorias"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgCatBody">
+      <div class="cfg-acord-toolbar">
+        <button type="button" class="cfg-btn-add" id="cfgCatAddBtn" aria-expanded="false">
+          <span aria-hidden="true">+</span> Nueva
+        </button>
       </div>
-    </div>
 
-    <div class="cfg-cat-grupo">
-      <p class="cfg-cat-tipo-label">Gastos</p>
-      <ul class="cfg-cat-lista" id="cfgCatListaGastos" role="list"></ul>
-    </div>
-    <div class="cfg-cat-grupo">
-      <p class="cfg-cat-tipo-label">Ingresos</p>
-      <ul class="cfg-cat-lista" id="cfgCatListaIngresos" role="list"></ul>
+      <div id="cfgCatForm" class="cfg-cat-form" style="display:none">
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="cfgCatNombre">Nombre</label>
+          <input id="cfgCatNombre" type="text" class="cfg-input" placeholder="Nombre de categoría" maxlength="50">
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="cfgCatTipo">Tipo</label>
+          <select id="cfgCatTipo" class="cfg-select">
+            <option value="gasto">Gasto</option>
+            <option value="ingreso">Ingreso</option>
+          </select>
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="cfgCatLimite">Límite mensual (opcional)</label>
+          <input id="cfgCatLimite" type="number" class="cfg-input" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="cfg-cat-form-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="cfgCatFormCancelar">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm" id="cfgCatFormGuardar">Guardar</button>
+        </div>
+      </div>
+
+      <div class="cfg-cat-grupo">
+        <p class="cfg-cat-tipo-label">Gastos</p>
+        <ul class="cfg-cat-lista" id="cfgCatListaGastos" role="list"></ul>
+      </div>
+      <div class="cfg-cat-grupo">
+        <p class="cfg-cat-tipo-label">Ingresos</p>
+        <ul class="cfg-cat-lista" id="cfgCatListaIngresos" role="list"></ul>
+      </div>
     </div>
   </section>
 
   <!-- S2b: Gastos recurrentes -->
-  <section class="cfg-card" id="cfgRecurrentesSection" style="display:none">
-    <h2 class="cfg-section-label">Gastos recurrentes</h2>
-    <p class="cfg-section-desc">Suscripciones e ingresos fijos. Alimentan la proyección de saldo.</p>
+  <section class="cfg-card cfg-acord" id="cfgRecurrentesSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgRecBody">
+      <span class="cfg-acord-title">Gastos recurrentes</span>
+      <span class="cfg-acord-summary" data-summary="recurrentes"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgRecBody">
+      <p class="cfg-section-desc">Suscripciones e ingresos fijos. Alimentan la proyección de saldo.</p>
 
-    <p class="cfg-rec-total">Comprometido al mes: <span class="signature-num" id="recTotalMes">S/ 0.00</span></p>
+      <div class="cfg-stat">
+        <span class="cfg-stat-label">Comprometido al mes</span>
+        <span class="signature-num cfg-stat-num" id="recTotalMes">S/ 0.00</span>
+      </div>
 
-    <ul class="cfg-cat-lista" id="recLista" role="list" aria-live="polite"></ul>
+      <ul class="cfg-cat-lista" id="recLista" role="list" aria-live="polite"></ul>
 
-    <div id="recDetectadosWrap" hidden>
-      <p class="cfg-cat-tipo-label">Detectados en tu historial</p>
-      <ul class="cfg-cat-lista" id="recDetectados" role="list"></ul>
+      <div id="recDetectadosWrap" hidden>
+        <p class="cfg-cat-tipo-label">Detectados en tu historial</p>
+        <ul class="cfg-cat-lista" id="recDetectados" role="list"></ul>
+      </div>
+
+      <form id="recForm" class="cfg-form-grid" autocomplete="off">
+        <div class="cfg-input-group cfg-col-2">
+          <label class="cfg-label" for="recDesc">Descripción</label>
+          <input class="cfg-input" id="recDesc" type="text" placeholder="ej. Netflix" required maxlength="80">
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="recMonto">Monto</label>
+          <input class="cfg-input" id="recMonto" type="number" step="0.01" min="0.01" placeholder="0.00" required>
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="recDia">Día de cargo</label>
+          <input class="cfg-input" id="recDia" type="number" min="1" max="31" placeholder="1-31">
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="recTipo">Tipo</label>
+          <select class="cfg-select" id="recTipo">
+            <option value="gasto">Gasto</option>
+            <option value="ingreso">Ingreso</option>
+          </select>
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="recFrec">Frecuencia</label>
+          <select class="cfg-select" id="recFrec">
+            <option value="mensual">Mensual</option>
+            <option value="quincenal">Quincenal</option>
+            <option value="semanal">Semanal</option>
+          </select>
+        </div>
+        <div class="cfg-input-group cfg-col-2">
+          <label class="cfg-label" for="recCat">Categoría</label>
+          <select class="cfg-select" id="recCat"><option value="">Sin categoría</option></select>
+        </div>
+        <button class="btn btn-primary btn-sm cfg-col-2" type="submit">Agregar recurrente</button>
+      </form>
     </div>
-
-    <form id="recForm" class="cfg-cat-form" autocomplete="off" style="display:flex;flex-direction:column;gap:var(--space-sm);margin-top:var(--space-md)">
-      <input class="cfg-input" id="recDesc" type="text" placeholder="Descripción (ej. Netflix)" required maxlength="80">
-      <input class="cfg-input" id="recMonto" type="number" step="0.01" min="0.01" placeholder="Monto" required>
-      <select class="cfg-select" id="recTipo">
-        <option value="gasto">Gasto</option>
-        <option value="ingreso">Ingreso</option>
-      </select>
-      <select class="cfg-select" id="recCat"><option value="">Sin categoría</option></select>
-      <select class="cfg-select" id="recFrec">
-        <option value="mensual">Mensual</option>
-        <option value="quincenal">Quincenal</option>
-        <option value="semanal">Semanal</option>
-      </select>
-      <input class="cfg-input" id="recDia" type="number" min="1" max="31" placeholder="Día de cargo (1-31)">
-      <button class="cfg-btn-add" type="submit">Agregar recurrente</button>
-    </form>
   </section>
 
   <!-- S3: Preferencias -->
-  <section class="cfg-card" id="cfgPrefSection" style="display:none">
-    <h2 class="cfg-section-label">Preferencias</h2>
-    <div class="cfg-pref-lista">
-      <div class="cfg-pref-row">
-        <span class="cfg-pref-nombre">Modo oscuro</span>
-        <button type="button" class="cfg-toggle" id="cfgDarkToggle"
-                role="switch" aria-checked="false" aria-label="Activar modo oscuro">
-          <span class="cfg-toggle-thumb"></span>
-        </button>
-      </div>
-      <div class="cfg-pref-row" id="pushToggleRow" hidden>
-        <span class="cfg-pref-nombre">Notificaciones push</span>
-        <input type="checkbox" id="pushToggle">
-      </div>
-      <div class="cfg-pref-row" id="bioToggleRow" hidden>
-        <span class="cfg-pref-nombre">Desbloqueo biométrico</span>
-        <button type="button" class="cfg-toggle" id="bioToggle"
-                role="switch" aria-checked="false" aria-label="Activar desbloqueo biométrico">
-          <span class="cfg-toggle-thumb"></span>
-        </button>
-      </div>
-      <div class="cfg-pref-row cfg-pref-row--readonly">
-        <span class="cfg-pref-nombre">Moneda</span>
-        <span class="cfg-pref-valor">Soles (S/)</span>
-      </div>
-      <div class="cfg-pref-row cfg-pref-row--readonly">
-        <span class="cfg-pref-nombre">Idioma</span>
-        <span class="cfg-pref-valor">Español</span>
+  <section class="cfg-card cfg-acord" id="cfgPrefSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPrefBody">
+      <span class="cfg-acord-title">Preferencias</span>
+      <span class="cfg-acord-summary" data-summary="preferencias"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgPrefBody">
+      <div class="cfg-pref-lista">
+        <div class="cfg-pref-row">
+          <span class="cfg-pref-nombre">Modo oscuro</span>
+          <button type="button" class="cfg-toggle" id="cfgDarkToggle"
+                  role="switch" aria-checked="false" aria-label="Activar modo oscuro">
+            <span class="cfg-toggle-thumb"></span>
+          </button>
+        </div>
+        <div class="cfg-pref-row" id="pushToggleRow" hidden>
+          <span class="cfg-pref-nombre">Notificaciones push</span>
+          <button type="button" class="cfg-toggle" id="pushToggle"
+                  role="switch" aria-checked="false" aria-label="Activar notificaciones push">
+            <span class="cfg-toggle-thumb"></span>
+          </button>
+        </div>
+        <div class="cfg-pref-row" id="bioToggleRow" hidden>
+          <span class="cfg-pref-nombre">Desbloqueo biométrico</span>
+          <button type="button" class="cfg-toggle" id="bioToggle"
+                  role="switch" aria-checked="false" aria-label="Activar desbloqueo biométrico">
+            <span class="cfg-toggle-thumb"></span>
+          </button>
+        </div>
+        <div class="cfg-pref-row cfg-pref-row--readonly">
+          <span class="cfg-pref-nombre">Moneda</span>
+          <span class="cfg-pref-valor">Soles (S/)</span>
+        </div>
+        <div class="cfg-pref-row cfg-pref-row--readonly">
+          <span class="cfg-pref-nombre">Idioma</span>
+          <span class="cfg-pref-valor">Español</span>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- S3b: Plantillas rápidas -->
-  <section class="cfg-card" id="cfgPlantillasSection" style="display:none">
-    <h2 class="cfg-section-label">Plantillas rápidas</h2>
-    <p class="cfg-plantillas-hint">Atajos de 1 toque para registrar gastos frecuentes.</p>
-    <div id="cfgPlantillasLista"></div>
-    <form id="cfgPlantillaForm" class="cfg-plantilla-form" autocomplete="off">
-      <input type="text" id="cpNombre" class="cfg-input" placeholder="Nombre (ej: Pasaje)" maxlength="40" required>
-      <input type="number" id="cpMonto" class="cfg-input" step="0.01" min="0.01" inputmode="decimal" placeholder="Monto" required>
-      <select id="cpCategoria" class="cfg-select"></select>
-      <button type="submit" class="btn btn-primary btn-sm">Crear</button>
-    </form>
+  <section class="cfg-card cfg-acord" id="cfgPlantillasSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPlantillasBody">
+      <span class="cfg-acord-title">Plantillas rápidas</span>
+      <span class="cfg-acord-summary" data-summary="plantillas"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgPlantillasBody">
+      <p class="cfg-plantillas-hint">Atajos de 1 toque para registrar gastos frecuentes.</p>
+      <div id="cfgPlantillasLista"></div>
+      <form id="cfgPlantillaForm" class="cfg-form-grid" autocomplete="off">
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="cpNombre">Nombre</label>
+          <input type="text" id="cpNombre" class="cfg-input" placeholder="ej: Pasaje" maxlength="40" required>
+        </div>
+        <div class="cfg-input-group">
+          <label class="cfg-label" for="cpMonto">Monto</label>
+          <input type="number" id="cpMonto" class="cfg-input" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="cfg-input-group cfg-col-2">
+          <label class="cfg-label" for="cpCategoria">Categoría</label>
+          <select id="cpCategoria" class="cfg-select"></select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm cfg-col-2">Crear</button>
+      </form>
+    </div>
   </section>
 
   <!-- S4: Datos -->
-  <section class="cfg-card cfg-card--datos" id="cfgDatosSection" style="display:none">
-    <h2 class="cfg-section-label">Datos</h2>
+  <section class="cfg-card cfg-card--datos cfg-acord" id="cfgDatosSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgDatosBody">
+      <span class="cfg-acord-title">Datos</span>
+      <span class="cfg-acord-summary" data-summary="datos"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgDatosBody">
+      <div class="cfg-datos-acciones">
+        <button type="button" class="btn btn-secondary" id="cfgBtnExportJson">Exportar respaldo JSON</button>
+        <button type="button" class="btn btn-secondary" id="cfgBtnImportJson">Importar desde respaldo</button>
+        <input type="file" id="cfgImportInput" accept=".json" style="display:none" aria-hidden="true">
+      </div>
 
-    <div class="cfg-datos-acciones">
-      <button type="button" class="btn btn-secondary" id="cfgBtnExportJson">Exportar respaldo JSON</button>
-      <button type="button" class="btn btn-secondary" id="cfgBtnImportJson">Importar desde respaldo</button>
-      <input type="file" id="cfgImportInput" accept=".json" style="display:none" aria-hidden="true">
-    </div>
+      <div class="cfg-datos-separador"></div>
 
-    <div class="cfg-datos-separador"></div>
+      <div class="cfg-datos-acciones">
+        <button type="button" class="btn btn-secondary" id="cfgBtnLogout">Cerrar sesión</button>
+      </div>
 
-    <div class="cfg-datos-acciones">
-      <button type="button" class="btn btn-secondary" id="cfgBtnLogout">Cerrar sesión</button>
-    </div>
-
-    <div class="cfg-zona-peligro">
-      <p class="cfg-peligro-label">Zona de peligro</p>
-      <button type="button" class="btn btn-danger" id="cfgBtnReset">Resetear todos los datos</button>
+      <div class="cfg-zona-peligro">
+        <p class="cfg-peligro-label">Zona de peligro</p>
+        <button type="button" class="btn btn-danger" id="cfgBtnReset">Resetear todos los datos</button>
+      </div>
     </div>
   </section>
 
@@ -296,6 +373,86 @@
     }
     @keyframes cfg-spin { to { transform: rotate(360deg); } }
 
+    /* ── Acordeón de secciones ─────────────────────────── */
+    .cfg-acord { padding: 0; overflow: hidden; }
+    .cfg-acord-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+      text-align: left;
+      font: inherit;
+    }
+    .cfg-acord-title {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .cfg-acord-summary {
+      margin-left: auto;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      opacity: 0.85;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .cfg-acord-chevron {
+      width: 16px; height: 16px;
+      flex-shrink: 0;
+      color: var(--text-secondary);
+      transition: transform 0.2s ease;
+    }
+    .cfg-acord[data-open="true"] .cfg-acord-chevron { transform: rotate(180deg); }
+    .cfg-acord[data-open="true"] .cfg-acord-summary { display: none; }
+    .cfg-acord-head:hover .cfg-acord-title,
+    .cfg-acord-head:hover .cfg-acord-chevron { color: var(--text-dark); }
+    .cfg-acord-head:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: -2px;
+      border-radius: var(--radius-lg);
+    }
+    .cfg-acord-body { padding: 0 var(--space-lg) var(--space-lg); }
+    .cfg-acord:not([data-open="true"]) .cfg-acord-body { display: none; }
+    .cfg-acord-toolbar { display: flex; justify-content: flex-end; margin-bottom: var(--space-md); }
+    @media (prefers-reduced-motion: reduce) {
+      .cfg-acord-chevron { transition: none; }
+    }
+
+    /* ── Stat block (total comprometido) ───────────────── */
+    .cfg-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 0 0 var(--space-md);
+    }
+    .cfg-stat-label {
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+    }
+    .cfg-stat-num { font-size: var(--font-size-2xl); color: var(--text-dark); line-height: 1.1; }
+
+    /* ── Form en grilla (recurrentes / plantillas) ─────── */
+    .cfg-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+    }
+    .cfg-form-grid .cfg-col-2 { grid-column: 1 / -1; }
+
     /* Perfiles */
     .cfg-perfil {
       padding: var(--space-md) 0;
@@ -330,7 +487,11 @@
       width: 100%;
       box-sizing: border-box;
     }
-    .cfg-input:focus { outline: none; border-color: var(--color-primary); }
+    .cfg-input:focus, .cfg-select:focus {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 1px;
+      border-color: var(--color-primary);
+    }
     .cfg-perfil-readonly { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 0; }
     .cfg-perfil-acciones { display: flex; justify-content: flex-end; margin-top: var(--space-sm); }
 
@@ -358,12 +519,19 @@
       gap: var(--space-sm);
     }
     .cfg-select {
-      padding: var(--space-sm) var(--space-md);
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      padding: var(--space-sm) calc(var(--space-md) + 18px) var(--space-sm) var(--space-md);
       border: 1px solid var(--border-light);
       border-radius: var(--radius-md);
-      background: var(--bg-light);
+      background-color: var(--bg-light);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a8a29a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right var(--space-sm) center;
       color: inherit;
       font-size: var(--font-size-base);
+      font-weight: var(--font-weight-normal);
       width: 100%;
       box-sizing: border-box;
     }
@@ -1207,6 +1375,7 @@
         }
 
         await cargarDetectados(lista);
+        if (typeof refreshCfgSummaries === 'function') refreshCfgSummaries();
       } catch (err) {
         console.error('cargarRecurrentes:', err);
       }
@@ -1405,10 +1574,72 @@
         mostrarToast('No se pudieron cargar los datos', 5000);
       } finally {
         $('cfgLoading').style.display = 'none';
+        if (typeof refreshCfgSummaries === 'function') refreshCfgSummaries();
       }
     }
 
     cargar();
+
+    /* ── Acordeón de secciones (colapsable, persistido) ── */
+    function cfgSummaryText(id) {
+      function n(sel) { return document.querySelectorAll(sel).length; }
+      if (id === 'cfgPerfilesSection') {
+        var nm = document.querySelector('#cfgPerfilesCont .cfg-perfil-nombre');
+        return nm ? nm.textContent.trim() : '';
+      }
+      if (id === 'cfgCatSection') {
+        var c = n('#cfgCatListaGastos .cfg-cat-item') + n('#cfgCatListaIngresos .cfg-cat-item');
+        return c ? c + (c === 1 ? ' categoría' : ' categorías') : '';
+      }
+      if (id === 'cfgRecurrentesSection') {
+        var total = (document.getElementById('recTotalMes') || {}).textContent || '';
+        var cnt = n('#recLista .cfg-rec-item');
+        return (total ? total + '/mes' : '') + (cnt ? ' · ' + cnt : '');
+      }
+      if (id === 'cfgPrefSection') {
+        var dt = document.getElementById('cfgDarkToggle');
+        var parts = [dt && dt.getAttribute('aria-checked') === 'true' ? 'Oscuro' : 'Claro'];
+        var pr = document.getElementById('pushToggleRow');
+        if (pr && !pr.hidden) {
+          parts.push('Push ' + (document.getElementById('pushToggle').getAttribute('aria-checked') === 'true' ? 'on' : 'off'));
+        }
+        return parts.join(' · ');
+      }
+      if (id === 'cfgPlantillasSection') {
+        var p = n('#cfgPlantillasLista .cfg-plantilla-item');
+        return p ? p + (p === 1 ? ' plantilla' : ' plantillas') : '';
+      }
+      if (id === 'cfgDatosSection') return 'Exportar · Importar';
+      return '';
+    }
+    function refreshCfgSummaries() {
+      document.querySelectorAll('.cfg-acord').forEach(function (card) {
+        var span = card.querySelector('[data-summary]');
+        if (span) span.textContent = cfgSummaryText(card.id);
+      });
+    }
+    (function initCfgAcordion() {
+      var KEY = 'nestra-cfg-acord';
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+      function setOpen(card, head, open) {
+        card.setAttribute('data-open', open ? 'true' : 'false');
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      document.querySelectorAll('.cfg-acord').forEach(function (card) {
+        var head = card.querySelector('.cfg-acord-head');
+        if (!head) return;
+        setOpen(card, head, saved[card.id] === true); // default colapsado
+        head.addEventListener('click', function () {
+          var now = card.getAttribute('data-open') !== 'true';
+          setOpen(card, head, now);
+          saved[card.id] = now;
+          try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+          refreshCfgSummaries();
+        });
+      });
+      refreshCfgSummaries();
+    })();
 
     (async function initPushToggle() {
       if (typeof pushSupported !== 'function' || !pushSupported()) return;
@@ -1416,7 +1647,11 @@
       var toggle = document.getElementById('pushToggle');
       if (!row || !toggle) return;
       row.hidden = false;
-      toggle.checked = await pushIsSubscribed();
+      function paintPush(on) {
+        toggle.setAttribute('aria-checked', on ? 'true' : 'false');
+        toggle.setAttribute('aria-label', on ? 'Desactivar notificaciones push' : 'Activar notificaciones push');
+      }
+      paintPush(await pushIsSubscribed());
       var MENSAJES_PUSH = {
         denied: 'Permiso de notificaciones bloqueado. Actívalo en los ajustes del navegador.',
         'subscribe-error': 'No se pudo activar. En iPhone instala la app a la pantalla de inicio primero.',
@@ -1424,8 +1659,8 @@
         'no-session': 'Inicia sesión para activar las notificaciones.',
         unsupported: 'Este navegador no soporta notificaciones push.',
       };
-      toggle.addEventListener('change', async function () {
-        var quiere = toggle.checked;
+      toggle.addEventListener('click', async function () {
+        var quiere = toggle.getAttribute('aria-checked') !== 'true';
         toggle.disabled = true;
         try {
           if (quiere) {
@@ -1440,7 +1675,7 @@
           console.error('pushToggle:', err);
         } finally {
           // Verdad de terreno: refleja si quedó realmente (des)suscrito.
-          toggle.checked = await pushIsSubscribed();
+          paintPush(await pushIsSubscribed());
           toggle.disabled = false;
         }
       });
