@@ -735,7 +735,14 @@
       const body = $('dashTxBody');
       body.setAttribute('aria-busy', 'false');
       if (!txs || !txs.length) {
-        body.innerHTML = '<p class="dash-empty">Aún no hay transacciones.</p>';
+        body.innerHTML = (typeof renderEmptyState === 'function')
+          ? renderEmptyState({
+              icon: 'receipt-off',
+              title: 'Aún no hay transacciones',
+              desc: 'Registra tu primer gasto o ingreso para verlo aquí.',
+              ctaLabel: 'Registrar', ctaHref: '#transaccion'
+            })
+          : '<p class="dash-empty">Aún no hay transacciones.</p>';
         return;
       }
       body.innerHTML = txs.map((t) => {

@@ -849,8 +849,11 @@
           var b = $('histEmptyLimpiar');
           if (b) b.addEventListener('click', limpiarFiltros);
         } else {
-          body.innerHTML = '<div class="hist-empty">Aún no hay movimientos en este periodo.' +
-            '<br><button type="button" class="btn btn-primary btn-small" id="histEmptyNuevo">Registrar uno</button></div>';
+          body.innerHTML = '<div class="empty-state">' +
+            '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-receipt-off"></use></svg>' +
+            '<p class="empty-state-title">Sin movimientos en este periodo</p>' +
+            '<p class="empty-state-desc">Registra tu primer gasto o ingreso para verlo aquí.</p>' +
+            '<button type="button" class="btn btn-primary btn-sm empty-state-cta" id="histEmptyNuevo">Registrar</button></div>';
           var n = $('histEmptyNuevo');
           if (n) n.addEventListener('click', abrirNueva);
         }

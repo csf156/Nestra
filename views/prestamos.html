@@ -24,10 +24,11 @@
   <section id="prestPendientesSection" style="display:none;">
     <h2 class="prest-section-title">Pendientes</h2>
     <ul class="prest-lista" id="prestLista" role="list" tabindex="-1"></ul>
-    <p class="prest-vacio" id="prestVacio" style="display:none;">
-      No tienes préstamos pendientes.
-      <span class="prest-vacio-hint">Toca el botón + Nuevo préstamo para registrar uno.</span>
-    </p>
+    <div class="empty-state prest-vacio" id="prestVacio" style="display:none;">
+      <svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-cash-banknote"></use></svg>
+      <p class="empty-state-title">No tienes préstamos pendientes</p>
+      <p class="empty-state-desc">Toca el botón + Nuevo préstamo para registrar dinero que prestaste.</p>
+    </div>
   </section>
 
   <!-- ── Sección 3: Historial de devueltos (colapsado) ────────── -->
@@ -826,7 +827,7 @@
 
         if (!lista.length) {
           ul.innerHTML = '';
-          vacio.style.display = 'block';
+          vacio.style.display = 'flex';
           return;
         }
 

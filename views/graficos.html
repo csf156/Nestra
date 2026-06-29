@@ -118,6 +118,9 @@
   .graf-card[data-estado="cargando"] .graf-state,
   .graf-card[data-estado="vacio"] .graf-state,
   .graf-card[data-estado="error"] .graf-state { display: flex; }
+  .graf-card[data-estado="vacio"] .graf-state { flex-direction: column; gap: var(--space-sm); }
+  .graf-state .empty-state-icon { width: 40px; height: 40px; opacity: 0.45; }
+  .graf-state .empty-state-title { color: var(--text-dark); font-weight: var(--font-weight-semibold); }
   .graf-card[data-estado="cargando"] .graf-canvas-wrap,
   .graf-card[data-estado="vacio"] .graf-canvas-wrap,
   .graf-card[data-estado="error"] .graf-canvas-wrap,
@@ -196,10 +199,14 @@
       card.setAttribute('data-estado', est);
       var box = card.querySelector('.graf-state');
       if (box) {
-        box.textContent = est === 'cargando' ? 'Cargando…'
-          : est === 'vacio' ? 'Sin movimientos este mes'
-          : est === 'error' ? 'No se pudo cargar'
-          : '';
+        if (est === 'vacio') {
+          box.innerHTML = '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-chart-dots"></use></svg>' +
+            '<span class="empty-state-title">Sin movimientos este mes</span>';
+        } else {
+          box.textContent = est === 'cargando' ? 'Cargando…'
+            : est === 'error' ? 'No se pudo cargar'
+            : '';
+        }
       }
     }
     function destruir(id) {

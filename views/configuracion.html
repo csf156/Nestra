@@ -1759,11 +1759,13 @@
         lista.innerHTML = ps.length
           ? ps.map(function (p) {
               return '<div class="cfg-plantilla-item">' +
-                '<span>' + escHtml(p.nombre) + ' · S/' + escHtml(String(p.monto)) + '</span>' +
+                '<span>' + escHtml(p.nombre) + ' · ' + escHtml(formatMonto(p.monto)) + '</span>' +
                 '<button type="button" class="btn btn-danger btn-sm" data-del="' + escHtml(p.id) + '">Borrar</button>' +
               '</div>';
             }).join('')
-          : '<p class="cfg-plantillas-vacia">Aún no hay plantillas.</p>';
+          : ((typeof renderEmptyState === 'function')
+              ? renderEmptyState({ icon: 'template', title: 'Aún no hay plantillas', desc: 'Crea plantillas para registrar gastos frecuentes más rápido.' })
+              : '<p class="cfg-plantillas-vacia">Aún no hay plantillas.</p>');
 
         lista.querySelectorAll('[data-del]').forEach(function (b) {
           b.onclick = async function () {

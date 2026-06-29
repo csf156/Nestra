@@ -277,7 +277,13 @@
     function renderActivas(activas) {
       var cont = $('metasActivas');
       if (!activas.length) {
-        cont.innerHTML = '<p class="metas-vacio">Aún no tienes metas. Crea la primera con el botón +.</p>';
+        cont.innerHTML = '<div class="empty-state">' +
+          '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-target"></use></svg>' +
+          '<p class="empty-state-title">Sin metas aún</p>' +
+          '<p class="empty-state-desc">Crea tu primera meta de ahorro y haz seguimiento de tu progreso.</p>' +
+          '<button type="button" class="btn btn-primary btn-sm empty-state-cta" id="metasEmptyNueva">Crear meta</button></div>';
+        var bn = $('metasEmptyNueva');
+        if (bn) bn.addEventListener('click', function () { if (window._abrirNuevaMeta) window._abrirNuevaMeta(); });
         return;
       }
       cont.innerHTML = activas.map(function (m) {
