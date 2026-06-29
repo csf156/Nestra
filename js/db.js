@@ -1412,3 +1412,92 @@ async function getReciboUrl(path) {
     return data.signedUrl;
   } catch (err) { console.error('getReciboUrl falló:', err.message || err); return null; }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// HOGAR COMPARTIDO (Fase 6)
+// ═══════════════════════════════════════════════════════════════════
+
+// getEstadoHogar() — estado del hogar del usuario actual.
+// Returns: { hogar, miembros[], codigo, rol } o null si no pertenece a ningún hogar.
+async function getEstadoHogar() {
+  const { data: miembro, error } = await supabase
+    .from('hogar_miembros').select('hogar_id, rol').limit(1).maybeSingle();
+  if (error || !miembro) return null;
+  const { data: hogar } = await supabase
+    .from('hogares').select('*').eq('id', miembro.hogar_id).maybeSingle();
+  const { data: miembros } = await supabase
+    .from('hogar_miembros').select('user_id, rol, joined_at').eq('hogar_id', miembro.hogar_id);
+  const { data: codigo } = await supabase
+    .from('hogar_codigos').select('codigo, expira_at')
+    .eq('hogar_id', miembro.hogar_id).eq('usado', false)
+    .gt('expira_at', new Date().toISOString()).order('created_at', { ascending: false })
+    .limit(1).maybeSingle();
+  return { hogar, miembros: miembros || [], codigo: codigo || null, rol: miembro.rol };
+}
+
+// crearHogar(nombre) — crea un hogar y agrega al usuario como creador.
+// Returns: { hogar_id, codigo } (RPC crear_hogar). Lanza Error en fallo.
+async function crearHogar(nombre) {
+  const { data, error } = await supabase.rpc('crear_hogar', { p_nombre: nombre });
+  if (error) throw error;
+  return data;
+}
+
+// generarCodigoHogar() — genera un código de invitación de 6 dígitos.
+// Returns: código (char(6)) (RPC generar_codigo). Lanza Error en fallo.
+async function generarCodigoHogar() {
+  const { data, error } = await supabase.rpc('generar_codigo');
+  if (error) throw error;
+  return data;
+}
+
+// unirseHogar(codigo) — une al usuario a un hogar mediante código.
+// Returns: { hogar_id } (RPC unirse_hogar). Lanza Error en fallo.
+async function unirseHogar(codigo) {
+  const { data, error } = await supabase.rpc('unirse_hogar', { p_codigo: codigo });
+  if (error) throw error;
+  return data;
+}
+
+// saldarHogar(deUser, aUser, monto, nota) — registra una liquidación entre miembros.
+// Returns: id (uuid) de la liquidación (RPC saldar_hogar). Lanza Error en fallo.
+async function saldarHogar(deUser, aUser, monto, nota) {
+  const { data, error } = await supabase.rpc('saldar_hogar', {
+    p_de: deUser, p_a: aUser, p_monto: monto, p_nota: nota || null });
+  if (error) throw error;
+  return data;
+}
+
+// disolverHogar() — disuelve el hogar: reparte ahorro, reasigna metas al creador
+// y registra liquidación final. Returns: { pct_creador, ahorro, recibe_creador,
+// recibe_otro } (RPC disolver_hogar). Lanza Error en fallo.
+async function disolverHogar() {
+  const { data, error } = await supabase.rpc('disolver_hogar');
+  if (error) throw error;
+  return data;
+}
+
+// getLiquidacionesHogar() — liquidaciones del hogar (para el cálculo del balance en cliente).
+// Returns: array de { de_user, a_user, monto, fecha } o [].
+async function getLiquidacionesHogar() {
+  const { data, error } = await supabase
+    .from('hogar_liquidaciones').select('de_user, a_user, monto, fecha');
+  if (error) return [];
+  return data || [];
+}
+
+// subscribeHogar(hogarId, onChange) — suscripción realtime a cambios de
+// transacciones/metas del hogar. onChange se llama en cada INSERT/UPDATE/DELETE.
+// Returns: el channel para luego hacer supabase.removeChannel(channel), o null.
+function subscribeHogar(hogarId, onChange) {
+  if (!hogarId) return null;
+  const ch = supabase.channel('hogar-' + hogarId)
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'transacciones', filter: 'hogar_id=eq.' + hogarId },
+        onChange)
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'metas', filter: 'hogar_id=eq.' + hogarId },
+        onChange)
+    .subscribe();
+  return ch;
+}
