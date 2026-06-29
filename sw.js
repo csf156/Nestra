@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v16';
+const SHELL_VERSION = 'v17';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -23,8 +23,11 @@ precaching.precacheAndRoute([
   { url: 'js/config.js', revision: SHELL_VERSION },
   { url: 'js/supabase.js', revision: SHELL_VERSION },
   { url: 'js/auth.js', revision: SHELL_VERSION },
+  { url: 'js/moneda.js', revision: SHELL_VERSION },
   { url: 'js/format.js', revision: SHELL_VERSION },
   { url: 'js/iconos.js', revision: SHELL_VERSION },
+  { url: 'js/ui.js', revision: SHELL_VERSION },
+  { url: 'js/sparkline.js', revision: SHELL_VERSION },
   { url: 'js/export.js', revision: SHELL_VERSION },
   { url: 'js/db.js', revision: SHELL_VERSION },
   { url: 'js/alerts.js', revision: SHELL_VERSION },
