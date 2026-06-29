@@ -142,6 +142,10 @@
             <span class="cfg-toggle-thumb"></span>
           </button>
         </div>
+        <div class="cfg-pref-row">
+          <span class="cfg-pref-nombre">Moneda</span>
+          <select id="cfgMoneda" class="input cfg-pref-select" aria-label="Moneda"></select>
+        </div>
         <div class="cfg-pref-row" id="pushToggleRow" hidden>
           <span class="cfg-pref-nombre">Notificaciones push</span>
           <button type="button" class="cfg-toggle" id="pushToggle"
@@ -647,6 +651,7 @@
     .cfg-pref-row--readonly { opacity: 0.7; }
     .cfg-pref-nombre { font-weight: var(--font-weight-medium); }
     .cfg-pref-valor { font-size: var(--font-size-sm); color: var(--text-secondary); }
+    .cfg-pref-select { width: auto; min-width: 7rem; }
 
     /* Toggle switch */
     .cfg-toggle {
@@ -1446,8 +1451,24 @@
       aplicarTema(leerTema() === 'dark' ? 'light' : 'dark');
     });
 
+    function initMoneda() {
+      var sel = $('cfgMoneda');
+      if (!sel || !window.MONEDAS) return;
+      sel.innerHTML = '';
+      Object.keys(window.MONEDAS).forEach(function (code) {
+        var o = document.createElement('option');
+        o.value = code; o.textContent = code + ' (' + window.MONEDAS[code].symbol + ')';
+        sel.appendChild(o);
+      });
+      sel.value = (typeof getMonedaActiva === 'function') ? getMonedaActiva() : 'PEN';
+      sel.addEventListener('change', function () {
+        if (typeof setMoneda === 'function') setMoneda(sel.value);
+      });
+    }
+
     function initPreferencias() {
       aplicarTema(leerTema());
+      initMoneda();
       $('cfgPrefSection').style.display = 'block';
     }
 
