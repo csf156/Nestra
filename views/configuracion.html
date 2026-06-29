@@ -145,9 +145,9 @@
             <span class="cfg-toggle-thumb"></span>
           </button>
         </div>
-        <div class="cfg-pref-row">
-          <span class="cfg-pref-nombre">Moneda</span>
-          <select id="cfgMoneda" class="input cfg-pref-select" aria-label="Moneda"></select>
+        <div class="cfg-pref-row cfg-pref-row--readonly">
+          <span class="cfg-pref-nombre">Moneda principal</span>
+          <span class="cfg-pref-valor" id="cfgMonedaValor">—</span>
         </div>
         <div class="cfg-pref-row" id="pushToggleRow" hidden>
           <span class="cfg-pref-nombre">Notificaciones push</span>
@@ -1456,18 +1456,12 @@
     });
 
     function initMoneda() {
-      var sel = $('cfgMoneda');
-      if (!sel || !window.MONEDAS) return;
-      sel.innerHTML = '';
-      Object.keys(window.MONEDAS).forEach(function (code) {
-        var o = document.createElement('option');
-        o.value = code; o.textContent = code + ' (' + window.MONEDAS[code].symbol + ')';
-        sel.appendChild(o);
-      });
-      sel.value = (typeof getMonedaActiva === 'function') ? getMonedaActiva() : 'PEN';
-      sel.addEventListener('change', function () {
-        if (typeof setMoneda === 'function') setMoneda(sel.value);
-      });
+      // Moneda principal: solo lectura. Se fija en el onboarding y no se cambia aquí.
+      var val = $('cfgMonedaValor');
+      if (!val) return;
+      var code = (typeof getMonedaActiva === 'function') ? getMonedaActiva() : 'PEN';
+      var info = (window.MONEDAS && window.MONEDAS[code]) ? window.MONEDAS[code] : null;
+      val.textContent = info ? (code + ' (' + info.symbol + ')') : code;
     }
 
     function initPreferencias() {

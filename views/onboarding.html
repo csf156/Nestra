@@ -7,9 +7,13 @@
     <!-- Paso 1: moneda + ingreso -->
     <section class="ob-step is-active" data-step="1">
       <h1 class="ob-title">Bienvenido a Nestra</h1>
-      <p class="ob-desc">Empecemos por tu moneda y tu ingreso mensual.</p>
+      <p class="ob-desc">Empecemos por tu nombre, tu moneda y tu ingreso mensual.</p>
       <label class="ob-field">
-        <span>Moneda</span>
+        <span>Tu nombre</span>
+        <input id="obNombre" class="input" type="text" maxlength="40" autocomplete="given-name" placeholder="¿Cómo te llamas?">
+      </label>
+      <label class="ob-field">
+        <span>Moneda principal</span>
         <select id="obMoneda" class="input"></select>
       </label>
       <label class="ob-field">
@@ -107,8 +111,14 @@
     btn.addEventListener('click', function () { goto(Number(btn.dataset.back)); });
   });
 
-  // Paso 1 → 2: guardar moneda + recurrente ingreso
+  // Paso 1 → 2: guardar nombre + moneda + recurrente ingreso
   root.querySelector('[data-next="2"]').addEventListener('click', async function () {
+    var nombre = ($('obNombre').value || '').trim();
+    if (!nombre) { alert('Ingresa tu nombre para continuar.'); $('obNombre').focus(); return; }
+    if (typeof updateProfile === 'function') {
+      try { await updateProfile({ nombre: nombre }); } catch (e) {}
+    }
+    if (window.currentProfile) window.currentProfile.nombre = nombre;
     var code = selM.value;
     if (typeof setMoneda === 'function') await setMoneda(code);
     var ing = Number($('obIngreso').value);
