@@ -1434,6 +1434,11 @@
           var catEl = $('recCat');
           if (catEl && typeof catEl._ssSync === 'function') catEl._ssSync();
           cargarRecurrentes();
+          // Al crear un recurrente, ofrecer push de aviso de cargo próximo (una vez por clave).
+          if (typeof pushOfrecerContextual === 'function') {
+            pushOfrecerContextual('recurrente',
+              '¿Quieres que te avise unos días antes de cada cargo recurrente?');
+          }
         } catch (err) {
           console.error('recForm submit:', err);
         } finally {
