@@ -203,6 +203,16 @@
     </div>
   </section>
 
+  <!-- S3.5: Hogar (Fase 6.1) -->
+  <section class="cfg-card cfg-acord" id="cfgHogarSection" style="display:none">
+    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgHogarBody">
+      <span class="cfg-acord-title">Hogar</span>
+      <span class="cfg-acord-summary" data-summary="hogar"></span>
+      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="cfg-acord-body" id="cfgHogarBody"></div>
+  </section>
+
   <!-- S4: Datos -->
   <section class="cfg-card cfg-card--datos cfg-acord" id="cfgDatosSection" style="display:none">
     <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgDatosBody">
@@ -1811,6 +1821,54 @@
       cargarCats();
       pintar();
       $('cfgPlantillasSection').style.display = 'block';
+    })();
+
+    // ── Sección Hogar (Fase 6.1): renombrar + aporte esperado por miembro ──
+    (function initHogarConfig() {
+      var sec = $('cfgHogarSection');
+      if (!sec) return;
+      function render() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        sec.style.display = hay ? 'block' : 'none';
+        if (!hay) return;
+        var st = window.hogarState || {};
+        var hogar = st.hogar || {};
+        var miembros = st.miembros || [];
+        var uid = (window.currentUser && window.currentUser.id) || null;
+        var body = $('cfgHogarBody');
+        body.innerHTML =
+          '<div class="cfg-input-group">' +
+            '<label class="cfg-label" for="cfgHogarNombre">Nombre del hogar</label>' +
+            '<input id="cfgHogarNombre" class="cfg-input" type="text" maxlength="50" value="' + escHtml(hogar.nombre || '') + '">' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="cfgHogarNombreSave">Guardar nombre</button>' +
+          '</div>' +
+          '<div class="cfg-datos-separador"></div>' +
+          '<p class="cfg-label">Aporte esperado mensual</p>' +
+          miembros.map(function (m) {
+            var quien = (m.user_id === uid) ? 'Tú' : 'Tu pareja';
+            var val = (m.aporte_esperado != null ? m.aporte_esperado : 0);
+            return '<div class="cfg-input-group" data-uid="' + escHtml(m.user_id) + '">' +
+              '<label class="cfg-label">' + escHtml(quien) + '</label>' +
+              '<input class="cfg-input cfg-hogar-aporte" type="number" min="0" step="0.01" value="' + escHtml(String(val)) + '">' +
+              '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-aporte-save">Guardar</button>' +
+            '</div>';
+          }).join('');
+        $('cfgHogarNombreSave').addEventListener('click', async function () {
+          try { await renombrarHogar($('cfgHogarNombre').value); mostrarToast('Nombre actualizado', 3000); }
+          catch (e) { mostrarToast((e && e.message) || 'No se pudo renombrar', 4000); }
+        });
+        Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-aporte-save'), function (btn) {
+          btn.addEventListener('click', async function () {
+            var grp = btn.closest('[data-uid]');
+            var uidM = grp.getAttribute('data-uid');
+            var monto = Number(grp.querySelector('.cfg-hogar-aporte').value) || 0;
+            try { await setAporteEsperado(uidM, monto); mostrarToast('Aporte actualizado', 3000); }
+            catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
+          });
+        });
+      }
+      render();
+      window.addEventListener('hogar:changed', render);
     })();
 
   })();
