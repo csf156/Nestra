@@ -44,7 +44,7 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   const diasRestantes = diasDelMes - hoy.getDate() + 1; // incluye hoy, ≥1
   const ymActual = diaISO(hoy).slice(0, 7);
 
-  const personales = (transacciones || []).filter((t) => t.ambito === 'personal' && t.fecha);
+  const personales = (transacciones || []).filter((t) => t.hogar_id == null && t.fecha);
 
   // Ingreso del mes actual.
   let ingresoMes = 0;
@@ -134,7 +134,7 @@ function calcularFijosComprometidos(personales, hoy) {
 function calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes) {
   let total = 0;
   for (const m of (metas || [])) {
-    if (m.ambito !== 'personal') continue;
+    if (m.hogar_id != null) continue;
     if (m.estado !== 'en_curso') continue;
     if (m.es_fondo_emergencia) continue;
     const objetivo = Number(m.monto_objetivo) || 0;

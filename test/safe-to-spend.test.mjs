@@ -5,8 +5,8 @@ import { calcularSafeToSpend } from '../js/safe-to-spend.js';
 // Junio 2026 tiene 30 días. HOY = día 24 → díasRestantes = 30-24+1 = 7.
 const HOY = new Date(2026, 5, 24);
 
-function ing(monto, fechaISO) { return { tipo: 'ingreso', ambito: 'personal', monto, fecha: fechaISO }; }
-function gas(monto, fechaISO, categoria_id = 'c1') { return { tipo: 'gasto', ambito: 'personal', monto, fecha: fechaISO, categoria_id }; }
+function ing(monto, fechaISO) { return { tipo: 'ingreso', ambito: 'personal', hogar_id: null, monto, fecha: fechaISO }; }
+function gas(monto, fechaISO, categoria_id = 'c1') { return { tipo: 'gasto', ambito: 'personal', hogar_id: null, monto, fecha: fechaISO, categoria_id }; }
 
 test('sin ingreso estimado → null', () => {
   assert.strictEqual(calcularSafeToSpend([], [], { hoy: HOY }), null);
@@ -32,7 +32,7 @@ test('numerador negativo → estado excedido, sin número negativo', () => {
 });
 
 test('solo cuenta ámbito personal', () => {
-  const txs = [ing(2100, '2026-06-05'), { tipo: 'gasto', ambito: 'hogar', monto: 9999, fecha: '2026-06-10', categoria_id: 'c1' }];
+  const txs = [ing(2100, '2026-06-05'), { tipo: 'gasto', ambito: 'hogar', hogar_id: 'H', monto: 9999, fecha: '2026-06-10', categoria_id: 'c1' }];
   const out = calcularSafeToSpend(txs, [], { hoy: HOY });
   assert.strictEqual(out.diario, 300);
 });
@@ -77,7 +77,7 @@ test('categoría con un solo mes cerrado no es fija', () => {
 
 function meta(over) {
   return Object.assign({
-    id: 'm1', ambito: 'personal', estado: 'en_curso', es_fondo_emergencia: false,
+    id: 'm1', ambito: 'personal', hogar_id: null, estado: 'en_curso', es_fondo_emergencia: false,
     monto_objetivo: 1200, monto_actual: 0, fecha_limite: '2026-12-31',
   }, over);
 }
@@ -94,7 +94,7 @@ test('meta fondo de emergencia se ignora', () => {
 });
 
 test('meta de hogar se ignora (solo personal)', () => {
-  const out = calcularSafeToSpend([ing(2100, '2026-06-03')], [meta({ ambito: 'hogar' })], { hoy: HOY });
+  const out = calcularSafeToSpend([ing(2100, '2026-06-03')], [meta({ hogar_id: 'H' })], { hoy: HOY });
   assert.strictEqual(out.diario, 300);
 });
 
@@ -119,8 +119,8 @@ test('gastos sin categoría no se infieren como fijos', () => {
   // Dos meses cerrados con gasto sin categoría; no debe reservarse como fijo.
   const txs = [
     ing(2100, '2026-06-03'),
-    { tipo: 'gasto', ambito: 'personal', monto: 1000, fecha: '2026-04-02', categoria_id: null },
-    { tipo: 'gasto', ambito: 'personal', monto: 1000, fecha: '2026-05-02', categoria_id: null },
+    { tipo: 'gasto', ambito: 'personal', hogar_id: null, monto: 1000, fecha: '2026-04-02', categoria_id: null },
+    { tipo: 'gasto', ambito: 'personal', hogar_id: null, monto: 1000, fecha: '2026-05-02', categoria_id: null },
   ];
   const out = calcularSafeToSpend(txs, [], { hoy: HOY });
   assert.strictEqual(out.diario, 300); // sin reserva por fijos → 2100/7
