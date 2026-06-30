@@ -1,0 +1,558 @@
+<!-- views/hogar.html — Fase 6: hogar compartido -->
+<div class="hogar">
+
+  <header class="hogar-header">
+    <h1 class="hogar-titulo">Hogar</h1>
+  </header>
+
+  <!-- Loading -->
+  <div id="hogarLoading" class="hogar-loading" role="status" aria-label="Cargando">
+    <div class="skeleton skeleton-card" style="height:88px"></div>
+    <div class="skeleton skeleton-card" style="height:120px"></div>
+  </div>
+
+  <!-- Contenido dinámico -->
+  <div id="hogarContenido"></div>
+
+  <!-- Toast -->
+  <div class="hogar-toast" id="hogarToast" role="status" aria-live="polite" style="display:none">
+    <span id="hogarToastMsg"></span>
+  </div>
+
+  <style>
+  /* ── Root ──────────────────────────────────────────────── */
+  .hogar {
+    padding: var(--space-lg) var(--space-md);
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .hogar-titulo {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-lg);
+  }
+  .hogar-loading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-md) 0;
+  }
+
+  /* ── Cards ─────────────────────────────────────────────── */
+  .hogar .hogar-card {
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+  }
+  .hogar .hogar-card-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    margin: 0 0 var(--space-xs);
+  }
+  .hogar .hogar-card-sub {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-md);
+  }
+
+  /* ── Estado "sin hogar" ────────────────────────────────── */
+  .hogar .hogar-intro {
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0 0 var(--space-md);
+  }
+  .hogar .hogar-acciones { display: flex; flex-direction: column; gap: var(--space-md); }
+  .hogar .hogar-unir-row { display: flex; gap: var(--space-sm); align-items: flex-end; flex-wrap: wrap; }
+  .hogar .hogar-input-group { display: flex; flex-direction: column; gap: 4px; flex: 1 1 160px; }
+  .hogar .hogar-label { font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .hogar .hogar-input {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: inherit;
+    font-size: var(--font-size-base);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .hogar .hogar-input:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-color: var(--color-primary);
+  }
+  .hogar .hogar-input--codigo {
+    letter-spacing: 0.3em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-size-lg);
+  }
+  .hogar .hogar-sep {
+    display: flex; align-items: center; gap: var(--space-md);
+    color: var(--text-secondary); font-size: var(--font-size-sm);
+    margin: var(--space-xs) 0;
+  }
+  .hogar .hogar-sep::before, .hogar .hogar-sep::after {
+    content: ""; flex: 1; height: 1px; background: var(--border-light);
+  }
+
+  /* ── Cabecera con hogar ────────────────────────────────── */
+  .hogar .hogar-meta-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: var(--space-sm); margin-bottom: var(--space-md);
+  }
+  .hogar .hogar-miembros {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    background: var(--bg-light); border: 1px solid var(--border-light);
+    border-radius: 9999px; padding: 2px 10px; white-space: nowrap;
+  }
+
+  /* ── Código de invitación ──────────────────────────────── */
+  .hogar .hogar-codigo-box {
+    display: flex; align-items: center; gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+  .hogar .hogar-codigo-valor {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.25em;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .hogar .hogar-codigo-expira {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    width: 100%; margin: var(--space-xs) 0 0;
+  }
+  .hogar .hogar-icon-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px var(--space-sm);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .hogar .hogar-icon-btn:hover { border-color: var(--color-primary); color: var(--text-dark); }
+  .hogar .hogar-icon-btn .cat-icono { width: 16px; height: 16px; }
+
+  /* ── Balance ───────────────────────────────────────────── */
+  .hogar .hogar-balance-num {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    margin: 0 0 var(--space-xs);
+  }
+  .hogar .hogar-balance-num--debe { color: var(--color-danger); }
+  .hogar .hogar-balance-num--cobra { color: var(--color-success); }
+  .hogar .hogar-balance-num--mano { color: var(--text-dark); }
+  .hogar .hogar-balance-sub { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-md); }
+
+  /* ── Zona de peligro ───────────────────────────────────── */
+  .hogar .hogar-peligro {
+    margin-top: var(--space-lg);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 8%, var(--bg-light-secondary));
+  }
+  .hogar .hogar-peligro-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-danger);
+    margin: 0 0 var(--space-sm);
+  }
+  .hogar .hogar-peligro-desc {
+    font-size: var(--font-size-sm); color: var(--text-secondary);
+    margin: 0 0 var(--space-md); line-height: 1.5;
+  }
+
+  /* ── Modal (confirmaciones + prompts) ──────────────────── */
+  .hogar-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--space-md);
+    z-index: 200;
+  }
+  .hogar-modal-overlay[hidden] { display: none; }
+  .hogar-modal {
+    background: var(--bg-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    max-width: 420px; width: 100%;
+    display: flex; flex-direction: column; gap: var(--space-md);
+  }
+  .hogar-modal-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); margin: 0; }
+  .hogar-modal-title--danger { color: var(--color-danger); }
+  .hogar-modal-body { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+  .hogar-modal-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; flex-wrap: wrap; }
+
+  /* ── Toast ─────────────────────────────────────────────── */
+  .hogar-toast {
+    position: fixed;
+    bottom: calc(var(--space-md) + 68px);
+    left: 50%; transform: translateX(-50%);
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 300;
+    max-width: 90vw;
+  }
+  @media (min-width: 768px) { .hogar-toast { bottom: var(--space-lg); } }
+  </style>
+
+  <!-- Modal: prompt nombre del hogar -->
+  <div class="hogar-modal-overlay" id="hogarNombreModal"
+       role="dialog" aria-modal="true" aria-labelledby="hogarNombreTitle" hidden>
+    <div class="hogar-modal">
+      <h2 class="hogar-modal-title" id="hogarNombreTitle">Crear hogar</h2>
+      <p class="hogar-modal-body">Ponle un nombre a tu hogar compartido.</p>
+      <div class="hogar-input-group">
+        <label class="hogar-label" for="hogarNombreInput">Nombre</label>
+        <input id="hogarNombreInput" class="hogar-input" type="text" maxlength="50"
+               placeholder="Nuestro hogar" autocomplete="off">
+      </div>
+      <div class="hogar-modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="hogarNombreCancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="hogarNombreConfirm">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: confirmar disolución -->
+  <div class="hogar-modal-overlay" id="hogarDisolverModal"
+       role="dialog" aria-modal="true" aria-labelledby="hogarDisolverTitle" hidden>
+    <div class="hogar-modal">
+      <h2 class="hogar-modal-title hogar-modal-title--danger" id="hogarDisolverTitle">Disolver hogar</h2>
+      <p class="hogar-modal-body">
+        Al disolver el hogar, las metas compartidas se reasignan al creador y el ahorro
+        se reparte según el aporte de ingresos de cada uno. <strong>Es irreversible.</strong>
+      </p>
+      <div class="hogar-modal-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="hogarDisolverCancelar">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="hogarDisolverConfirm">Disolver hogar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    function $(id) { return document.getElementById(id); }
+
+    function escHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function fmt(n) {
+      return (typeof formatMonto === 'function') ? formatMonto(n) : ('S/ ' + (Number(n) || 0).toFixed(2));
+    }
+
+    var cont    = $('hogarContenido');
+    var channel = null;
+
+    /* ── Toast ────────────────────────────────────────────── */
+    var _toastTimer = null;
+    function toast(msg, ms) {
+      clearTimeout(_toastTimer);
+      $('hogarToastMsg').textContent = msg;
+      $('hogarToast').style.display = 'flex';
+      _toastTimer = setTimeout(function () { $('hogarToast').style.display = 'none'; }, ms || 4000);
+    }
+
+    /* ── Modales (overlay show/hide) ──────────────────────── */
+    function abrirModal(id) {
+      $(id).removeAttribute('hidden');
+    }
+    function cerrarModal(id) {
+      $(id).setAttribute('hidden', '');
+    }
+    // Cierre por backdrop
+    ['hogarNombreModal','hogarDisolverModal'].forEach(function (id) {
+      $(id).addEventListener('click', function (e) {
+        if (e.target === e.currentTarget) cerrarModal(id);
+      });
+    });
+
+    /* ── Fecha de expiración legible ──────────────────────── */
+    function expiraTexto(iso) {
+      if (!iso) return '';
+      var ms = new Date(iso).getTime() - Date.now();
+      if (isNaN(ms)) return '';
+      if (ms <= 0) return 'Código expirado';
+      var horas = Math.floor(ms / 3600000);
+      if (horas >= 1) return 'Expira en ' + horas + (horas === 1 ? ' hora' : ' horas');
+      var mins = Math.max(1, Math.floor(ms / 60000));
+      return 'Expira en ' + mins + (mins === 1 ? ' minuto' : ' minutos');
+    }
+
+    /* ── Render: sin hogar ────────────────────────────────── */
+    function renderSinHogar() {
+      cont.innerHTML =
+        '<div class="hogar-card">' +
+          '<p class="hogar-intro">Comparte gastos y metas con tu pareja. ' +
+            'Crea un hogar e invita con un código, o únete al de tu pareja.</p>' +
+          '<div class="hogar-acciones">' +
+            '<button type="button" class="btn btn-primary" id="hogarBtnCrear">Crear hogar</button>' +
+            '<div class="hogar-sep">o</div>' +
+            '<div class="hogar-unir-row">' +
+              '<div class="hogar-input-group">' +
+                '<label class="hogar-label" for="hogarCodigoInput">Código de invitación</label>' +
+                '<input id="hogarCodigoInput" class="hogar-input hogar-input--codigo" type="text" ' +
+                  'inputmode="numeric" maxlength="6" autocomplete="off" placeholder="000000">' +
+              '</div>' +
+              '<button type="button" class="btn btn-secondary" id="hogarBtnUnir">Unirme</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      $('hogarBtnCrear').addEventListener('click', function () {
+        $('hogarNombreInput').value = '';
+        abrirModal('hogarNombreModal');
+        setTimeout(function () { $('hogarNombreInput').focus(); }, 50);
+      });
+
+      var inp = $('hogarCodigoInput');
+      inp.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 6);
+      });
+      $('hogarBtnUnir').addEventListener('click', unirse);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') unirse(); });
+    }
+
+    async function unirse() {
+      var btn = $('hogarBtnUnir');
+      var cod = ($('hogarCodigoInput').value || '').trim();
+      if (cod.length !== 6) { toast('El código debe tener 6 dígitos', 3000); return; }
+      btn.disabled = true;
+      try {
+        await window.unirseHogar(cod);
+        toast('Te uniste al hogar', 3000);
+        await render();
+      } catch (e) {
+        toast((e && e.message) || 'Código inválido o expirado', 5000);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ── Modal crear hogar ────────────────────────────────── */
+    $('hogarNombreCancelar').addEventListener('click', function () { cerrarModal('hogarNombreModal'); });
+    $('hogarNombreConfirm').addEventListener('click', crearHogarConfirm);
+    $('hogarNombreInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') crearHogarConfirm();
+    });
+
+    async function crearHogarConfirm() {
+      var btn = $('hogarNombreConfirm');
+      var nombre = ($('hogarNombreInput').value || '').trim();
+      btn.disabled = true;
+      try {
+        await window.crearHogar(nombre || 'Nuestro hogar');
+        cerrarModal('hogarNombreModal');
+        toast('Hogar creado', 3000);
+        await render();
+      } catch (e) {
+        toast((e && e.message) || 'No se pudo crear el hogar', 5000);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ── Render: con hogar ────────────────────────────────── */
+    async function renderConHogar(estado) {
+      var uidActual = (window.currentUser && window.currentUser.id) || null;
+      var hogar     = estado.hogar || {};
+      var miembros  = estado.miembros || [];
+      var otro = (miembros.find(function (m) { return m.user_id !== uidActual; }) || {}).user_id || null;
+
+      // Balance (solo si hay un segundo miembro)
+      var bal = { neto: 0, acreedor: null, deudor: null };
+      if (otro && typeof window.calcularBalanceHogar === 'function') {
+        var txs  = await window.getTransacciones({});       // RLS ya incluye filas del hogar
+        var liqs = await window.getLiquidacionesHogar();
+        bal = window.calcularBalanceHogar(txs, liqs, uidActual, otro);
+      }
+
+      // ── Bloque código ──
+      var codHtml;
+      if (estado.codigo) {
+        codHtml =
+          '<div class="hogar-codigo-box">' +
+            '<span class="hogar-codigo-valor" id="hogarCodVal">' + escHtml(estado.codigo.codigo) + '</span>' +
+            '<button type="button" class="hogar-icon-btn" id="hogarBtnCopiar">' +
+              '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-copy"></use></svg> Copiar</button>' +
+            '<button type="button" class="hogar-icon-btn" id="hogarBtnRegen">' +
+              '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-refresh"></use></svg> Regenerar</button>' +
+            '<span class="hogar-codigo-expira">' + escHtml(expiraTexto(estado.codigo.expira_at)) + '</span>' +
+          '</div>';
+      } else {
+        codHtml =
+          '<button type="button" class="btn btn-secondary btn-sm" id="hogarBtnRegen">Generar código de invitación</button>';
+      }
+
+      // ── Bloque balance ──
+      var balCard;
+      if (!otro) {
+        balCard =
+          '<div class="hogar-card">' +
+            '<h2 class="hogar-card-title">Balance</h2>' +
+            '<p class="hogar-card-sub">Comparte el código para que tu pareja se una y empiecen a balancear gastos.</p>' +
+          '</div>';
+      } else if (bal.neto === 0) {
+        balCard =
+          '<div class="hogar-card">' +
+            '<h2 class="hogar-card-title">Balance</h2>' +
+            '<p class="hogar-balance-num hogar-balance-num--mano">Están a mano</p>' +
+            '<p class="hogar-balance-sub">Nadie le debe nada al otro.</p>' +
+          '</div>';
+      } else {
+        var meDeben = bal.acreedor === uidActual;
+        balCard =
+          '<div class="hogar-card">' +
+            '<h2 class="hogar-card-title">Balance</h2>' +
+            '<p class="hogar-balance-num ' + (meDeben ? 'hogar-balance-num--cobra' : 'hogar-balance-num--debe') + '">' +
+              (meDeben ? 'Te deben ' : 'Le debes ') + escHtml(fmt(bal.neto)) +
+            '</p>' +
+            '<p class="hogar-balance-sub">Reparto 50/50 de los gastos del hogar, menos lo ya saldado.</p>' +
+            '<button type="button" class="btn btn-primary btn-sm" id="hogarBtnSaldar">Saldar ' + escHtml(fmt(bal.neto)) + '</button>' +
+          '</div>';
+      }
+
+      cont.innerHTML =
+        '<div class="hogar-card">' +
+          '<div class="hogar-meta-row">' +
+            '<h2 class="hogar-card-title">' + escHtml(hogar.nombre || 'Hogar') + '</h2>' +
+            '<span class="hogar-miembros">' + miembros.length + '/2 miembros</span>' +
+          '</div>' +
+          '<p class="hogar-card-sub">Invita a tu pareja con este código:</p>' +
+          codHtml +
+        '</div>' +
+        balCard +
+        '<div class="hogar-card hogar-peligro">' +
+          '<p class="hogar-peligro-label">Zona de peligro</p>' +
+          '<p class="hogar-peligro-desc">Disolver el hogar reparte el ahorro y reasigna las metas compartidas al creador.</p>' +
+          '<button type="button" class="btn btn-danger" id="hogarBtnDisolver">Salir / disolver hogar</button>' +
+        '</div>';
+
+      // ── Listeners ──
+      var btnCopiar = $('hogarBtnCopiar');
+      if (btnCopiar) {
+        btnCopiar.addEventListener('click', function () {
+          var code = (estado.codigo && estado.codigo.codigo) || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(code).then(
+              function () { toast('Código copiado', 2500); },
+              function () { toast('No se pudo copiar', 3000); }
+            );
+          } else {
+            toast('Código: ' + code, 4000);
+          }
+        });
+      }
+
+      var btnRegen = $('hogarBtnRegen');
+      if (btnRegen) {
+        btnRegen.addEventListener('click', async function () {
+          btnRegen.disabled = true;
+          try {
+            await window.generarCodigoHogar();
+            toast('Código nuevo generado', 3000);
+            await render();
+          } catch (e) {
+            toast((e && e.message) || 'No se pudo generar el código', 5000);
+            btnRegen.disabled = false;
+          }
+        });
+      }
+
+      var btnSaldar = $('hogarBtnSaldar');
+      if (btnSaldar) {
+        btnSaldar.addEventListener('click', async function () {
+          btnSaldar.disabled = true;
+          try {
+            await window.saldarHogar(bal.deudor, bal.acreedor, bal.neto, null);
+            toast('Saldado', 3000);
+            await render();
+          } catch (e) {
+            toast((e && e.message) || 'No se pudo saldar', 5000);
+            btnSaldar.disabled = false;
+          }
+        });
+      }
+
+      $('hogarBtnDisolver').addEventListener('click', function () {
+        abrirModal('hogarDisolverModal');
+        setTimeout(function () { $('hogarDisolverCancelar').focus(); }, 50);
+      });
+
+      // ── Realtime: refresca al cambiar algo del hogar ──
+      // Limpia el canal previo antes de re-suscribir (evita fugas y duplicados).
+      if (channel && typeof supabase !== 'undefined') {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+      if (hogar.id && typeof window.subscribeHogar === 'function') {
+        channel = window.subscribeHogar(hogar.id, function () { render(); });
+      }
+    }
+
+    /* ── Modal disolver ───────────────────────────────────── */
+    $('hogarDisolverCancelar').addEventListener('click', function () { cerrarModal('hogarDisolverModal'); });
+    $('hogarDisolverConfirm').addEventListener('click', async function () {
+      var btn = $('hogarDisolverConfirm');
+      btn.disabled = true;
+      try {
+        var r = await window.disolverHogar();
+        cerrarModal('hogarDisolverModal');
+        var creador = (r && r.recibe_creador != null) ? fmt(r.recibe_creador) : null;
+        var otro    = (r && r.recibe_otro != null) ? fmt(r.recibe_otro) : null;
+        if (creador != null && otro != null) {
+          toast('Hogar disuelto. Reparto: creador ' + creador + ', pareja ' + otro, 6000);
+        } else {
+          toast('Hogar disuelto', 4000);
+        }
+        // El canal realtime ya no aplica
+        if (channel && typeof supabase !== 'undefined') { supabase.removeChannel(channel); channel = null; }
+        await render();
+      } catch (e) {
+        toast((e && e.message) || 'No se pudo disolver el hogar', 5000);
+        btn.disabled = false;
+      }
+    });
+
+    /* ── Render principal ─────────────────────────────────── */
+    async function render() {
+      $('hogarLoading').style.display = 'flex';
+      try {
+        var estado = (typeof window.getEstadoHogar === 'function') ? await window.getEstadoHogar() : null;
+        if (!estado) {
+          // Sin hogar: si había un canal abierto (tras disolver), límpialo.
+          if (channel && typeof supabase !== 'undefined') { supabase.removeChannel(channel); channel = null; }
+          renderSinHogar();
+        } else {
+          await renderConHogar(estado);
+        }
+      } catch (e) {
+        console.error('hogar render:', e && e.message);
+        cont.innerHTML = '<div class="hogar-card"><p class="hogar-intro">No se pudo cargar el hogar. ' +
+          'Revisa tu conexión e inténtalo de nuevo.</p></div>';
+      } finally {
+        $('hogarLoading').style.display = 'none';
+      }
+    }
+
+    /* ── Init ─────────────────────────────────────────────── */
+    render();
+  })();
+  </script>
+
+</div>

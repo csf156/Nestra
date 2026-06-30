@@ -151,6 +151,7 @@ const ROUTES = {
   decisiones: { view: 'decisiones' },
   resumen: { view: 'resumen' },
   prestamos: { view: 'prestamos' },
+  hogar: { view: 'hogar' },
   configuracion: { view: 'configuracion' },
 };
 
