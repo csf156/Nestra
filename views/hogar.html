@@ -233,6 +233,7 @@
         Al disolver el hogar, las metas compartidas se reasignan al creador y el ahorro
         se reparte según el aporte de ingresos de cada uno. <strong>Es irreversible.</strong>
       </p>
+      <div id="hogarDisolverPreview"></div>
       <div class="hogar-modal-actions">
         <button type="button" class="btn btn-secondary btn-sm" id="hogarDisolverCancelar">Cancelar</button>
         <button type="button" class="btn btn-danger btn-sm" id="hogarDisolverConfirm">Disolver hogar</button>
@@ -367,18 +368,60 @@
       }
     }
 
+    /* ── Preview del reparto de disolución (cliente) ──────── */
+    function previewDisolucionHtml(txs, creadorId, otroId, uidActual, bal) {
+      function sumIng(uid) {
+        return (txs || []).reduce(function (s, t) {
+          return (t.ambito === 'hogar' && t.tipo === 'ingreso' && t.user_id === uid)
+            ? s + (Number(t.monto) || 0) : s;
+        }, 0);
+      }
+      var ahorro = (txs || []).reduce(function (s, t) {
+        if (t.ambito !== 'hogar') return s;
+        return s + (t.tipo === 'ingreso' ? (Number(t.monto) || 0) : -(Number(t.monto) || 0));
+      }, 0);
+      if (ahorro < 0) ahorro = 0;
+      var rep = (typeof repartoDisolucion === 'function')
+        ? repartoDisolucion(sumIng(creadorId), otroId ? sumIng(otroId) : 0, ahorro)
+        : { recibeA: ahorro / 2, recibeB: ahorro / 2 };
+      var yoCreador = uidActual === creadorId;
+      var miParte   = yoCreador ? rep.recibeA : rep.recibeB;
+      var otraParte = yoCreador ? rep.recibeB : rep.recibeA;
+      var html =
+        '<p class="hogar-modal-body" style="margin:0 0 var(--space-sm)">' +
+          'Ahorro del hogar: <strong>' + escHtml(fmt(ahorro)) + '</strong>. ' +
+          'Tú recibes <strong>' + escHtml(fmt(miParte)) + '</strong>' +
+          (otroId ? ' · tu pareja recibe <strong>' + escHtml(fmt(otraParte)) + '</strong>' : '') +
+          '.' +
+        '</p>';
+      if (bal && bal.neto) {
+        var meDeben = bal.acreedor === uidActual;
+        html +=
+          '<p class="hogar-modal-body" style="color:var(--color-danger);margin:0">' +
+            '⚠ Hay un saldo de gastos pendiente (' +
+            (meDeben ? 'te deben ' : 'le debes ') + escHtml(fmt(bal.neto)) +
+            '). La disolución NO lo salda; sáldalo antes si quieres registrarlo.' +
+          '</p>';
+      }
+      return html;
+    }
+
     /* ── Render: con hogar ────────────────────────────────── */
     async function renderConHogar(estado) {
       var uidActual = (window.currentUser && window.currentUser.id) || null;
       var hogar     = estado.hogar || {};
       var miembros  = estado.miembros || [];
       var otro = (miembros.find(function (m) { return m.user_id !== uidActual; }) || {}).user_id || null;
+      var creadorId = (miembros.find(function (m) { return m.rol === 'creador'; }) || {}).user_id || uidActual;
 
-      // Balance (solo si hay un segundo miembro)
+      // Transacciones del hogar (RLS ya incluye las del otro miembro) + liquidaciones.
+      var txs = [], liqs = [];
+      try { txs = await window.getTransacciones({}); liqs = await window.getLiquidacionesHogar(); }
+      catch (e) { /* sin datos: balance y preview quedan en 0 */ }
+
+      // Balance "quién debe qué" (solo con un segundo miembro).
       var bal = { neto: 0, acreedor: null, deudor: null };
       if (otro && typeof window.calcularBalanceHogar === 'function') {
-        var txs  = await window.getTransacciones({});       // RLS ya incluye filas del hogar
-        var liqs = await window.getLiquidacionesHogar();
         bal = window.calcularBalanceHogar(txs, liqs, uidActual, otro);
       }
 
@@ -490,6 +533,7 @@
       }
 
       $('hogarBtnDisolver').addEventListener('click', function () {
+        $('hogarDisolverPreview').innerHTML = previewDisolucionHtml(txs, creadorId, otro, uidActual, bal);
         abrirModal('hogarDisolverModal');
         setTimeout(function () { $('hogarDisolverCancelar').focus(); }, 50);
       });

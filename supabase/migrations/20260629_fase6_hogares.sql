@@ -242,6 +242,12 @@ declare v_uid uuid := (select auth.uid()); v_hogar uuid := public.auth_hogar_id(
 begin
   if v_hogar is null then raise exception 'No perteneces a un hogar'; end if;
   if v_uid not in (p_de, p_a) then raise exception 'No autorizado'; end if;
+  if p_de = p_a then raise exception 'de_user y a_user no pueden ser el mismo'; end if;
+  -- ambas partes deben ser miembros del hogar del que salda (no uuids arbitrarios)
+  if (select count(*) from public.hogar_miembros
+        where hogar_id = v_hogar and user_id in (p_de, p_a)) <> 2 then
+    raise exception 'Ambas partes deben ser miembros del hogar';
+  end if;
   if p_monto is null or p_monto <= 0 then raise exception 'Monto inválido'; end if;
   insert into public.hogar_liquidaciones (hogar_id, de_user, a_user, monto, nota)
   values (v_hogar, p_de, p_a, round(p_monto,2), p_nota) returning id into v_id;

@@ -1423,16 +1423,22 @@ async function getEstadoHogar() {
   const { data: miembro, error } = await supabase
     .from('hogar_miembros').select('hogar_id, rol').limit(1).maybeSingle();
   if (error || !miembro) return null;
-  const { data: hogar } = await supabase
-    .from('hogares').select('*').eq('id', miembro.hogar_id).maybeSingle();
-  const { data: miembros } = await supabase
-    .from('hogar_miembros').select('user_id, rol, joined_at').eq('hogar_id', miembro.hogar_id);
-  const { data: codigo } = await supabase
-    .from('hogar_codigos').select('codigo, expira_at')
-    .eq('hogar_id', miembro.hogar_id).eq('usado', false)
-    .gt('expira_at', new Date().toISOString()).order('created_at', { ascending: false })
-    .limit(1).maybeSingle();
-  return { hogar, miembros: miembros || [], codigo: codigo || null, rol: miembro.rol };
+  // Las 3 lecturas son independientes → en paralelo (se re-ejecuta en cada
+  // evento realtime, así que evitamos 3 round-trips serializados).
+  const [hogarRes, miembrosRes, codigoRes] = await Promise.all([
+    supabase.from('hogares').select('*').eq('id', miembro.hogar_id).maybeSingle(),
+    supabase.from('hogar_miembros').select('user_id, rol, joined_at').eq('hogar_id', miembro.hogar_id),
+    supabase.from('hogar_codigos').select('codigo, expira_at')
+      .eq('hogar_id', miembro.hogar_id).eq('usado', false)
+      .gt('expira_at', new Date().toISOString()).order('created_at', { ascending: false })
+      .limit(1).maybeSingle(),
+  ]);
+  return {
+    hogar: hogarRes.data,
+    miembros: miembrosRes.data || [],
+    codigo: codigoRes.data || null,
+    rol: miembro.rol,
+  };
 }
 
 // crearHogar(nombre) — crea un hogar y agrega al usuario como creador.

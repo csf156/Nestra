@@ -161,7 +161,7 @@ Ingresos y aportes a metas NO entran a este balance (son del ahorro del hogar, s
    - La parte que le toca al miembro saliente (`pct_saliente · ahorro_hogar`) se registra como **liquidación final**: deuda del creador (que retiene las metas) hacia el saliente.
    - Las transacciones históricas conservan su `hogar_id` (quedan visibles para quien las creó; el otro las pierde al borrarse su membresía, salvo las suyas propias por `user_id`). Futuras transacciones de ambos son personales.
    - Se borran las membresías (cascade borra códigos; el hogar puede quedar como tombstone o borrarse — decisión de implementación: borrar el hogar tras reasignar).
-4. Devuelve un `jsonb` con el statement final: `{ pct_a, pct_b, ahorro, recibe_a, recibe_b, liquidacion_final }` para que la UI lo muestre.
+4. Devuelve un `jsonb` con el statement final: `{ pct_creador, ahorro, recibe_creador, recibe_otro }` para que la UI lo muestre.
 
 Salir = disolver (con 2 miembros, que uno salga disuelve el hogar). Confirmación explícita en UI antes de disolver.
 
