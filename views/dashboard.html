@@ -20,7 +20,7 @@
   <div class="dash-balances">
 
     <!-- Balance del hogar -->
-    <section class="card dash-balance-card" aria-labelledby="hogarTitle">
+    <section class="card dash-balance-card" id="dashHogarCard" aria-labelledby="hogarTitle" style="display:none">
       <h2 class="dash-card-title" id="hogarTitle">
         <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-home"></use></svg> Hogar
         <span class="dash-card-periodo" id="hogarPeriodo"></span>
@@ -627,10 +627,11 @@
           <span class="dash-line-label">Ahorros</span>
           <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorros))}</span>
         </div>
+        ${(typeof tieneHogar === 'function' && tieneHogar()) ? `
         <div class="dash-line dash-line--aporte">
           <span class="dash-line-label">↳ de eso, aporte al hogar</span>
           <span class="dash-line-value">${esc(formatMonto(b.aporte_realizado))}</span>
-        </div>
+        </div>` : ''}
         <div class="dash-neto">
           <div>
             <span class="dash-neto-label">Balance acumulado</span>
@@ -759,13 +760,14 @@
         const esIngreso = t.tipo === 'ingreso';
         const signo = esIngreso ? '+' : '−';
         const cls = esIngreso ? 'dash-tx-monto--ingreso' : 'dash-tx-monto--gasto';
+        const mostrarBadge = (typeof tieneHogar === 'function') && tieneHogar();
         const badge = t.ambito === 'hogar' ? 'hogar' : 'personal';
         const badgeTxt = t.ambito === 'hogar' ? 'Hogar' : 'Personal';
         return `<div class="dash-tx">
           <div class="dash-tx-main">
             <span class="dash-tx-cat">${(typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : ''}${esc(cat)}</span>
             <span class="dash-tx-meta">
-              <span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>
+              ${mostrarBadge ? `<span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>` : ''}
               ${esc(formatFecha(t.fecha))}
             </span>
           </div>
@@ -896,10 +898,22 @@
       if (todoFallo) $('dashConnError').style.display = 'flex';
     })();
 
+    // Gating Fase 6.1: la card "Balance del hogar" solo si el usuario tiene hogar.
+    (function aplicarGatingHogar() {
+      function aplicar() {
+        var card = document.getElementById('dashHogarCard');
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (card) card.style.display = hay ? '' : 'none';
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
+
     // ── Fase 6 — "Quién debe qué" (card solo si hay hogar compartido) ──
     // Carga aparte: es opcional y no debe tumbar el resto del dashboard.
     (async function cargarDeudaHogar() {
       try {
+        if (typeof tieneHogar === 'function' && !tieneHogar()) return; // gating Fase 6.1
         if (typeof getEstadoHogar !== 'function') return;
         const estado = await getEstadoHogar();
         if (!estado || !estado.hogar) return;
