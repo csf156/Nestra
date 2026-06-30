@@ -2,7 +2,7 @@
 // Runtime-agnostic (lo importa la Edge Function Deno; los tests corren en node).
 
 export interface Aviso {
-  tipo: 'presupuesto' | 'meta' | 'prestamo';
+  tipo: 'presupuesto' | 'meta' | 'prestamo' | 'recurrente';
   ref_id: string;
   clave_dedupe: string;
   title: string;
@@ -90,6 +90,33 @@ export function detectarPrestamos(prestamos: PrestamoRow[], hoy: Date): Aviso[] 
         url: '/#/prestamos',
       });
     }
+  }
+  return out;
+}
+
+export interface RecurrenteRow {
+  id: string; descripcion: string; monto: number; tipo: string;
+  activo: boolean; proximo_cargo: string | null;
+}
+const DIAS_ANTICIPACION_RECURRENTE = 3;
+function diasHasta(fechaISO: string, hoy: Date): number {
+  const d = new Date(fechaISO + 'T00:00:00Z').getTime();
+  const hoyUTC = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
+  return Math.floor((d - hoyUTC) / (1000 * 60 * 60 * 24));
+}
+export function detectarRecurrentesProximos(recurrentes: RecurrenteRow[], hoy: Date): Aviso[] {
+  const mes = periodoMes(hoy);
+  const out: Aviso[] = [];
+  for (const r of recurrentes) {
+    if (!r.activo || !r.proximo_cargo) continue;
+    const dias = diasHasta(r.proximo_cargo, hoy);
+    if (dias < 0 || dias > DIAS_ANTICIPACION_RECURRENTE) continue;
+    out.push({
+      tipo: 'recurrente', ref_id: r.id, clave_dedupe: `recurrente:${r.id}:${mes}`,
+      title: 'Cargo recurrente próximo',
+      body: `${r.descripcion} ($${r.monto}) se cobra el ${r.proximo_cargo}.`,
+      url: '/#/configuracion',
+    });
   }
   return out;
 }

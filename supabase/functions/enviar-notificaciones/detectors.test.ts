@@ -2,7 +2,9 @@
 // `node --experimental-strip-types --test`. detectors.ts no depende de node ni deno.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { detectarPresupuestos, detectarMetas, detectarPrestamos } from './detectors.ts';
+import {
+  detectarPresupuestos, detectarMetas, detectarPrestamos, detectarRecurrentesProximos,
+} from './detectors.ts';
 
 const HOY = new Date('2026-06-23T08:00:00Z');
 
@@ -68,4 +70,51 @@ test('prestamo: pendiente <=30 días NO produce aviso', () => {
   const prestamos = [{ id: 'l1', deudor: 'Ana', estado: 'pendiente', fecha: '2026-06-10', monto: 50, tipo: 'gasto' }];
   const r = detectarPrestamos(prestamos, HOY);
   assert.equal(r.length, 0);
+});
+
+test('recurrente: proximo_cargo dentro de 3 días produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Netflix', monto: 15, tipo: 'gasto', activo: true, proximo_cargo: '2026-06-25' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].clave_dedupe, 'recurrente:r1:2026-06');
+  assert.equal(r[0].tipo, 'recurrente');
+  assert.equal(r[0].title, 'Cargo recurrente próximo');
+  assert.equal(r[0].body, 'Netflix ($15) se cobra el 2026-06-25.');
+});
+
+test('recurrente: proximo_cargo hoy produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Renta', monto: 500, tipo: 'gasto', activo: true, proximo_cargo: '2026-06-23' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 1);
+});
+
+test('recurrente: proximo_cargo lejano (>3 días) NO produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Netflix', monto: 15, tipo: 'gasto', activo: true, proximo_cargo: '2026-06-30' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 0);
+});
+
+test('recurrente: proximo_cargo ya pasado NO produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Netflix', monto: 15, tipo: 'gasto', activo: true, proximo_cargo: '2026-06-20' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 0);
+});
+
+test('recurrente: inactivo (activo=false) NO produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Netflix', monto: 15, tipo: 'gasto', activo: false, proximo_cargo: '2026-06-25' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 0);
+});
+
+test('recurrente: sin proximo_cargo (null) NO produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Netflix', monto: 15, tipo: 'gasto', activo: true, proximo_cargo: null }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 0);
+});
+
+test('recurrente: ingreso fijo también produce aviso', () => {
+  const recs = [{ id: 'r1', descripcion: 'Sueldo', monto: 1000, tipo: 'ingreso', activo: true, proximo_cargo: '2026-06-24' }];
+  const r = detectarRecurrentesProximos(recs, HOY);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].url, '/#/configuracion');
 });
