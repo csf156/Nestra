@@ -382,6 +382,11 @@
 
     /* ── Render Hogar ─────────────────────────────────────── */
     function renderHogar(actual, prev) {
+      // Gating Fase 6.1: la sección hogar solo aparece con hogar.
+      if (!(typeof tieneHogar === 'function' && tieneHogar())) {
+        $('resHogarSection').style.display = 'none';
+        return;
+      }
       $('resHogarKpis').innerHTML =
         kpiCard('Ingresos', actual.ingresos, calcDelta(actual.ingresos, prev.ingresos), false, 'pos') +
         kpiCard('Gastos',   actual.gastos,   calcDelta(actual.gastos,   prev.gastos),   true,  'neg') +
@@ -392,10 +397,11 @@
 
     /* ── Render Personal ──────────────────────────────────── */
     function renderPersonal(actual, prev) {
+      var hayHogar = (typeof tieneHogar === 'function') && tieneHogar();
       $('resPersonalKpis').innerHTML =
         kpiCard('Ingresos',        actual.ingresos,         calcDelta(actual.ingresos,         prev.ingresos),         false, 'pos') +
         kpiCard('Gastos',          actual.gastos,           calcDelta(actual.gastos,            prev.gastos),           true,  'neg') +
-        kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, 'neutral') +
+        (hayHogar ? kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, 'neutral') : '') +
         kpiCard('Balance',         actual.balance,          calcDelta(actual.balance,           prev.balance),          false, 'balance');
       $('resPersonalSection').style.display = 'block';
       $('resPersonalSection').style.opacity = '1';

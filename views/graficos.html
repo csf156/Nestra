@@ -12,8 +12,8 @@
       </div>
     </header>
     <div class="graf-toggle" role="group" aria-label="Ámbito">
-      <button type="button" class="graf-seg graf-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
-      <button type="button" class="graf-seg" data-ambito="personal" aria-pressed="false">Personal</button>
+      <button type="button" class="graf-seg" data-ambito="hogar" aria-pressed="false">Hogar</button>
+      <button type="button" class="graf-seg graf-seg--active" data-ambito="personal" aria-pressed="true">Personal</button>
     </div>
   </div>
 
@@ -167,7 +167,7 @@
     function $(id) { return document.getElementById(id); }
 
     var hoy = mesActual();
-    var estado = { mes: hoy.mes, anio: hoy.anio, ambito: 'hogar' };
+    var estado = { mes: hoy.mes, anio: hoy.anio, ambito: 'personal' };
     var charts = {};
     var cargaToken = 0;
 
@@ -248,16 +248,18 @@
       var recurrentes = await getRecurrentes();
 
       if (ambito === 'personal') {
+        // Scoping Fase 6.1: personal = filas sin hogar_id (incluye legacy hogar sin hogar).
+        var soloPersonal = function (a) { return (a || []).filter(function (x) { return x.hogar_id == null; }); };
         var resPers = await Promise.all([
-          getTransacciones({ ambito: 'personal', fecha_desde: r.desde, fecha_hasta: r.hasta }),
-          getTransacciones({ ambito: 'personal', fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }),
+          getTransacciones({ fecha_desde: r.desde, fecha_hasta: r.hasta }).then(soloPersonal),
+          getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }).then(soloPersonal),
           Promise.all(meses6.map(function (x) { return getBalancePersonal(x.mes, x.anio); })),
           getMetas(),
         ]);
         var txMesP = resPers[0] || [];
         var balP = await getBalancePersonal(m, a);
         var metasP = (resPers[3] || []).filter(function (x) {
-          return x.ambito === 'personal' && Number(x.monto_actual) < Number(x.monto_objetivo);
+          return x.hogar_id == null && Number(x.monto_actual) < Number(x.monto_objetivo);
         });
         var aportesP = await Promise.all(metasP.map(function (mt) { return getAportesDeMeta(mt.id); }));
         return {
@@ -276,7 +278,8 @@
       }
 
       var resHog = await Promise.all([
-        getTransacciones({ ambito: 'hogar', fecha_desde: r.desde, fecha_hasta: r.hasta }),
+        getTransacciones({ fecha_desde: r.desde, fecha_hasta: r.hasta })
+          .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
         getAportesPorMiembro(m, a),
@@ -284,7 +287,7 @@
         getMetas(),
       ]);
       var metasH = (resHog[5] || []).filter(function (x) {
-        return x.ambito === 'hogar' && Number(x.monto_actual) < Number(x.monto_objetivo);
+        return x.hogar_id != null && Number(x.monto_actual) < Number(x.monto_objetivo);
       });
       var aportesH = await Promise.all(metasH.map(function (mt) { return getAportesDeMeta(mt.id); }));
       return {
@@ -813,6 +816,18 @@
     Array.prototype.forEach.call(document.querySelectorAll('.graf-seg'), function (b) {
       b.addEventListener('click', function () { setAmbito(b.getAttribute('data-ambito')); });
     });
+
+    // Gating Fase 6.1: sin hogar, solo vista personal; ocultar el selector de ámbito.
+    (function gateAmbitoGraf() {
+      var toggle = document.querySelector('.graf-toggle');
+      function aplicar() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (toggle) toggle.style.display = hay ? '' : 'none';
+        if (!hay && estado.ambito !== 'personal') setAmbito('personal');
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
 
     if (typeof Chart === 'undefined') {
       for (var n = 1; n <= 9; n++) setEstado(n, 'error');
