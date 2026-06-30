@@ -564,8 +564,14 @@
     .cfg-cat-nombre-wrap { flex: 1; min-width: 0; }
     .cfg-cat-nombre-text {
       font-weight: var(--font-weight-medium);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      display: block;
+      /* Nombre completo en hasta 2 líneas (evita truncado agresivo a 390px). */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      line-height: 1.25;
     }
     .cfg-cat-nombre-input {
       width: 100%;
@@ -1354,7 +1360,9 @@
         // Render lista
         var ul = $('recLista');
         if (!(lista && lista.length)) {
-          ul.innerHTML = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">Aún no tienes recurrentes.</li>';
+          ul.innerHTML = '<li>' + ((typeof renderEmptyState === 'function')
+            ? renderEmptyState({ icon: 'repeat', title: 'Aún no tienes recurrentes', desc: 'Registra suscripciones e ingresos fijos para alimentar la proyección de saldo.' })
+            : 'Aún no tienes recurrentes.') + '</li>';
         } else {
           ul.innerHTML = lista.map(function (r) {
             var cat   = catById[r.categoria_id] || null;
