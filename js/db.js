@@ -347,7 +347,7 @@ async function getBalanceHogar(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -377,8 +377,8 @@ async function getBalancePersonal(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto, aporte_id')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -409,7 +409,7 @@ async function getSaldoAcumuladoHogar() {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0;
@@ -432,8 +432,8 @@ async function getSaldoAcumuladoPersonal() {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto, aporte_id')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0, aporte_realizado = 0;
@@ -461,7 +461,7 @@ async function getAhorrosHogar(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .eq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -482,8 +482,8 @@ async function getAhorrosPersonal(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('monto')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .eq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -574,12 +574,13 @@ async function getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta)
   try {
     const txs = await getTransacciones({
       categoria_id: categoria_id,
-      ambito: ambito,
       tipo: 'gasto',
       fecha_desde: fecha_desde,
       fecha_hasta: fecha_hasta,
     });
-    return (txs || []).reduce((acc, t) => acc + Number(t.monto), 0);
+    // Scoping por hogar_id (Fase 6.1): hogar = filas con hogar_id; personal = sin él.
+    const enAmbito = (t) => (ambito === 'hogar' ? t.hogar_id != null : t.hogar_id == null);
+    return (txs || []).filter(enAmbito).reduce((acc, t) => acc + Number(t.monto), 0);
   } catch (err) {
     console.error('Error en getGastoCategoria():', err.message || err);
     return 0;
