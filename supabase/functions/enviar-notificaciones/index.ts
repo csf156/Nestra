@@ -4,7 +4,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 import {
-  detectarPresupuestos, detectarMetas, detectarPrestamos, type Aviso,
+  detectarPresupuestos, detectarMetas, detectarPrestamos, detectarRecurrentesProximos, type Aviso,
 } from './detectors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -113,10 +113,21 @@ async function evaluarUsuario(
     tipo: (p.transacciones as { tipo: string } | null)?.tipo ?? null,
   }));
 
+  // Recurrentes activos del usuario (Fase 4) con proximo_cargo próximo.
+  const { data: recs } = await db
+    .from('recurrentes')
+    .select('id, descripcion, monto, tipo, activo, proximo_cargo')
+    .eq('user_id', userId).eq('activo', true);
+  const recurrentesRows = (recs || []).map((r) => ({
+    id: r.id, descripcion: r.descripcion, monto: Number(r.monto),
+    tipo: r.tipo, activo: r.activo, proximo_cargo: r.proximo_cargo,
+  }));
+
   return [
     ...detectarPresupuestos(categoriasPresup, gastoPorCat, hoy),
     ...detectarMetas(metasRows, conAporte, hoy),
     ...detectarPrestamos(prestamosRows, hoy),
+    ...detectarRecurrentesProximos(recurrentesRows, hoy),
   ];
 }
 
