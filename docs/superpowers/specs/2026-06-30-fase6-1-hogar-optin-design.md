@@ -54,7 +54,7 @@ Mecanismo: cada vista consulta `tieneHogar()` en su render y aplica `hidden`/`di
 ## Parte 3 — Vista #hogar (centro de control)
 
 Mantiene lo de Fase 6 (miembros, código, "quién debe qué" + saldar, salir/disolver, preview de disolución). **Añade:**
-- **Aporte real vs esperado por miembro** (del mes en curso): por cada miembro, una barra con `real / esperado`. `real` = Σ ingresos del miembro con `hogar_id` del hogar en el mes (`tipo='ingreso'`, `hogar_id = hogar`, `user_id = miembro`). `esperado` = `hogar_miembros.aporte_esperado` (Parte 4). Si `esperado=0`, mostrar solo el real sin barra.
+- **Aporte real vs esperado por miembro** (del mes en curso): por cada miembro, una barra con `real / esperado`. `real` = todo lo que el miembro puso al hogar en el mes = Σ (`tipo='ingreso'`, `hogar_id = hogar`, `user_id = miembro`) + Σ (`tipo='gasto'`, `hogar_id = hogar`, `user_id = miembro`). Refleja parejas que financian el hogar tanto con ingresos al pozo como pagando gastos compartidos directo. `esperado` = `hogar_miembros.aporte_esperado` (Parte 4). Si `esperado=0`, mostrar solo el real sin barra. (Nota: se solapa a propósito con la base del balance 50/50 "quién debe qué" — son dos lecturas distintas: aporte total al hogar vs neto entre miembros.)
 - **Botón "Configuración del hogar →"** que navega a `#configuracion` (a la sección Hogar). `#hogar` NO contiene controles de config; solo el enlace.
 
 ## Parte 4 — Configuración › sección "Hogar" (scaffold en 6.1)
