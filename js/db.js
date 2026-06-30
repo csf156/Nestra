@@ -1427,18 +1427,35 @@ async function getEstadoHogar() {
   // evento realtime, así que evitamos 3 round-trips serializados).
   const [hogarRes, miembrosRes, codigoRes] = await Promise.all([
     supabase.from('hogares').select('*').eq('id', miembro.hogar_id).maybeSingle(),
-    supabase.from('hogar_miembros').select('user_id, rol, joined_at').eq('hogar_id', miembro.hogar_id),
+    supabase.from('hogar_miembros').select('user_id, rol, joined_at, aporte_esperado').eq('hogar_id', miembro.hogar_id),
     supabase.from('hogar_codigos').select('codigo, expira_at')
       .eq('hogar_id', miembro.hogar_id).eq('usado', false)
       .gt('expira_at', new Date().toISOString()).order('created_at', { ascending: false })
       .limit(1).maybeSingle(),
   ]);
-  return {
+  const estado = {
     hogar: hogarRes.data,
     miembros: miembrosRes.data || [],
     codigo: codigoRes.data || null,
     rol: miembro.rol,
   };
+  if (typeof window !== 'undefined') window.hogarState = estado;
+  return estado;
+}
+
+// tieneHogar() — true si el usuario pertenece a un hogar (estado cacheado).
+function tieneHogar() {
+  return !!(typeof window !== 'undefined' && window.hogarState && window.hogarState.hogar);
+}
+
+// _refrescarHogarState() — re-cachea window.hogarState vía getEstadoHogar y
+// emite el evento 'hogar:changed' para que el UI gated se re-renderice.
+async function _refrescarHogarState() {
+  try { await getEstadoHogar(); }      // getEstadoHogar ya cachea en window.hogarState
+  catch (e) { if (typeof window !== 'undefined') window.hogarState = null; }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('hogar:changed'));
+  }
 }
 
 // crearHogar(nombre) — crea un hogar y agrega al usuario como creador.
@@ -1446,6 +1463,7 @@ async function getEstadoHogar() {
 async function crearHogar(nombre) {
   const { data, error } = await supabase.rpc('crear_hogar', { p_nombre: nombre });
   if (error) throw error;
+  await _refrescarHogarState();
   return data;
 }
 
@@ -1462,6 +1480,7 @@ async function generarCodigoHogar() {
 async function unirseHogar(codigo) {
   const { data, error } = await supabase.rpc('unirse_hogar', { p_codigo: codigo });
   if (error) throw error;
+  await _refrescarHogarState();
   return data;
 }
 
@@ -1480,7 +1499,24 @@ async function saldarHogar(deUser, aUser, monto, nota) {
 async function disolverHogar() {
   const { data, error } = await supabase.rpc('disolver_hogar');
   if (error) throw error;
+  await _refrescarHogarState();
   return data;
+}
+
+// setAporteEsperado(miembroUserId, monto) — fija el aporte esperado mensual de un
+// miembro del hogar (RPC set_aporte_esperado). Refresca el estado. Lanza en fallo.
+async function setAporteEsperado(miembroUserId, monto) {
+  const { error } = await supabase.rpc('set_aporte_esperado', { p_miembro: miembroUserId, p_monto: monto });
+  if (error) throw error;
+  await _refrescarHogarState();
+}
+
+// renombrarHogar(nombre) — renombra el hogar del usuario (RPC renombrar_hogar).
+// Refresca el estado. Lanza en fallo.
+async function renombrarHogar(nombre) {
+  const { error } = await supabase.rpc('renombrar_hogar', { p_nombre: nombre });
+  if (error) throw error;
+  await _refrescarHogarState();
 }
 
 // getLiquidacionesHogar() — liquidaciones del hogar (para el cálculo del balance en cliente).
