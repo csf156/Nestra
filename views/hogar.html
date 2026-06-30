@@ -470,6 +470,26 @@
           '</div>';
       }
 
+      // ── Bloque aporte real vs esperado por miembro (mes en curso) ──
+      var hoyD = new Date();
+      var rangoMes = {
+        desde: new Date(hoyD.getFullYear(), hoyD.getMonth(), 1).toISOString().slice(0, 10),
+        hasta: new Date(hoyD.getFullYear(), hoyD.getMonth() + 1, 0).toISOString().slice(0, 10),
+      };
+      var aporteCard = '<div class="hogar-card"><h2 class="hogar-card-title">Aporte del mes</h2>' +
+        miembros.map(function (m) {
+          var real = (typeof window.aporteRealPorMiembro === 'function')
+            ? window.aporteRealPorMiembro(txs, m.user_id, rangoMes) : 0;
+          var esp = Number(m.aporte_esperado) || 0;
+          var quien = (m.user_id === uidActual) ? 'Tú' : 'Tu pareja';
+          var detalle = esp > 0
+            ? escHtml(fmt(real)) + ' de ' + escHtml(fmt(esp)) + ' (' + Math.min(100, Math.round(real / esp * 100)) + '%)'
+            : escHtml(fmt(real)) + ' (sin meta de aporte)';
+          return '<p class="hogar-card-sub" style="margin:0 0 2px"><strong>' + escHtml(quien) + '</strong></p>' +
+                 '<p class="hogar-balance-sub" style="margin:0 0 8px">' + detalle + '</p>';
+        }).join('') +
+        '</div>';
+
       cont.innerHTML =
         '<div class="hogar-card">' +
           '<div class="hogar-meta-row">' +
@@ -480,6 +500,10 @@
           codHtml +
         '</div>' +
         balCard +
+        aporteCard +
+        '<div class="hogar-card">' +
+          '<button type="button" class="btn btn-secondary btn-sm" id="hogarBtnConfig">Configuración del hogar →</button>' +
+        '</div>' +
         '<div class="hogar-card hogar-peligro">' +
           '<p class="hogar-peligro-label">Zona de peligro</p>' +
           '<p class="hogar-peligro-desc">Disolver el hogar reparte el ahorro y reasigna las metas compartidas al creador.</p>' +
@@ -487,6 +511,9 @@
         '</div>';
 
       // ── Listeners ──
+      var btnConfig = $('hogarBtnConfig');
+      if (btnConfig) btnConfig.addEventListener('click', function () { location.hash = '#configuracion'; });
+
       var btnCopiar = $('hogarBtnCopiar');
       if (btnCopiar) {
         btnCopiar.addEventListener('click', function () {
