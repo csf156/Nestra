@@ -874,10 +874,6 @@
                 '<label class="cfg-label" for="cfgPNombre">Nombre</label>' +
                 '<input id="cfgPNombre" class="cfg-input" type="text" value="' + escHtml(p.nombre || '') + '" maxlength="50">' +
               '</div>' +
-              '<div class="cfg-input-group">' +
-                '<label class="cfg-label" for="cfgPAporte">Aporte mensual esperado (S/)</label>' +
-                '<input id="cfgPAporte" class="cfg-input" type="number" value="' + escHtml(String(p.aporte_mensual_esperado != null ? p.aporte_mensual_esperado : '')) + '" min="0" step="0.01">' +
-              '</div>' +
             '</div>' +
             '<div class="cfg-perfil-acciones">' +
               '<button type="button" class="btn btn-primary btn-sm" id="cfgPGuardar" style="display:none">Guardar</button>' +
@@ -889,37 +885,29 @@
               '<span class="cfg-perfil-nombre">' + escHtml(p.nombre || '—') + '</span>' +
               '<span class="cfg-perfil-badge">otro miembro</span>' +
             '</div>' +
-            '<p class="cfg-perfil-readonly">Aporte esperado: ' + escHtml(formatMonto(p.aporte_mensual_esperado || 0)) + '</p>' +
           '</div>';
         }
       }).join('');
 
       var nInput = $('cfgPNombre');
-      var aInput = $('cfgPAporte');
       var btnG   = $('cfgPGuardar');
       if (!nInput) return;
 
       var _origN = nInput.value;
-      var _origA = aInput.value;
 
       function checkDirty() {
-        var dirty = nInput.value !== _origN || aInput.value !== _origA;
+        var dirty = nInput.value !== _origN;
         btnG.style.display = dirty ? 'inline-flex' : 'none';
       }
       nInput.addEventListener('input', checkDirty);
-      aInput.addEventListener('input', checkDirty);
 
       btnG.addEventListener('click', async function () {
         var nombre = nInput.value.trim();
         if (!nombre) { mostrarToast('El nombre no puede estar vacío', 3000); return; }
         btnG.disabled = true;
         try {
-          await updateProfile({
-            nombre: nombre,
-            aporte_mensual_esperado: parseFloat(aInput.value) || 0,
-          });
+          await updateProfile({ nombre: nombre });
           _origN = nInput.value;
-          _origA = aInput.value;
           btnG.style.display = 'none';
           mostrarToast('Perfil guardado', 3000);
         } catch (err) {

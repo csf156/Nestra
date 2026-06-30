@@ -705,27 +705,35 @@ async function getProfiles() {
 async function getAportesPorMiembro(mes, anio) {
   try {
     const { desde, hasta } = _rangoMes(mes, anio);
-    const [profiles, txs] = await Promise.all([
-      getProfiles(),
-      supabase
-        .from('transacciones')
-        .select('user_id, monto')
-        .not('aporte_id', 'is', null)
-        .gte('fecha', desde)
-        .lte('fecha', hasta),
-    ]);
-    if (txs.error) throw txs.error;
+    const uid = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.id : null;
+    // Miembros del hogar + su aporte esperado (hogar_miembros, visible entre
+    // miembros vía RLS). Fuente única de "aporte esperado" (Fase 6.1).
+    const { data: miembros, error: errM } = await supabase
+      .from('hogar_miembros').select('user_id, aporte_esperado');
+    if (errM) throw errM;
+    if (!miembros || !miembros.length) return [];
+
+    // Real = todo lo que el miembro puso al hogar en el mes (ingresos + gastos
+    // del hogar que pagó). Consistente con aporteRealPorMiembro de #hogar.
+    const { data: txs, error: errT } = await supabase
+      .from('transacciones')
+      .select('user_id, tipo, monto')
+      .not('hogar_id', 'is', null)
+      .in('tipo', ['ingreso', 'gasto'])
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (errT) throw errT;
 
     const realPorUser = new Map();
-    (txs.data || []).forEach((t) => {
+    (txs || []).forEach((t) => {
       realPorUser.set(t.user_id, (realPorUser.get(t.user_id) || 0) + Number(t.monto));
     });
 
-    return (profiles || []).map((p) => ({
-      user_id: p.user_id,
-      nombre: p.nombre,
-      esperado: Number(p.aporte_mensual_esperado) || 0,
-      real: realPorUser.get(p.user_id) || 0,
+    return miembros.map((m) => ({
+      user_id: m.user_id,
+      nombre: (m.user_id === uid) ? 'Tú' : 'Pareja',
+      esperado: Number(m.aporte_esperado) || 0,
+      real: realPorUser.get(m.user_id) || 0,
     }));
   } catch (err) {
     console.error('Error en getAportesPorMiembro():', err.message || err);
@@ -734,7 +742,7 @@ async function getAportesPorMiembro(mes, anio) {
 }
 
 // updateProfile(datos) — actualiza el perfil del usuario activo.
-// datos: { nombre?, aporte_mensual_esperado? }
+// datos: { nombre? }  (el aporte esperado del hogar vive en hogar_miembros, Fase 6.1)
 // RLS solo permite editar el propio perfil (user_id = auth.uid()).
 // Returns: fila actualizada. Lanza Error en fallo.
 async function updateProfile(datos) {
