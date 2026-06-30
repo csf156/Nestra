@@ -836,6 +836,18 @@
     btnAmbitoPersonal.addEventListener('click', () => _setAmbito('personal'));
     btnAmbitoHogar.addEventListener('click',    () => _setAmbito('hogar'));
 
+    // Gating Fase 6.1: sin hogar, no se ofrece el ámbito hogar.
+    (function gateAmbito() {
+      var fila = btnAmbitoPersonal.closest('.tx-toggle-group, .form-group, .tx-seg, .tx-toggle, .form-row, fieldset') || btnAmbitoPersonal.parentElement;
+      function aplicar() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (fila) fila.style.display = hay ? '' : 'none';
+        if (!hay && typeof _setAmbito === 'function') _setAmbito('personal');
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
+
     // ── Aporte al hogar ───────────────────────────────────────
     function _mostrarAporteHogar() {
       // En edición no ofrecemos convertir en aporte (rompería la mitad ya existente).

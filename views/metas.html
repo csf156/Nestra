@@ -458,6 +458,26 @@
         });
       });
     });
+
+    // Gating Fase 6.1: sin hogar, no se ofrece el ámbito hogar; meta queda personal.
+    (function gateAmbitoMeta() {
+      var seg = document.querySelector('.metas-seg');
+      var fila = seg ? (seg.closest('.metas-flabel') || seg.parentElement) : null;
+      function _setPersonal() {
+        estadoForm.ambito = 'personal';
+        Array.prototype.forEach.call(document.querySelectorAll('.metas-seg'), function (x) {
+          var on = x.getAttribute('data-ambito') === 'personal';
+          x.classList.toggle('metas-seg--active', on); x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+      function aplicar() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (fila) fila.style.display = hay ? '' : 'none';
+        if (!hay) _setPersonal();
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
     $('metaForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       var err = $('metaError');
