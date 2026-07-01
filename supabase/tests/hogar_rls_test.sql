@@ -157,6 +157,37 @@ begin
   if not v_ok then raise exception 'FALLO: unirse_hogar aceptó un código inválido (000000)'; end if;
 end $$;
 
+-- ── ASSERT 6 (write-path): A puede VER pero NO modificar la fila hogar de B ──
+-- La policy SELECT comparte; las de UPDATE/DELETE siguen owner-scoped (Fase 0).
+do $$
+declare v_n int;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub','11111111-1111-1111-1111-111111111111','role','authenticated')::text, true);
+  set local role authenticated;
+  with upd as (
+    update public.transacciones set monto = 1 where nota = 'B-hogar' returning 1
+  )
+  select count(*) into v_n from upd;
+  reset role;
+  perform set_config('request.jwt.claims', '{}', true);
+  if v_n <> 0 then raise exception 'FALLO: A modificó % filas hogar de B (UPDATE debía afectar 0)', v_n; end if;
+end $$;
+
+-- ── ASSERT 7: set_aporte_esperado rechaza a un no-miembro (C) ─────────
+do $$
+declare v_ok boolean := false;
+begin
+  perform set_config('request.jwt.claims', json_build_object('sub','22222222-2222-2222-2222-222222222222','role','authenticated')::text, true);
+  set local role authenticated;
+  begin
+    -- B (miembro) intenta fijar el aporte de C (no-miembro) → debe fallar
+    perform public.set_aporte_esperado('33333333-3333-3333-3333-333333333333', 100);
+  exception when others then v_ok := true; end;
+  reset role;
+  perform set_config('request.jwt.claims', '{}', true);
+  if not v_ok then raise exception 'FALLO: set_aporte_esperado aceptó un user fuera del hogar'; end if;
+end $$;
+
 -- ── Teardown final ───────────────────────────────────────────────────
 drop table if exists _hogar_test_codigo;
 delete from public.transacciones where user_id in (
