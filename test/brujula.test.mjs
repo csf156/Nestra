@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { calcularRango } from '../js/brujula.js';
+
+const HOY = new Date(2026, 6, 1); // 2026-07-01
+
+// Métricas base: presupuesto 300, gastado 100, buena liquidez, ritmo normal.
+function metricas(over = {}) {
+  return Object.assign({
+    limite: 300, gastoMes: 100,
+    ingresos: 2000, gastos: 800, recurrentesPendientes: 200, colchonMetas: 100,
+    gastoSemana: 40, diasSemana: 7, diasMes: 31,
+  }, over);
+}
+const CAT = { nombre: 'Bicicleta', limite_mensual: 300, esencial: false };
+
+test('sin monto → nivel consulta con rango cómodo y tope', () => {
+  const r = calcularRango(0, metricas(), CAT);
+  assert.equal(r.nivel, 'consulta');
+  // margenCat = 300-100 = 200; liquidez = 2000-800-200-100 = 900; tope = min(200,900) = 200
+  assert.equal(r.tope, 200);
+  assert.equal(r.comodo, 200); // ritmo normal → cómodo = tope
+});
+
+test('ritmo rápido reduce el cómodo (70% del tope)', () => {
+  // gastoSemana alto: 200 en 7 días → ritmoSemanal 200 > objetivoSemanal (300*7/31≈67.7)
+  const r = calcularRango(0, metricas({ gastoSemana: 200 }), CAT);
+  assert.equal(r.tope, 200);
+  assert.equal(r.comodo, 140); // round(200*0.7)
+});
+
+test('monto ≤ cómodo → recomendable', () => {
+  const r = calcularRango(120, metricas(), CAT);
+  assert.equal(r.nivel, 'recomendable');
+});
+
+test('cómodo < monto ≤ tope → cautela', () => {
+  const r = calcularRango(180, metricas({ gastoSemana: 200 }), CAT); // cómodo 140, tope 200
+  assert.equal(r.nivel, 'cautela');
+});
+
+test('monto > tope → no', () => {
+  const r = calcularRango(250, metricas(), CAT); // tope 200
+  assert.equal(r.nivel, 'no');
+});
+
+test('sin presupuesto de categoría → cae a liquidez, sin bloquear', () => {
+  const catSin = { nombre: 'Ocio', limite_mensual: null, esencial: false };
+  const r = calcularRango(0, metricas({ limite: null }), catSin);
+  assert.equal(r.nivel, 'consulta');
+  assert.equal(r.tope, 900); // liquidez completa
+  assert.equal(r.comodo, 900);
+});
+
+test('sin liquidez → sin-margen', () => {
+  const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // liquidez = 900-800-200-100 = -200 → 0
+  assert.equal(r.nivel, 'sin-margen');
+  assert.equal(r.tope, 0);
+});
