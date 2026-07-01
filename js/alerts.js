@@ -85,9 +85,10 @@ function _alerta(nivel, origen, mensaje, contexto = {}) {
 // Solo categorías con limite_mensual definido (> 0).
 async function _alertasCategorias(mes, anio) {
   try {
-    const [categorias, resumen] = await Promise.all([
+    const [categorias, resumen, gastoHogar] = await Promise.all([
       getCategorias('gasto'),
       getResumenMensual(mes, anio),
+      (typeof getGastoHogarPorCategoria === 'function') ? getGastoHogarPorCategoria(mes, anio) : {},
     ]);
 
     // Mapa categoria_id → gasto total del mes.
@@ -117,6 +118,27 @@ async function _alertasCategorias(mes, anio) {
           `"${cat.nombre}" va al ${pct}% de su límite: ${formatMonto(gastado)} de ${formatMonto(limite)}.`,
           { categoria_id: cat.id, nombre: cat.nombre, gastado, limite, pct }
         ));
+      }
+
+      // Presupuesto del hogar (Fase 6.2): limite_mensual_hogar vs gasto del hogar.
+      const limiteH = Number(cat.limite_mensual_hogar);
+      if (limiteH > 0) {
+        const gastadoH = Number((gastoHogar || {})[cat.id] || 0);
+        const ratioH = gastadoH / limiteH;
+        const pctH = Math.round(ratioH * 100);
+        if (ratioH >= 1) {
+          alertas.push(_alerta(
+            'critica', 'categoria',
+            `Superaste el presupuesto del hogar de "${cat.nombre}": ${formatMonto(gastadoH)} de ${formatMonto(limiteH)} (${pctH}%).`,
+            { categoria_id: cat.id, nombre: cat.nombre, gastado: gastadoH, limite: limiteH, pct: pctH, ambito: 'hogar' }
+          ));
+        } else if (ratioH * 100 >= ALERT_UMBRAL_CATEGORIA_SUAVE) {
+          alertas.push(_alerta(
+            'suave', 'categoria',
+            `El presupuesto del hogar de "${cat.nombre}" va al ${pctH}%: ${formatMonto(gastadoH)} de ${formatMonto(limiteH)}.`,
+            { categoria_id: cat.id, nombre: cat.nombre, gastado: gastadoH, limite: limiteH, pct: pctH, ambito: 'hogar' }
+          ));
+        }
       }
     });
     return alertas;
