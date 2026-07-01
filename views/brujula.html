@@ -1,0 +1,394 @@
+<div class="dec">
+  <header class="dec-header">
+    <h1 class="dec-title">Brújula</h1>
+    <p class="dec-sub">Consulta antes de gastar</p>
+  </header>
+
+  <div class="dec-estado" id="decEstado" data-salud="" aria-live="polite"></div>
+
+  <form class="dec-form" id="decForm">
+    <div class="dec-field">
+      <label class="dec-label" for="decMonto">¿Cuánto quieres gastar?</label>
+      <div class="dec-monto">
+        <span class="dec-monto-pre" aria-hidden="true">S/</span>
+        <input class="dec-monto-input" id="decMonto" type="text" inputmode="decimal"
+               placeholder="Monto (opcional — no sé cuánto)" autocomplete="off" />
+      </div>
+    </div>
+    <div class="dec-field">
+      <span class="dec-label">¿En qué categoría?</span>
+      <div class="dec-chips" id="decFavoritas" role="group" aria-label="Categorías favoritas"></div>
+    </div>
+    <div class="dec-field">
+      <span class="dec-label">¿Ámbito?</span>
+      <div class="dec-toggle" id="decAmbito" role="group" aria-label="Ámbito">
+        <button type="button" class="dec-seg dec-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
+        <button type="button" class="dec-seg" data-ambito="personal" aria-pressed="false">Personal</button>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar al oráculo</button>
+  </form>
+
+  <div class="dec-cargando" id="decCargando" role="status" aria-live="polite" hidden>
+    <div class="dec-orbe" aria-hidden="true"></div>
+    <span class="dec-cargando-txt">El oráculo medita tu consulta…</span>
+  </div>
+
+  <section class="dec-veredicto" id="decVeredicto" data-nivel="" aria-live="polite" hidden></section>
+</div>
+
+<style>
+  .dec { max-width: 640px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-xl); }
+  .dec-header { margin-bottom: var(--space-lg); }
+  .dec-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
+  .dec-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+
+  .dec-estado { display: none; padding: var(--space-md); border-radius: var(--radius-md); margin-bottom: var(--space-lg); font-size: var(--font-size-sm); border: 1px solid var(--border-light); }
+  .dec-estado[data-salud] { display: block; }
+  .dec-estado[data-salud=""] { display: none; }
+  .dec-estado-titulo { font-weight: var(--font-weight-semibold); color: var(--text-dark); display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 4px; }
+  .dec-estado-focos { margin: 4px 0 0; padding-left: 1.1em; color: var(--text-secondary); }
+  .dec-estado[data-salud="sano"]     { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
+  .dec-estado[data-salud="ajustado"] { background: color-mix(in srgb, var(--color-warning) 10%, transparent); }
+  .dec-estado[data-salud="riesgo"]   { background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
+
+  .dec-form { display: flex; flex-direction: column; gap: var(--space-lg); background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); }
+  .dec-field { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .dec-label { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-dark); }
+  .dec-monto { display: flex; align-items: center; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; }
+  .dec-monto-pre { padding: 0 var(--space-md); color: var(--text-secondary); background: var(--bg-light-secondary); align-self: stretch; display: flex; align-items: center; }
+  .dec-monto-input { flex: 1; border: none; padding: 12px var(--space-md); font-size: var(--font-size-lg); min-height: 44px; background: transparent; color: var(--text-dark); }
+  .dec-monto-input:focus { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+  .dec-select { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-base); }
+
+  .dec-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); }
+  .dec-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); cursor: pointer; }
+  .dec-seg--active { background: var(--color-primary); color: var(--bg-light); }
+  .dec-submit { min-height: 48px; }
+  .dec-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* Spinner místico (orbe del oráculo) */
+  .dec-cargando { flex-direction: column; align-items: center; gap: var(--space-md); padding: var(--space-xl) var(--space-md); color: var(--text-secondary); }
+  .dec-cargando[hidden] { display: none; }
+  .dec-cargando:not([hidden]) { display: flex; }
+  .dec-orbe { width: 56px; height: 56px; border-radius: 50%; position: relative;
+    background: radial-gradient(circle at 32% 30%, color-mix(in srgb, var(--color-success) 95%, transparent), color-mix(in srgb, var(--color-success) 45%, transparent) 60%, transparent 72%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-success) 55%, transparent); animation: dec-pulso 1.4s ease-in-out infinite; }
+  .dec-orbe::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--color-primary); animation: dec-giro 1s linear infinite; }
+  .dec-cargando-txt { font-size: var(--font-size-sm); font-style: italic; }
+  @keyframes dec-pulso { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.12); opacity: 1; } }
+  @keyframes dec-giro { to { transform: rotate(360deg); } }
+
+  /* Veredicto: estado inicial oculto + animación de entrada */
+  .dec-veredicto { margin-top: var(--space-lg); border-radius: var(--radius-lg); padding: var(--space-lg); border: 1px solid var(--border-light);
+    opacity: 0; transform: translateY(10px); transition: opacity 0.3s ease, transform 0.3s ease; }
+  .dec-veredicto.visible { opacity: 1; transform: translateY(0); }
+  .dec-veredicto[hidden] { display: none; }
+
+  /* Clases semánticas del veredicto (tres estados solicitados) */
+  .dec-veredicto.veredicto-ok      { background: color-mix(in srgb, var(--color-success) 12%, transparent); border-color: color-mix(in srgb, var(--color-success) 35%, transparent); }
+  .dec-veredicto.veredicto-alerta  { background: color-mix(in srgb, var(--color-warning) 12%, transparent); border-color: color-mix(in srgb, var(--color-warning) 35%, transparent); }
+  .dec-veredicto.veredicto-peligro { background: color-mix(in srgb, var(--color-danger) 12%, transparent); border-color: color-mix(in srgb, var(--color-danger) 35%, transparent); }
+  .dec-veredicto.veredicto-ok .dec-ver-cabecera      { color: var(--color-success); }
+  .dec-veredicto.veredicto-alerta .dec-ver-cabecera  { color: var(--color-warning); }
+  .dec-veredicto.veredicto-peligro .dec-ver-cabecera { color: var(--color-danger); }
+  .dec-ver-cabecera { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--text-dark); }
+  .dec-ver-icono { font-size: 1.6em; line-height: 1; }
+  .dec-ver-razon { margin: var(--space-sm) 0 0; color: var(--text-dark); }
+  .dec-ver-cifra { margin: var(--space-md) 0 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); color: var(--text-dark); }
+  .dec-ver-acciones { display: flex; flex-direction: column; gap: var(--space-sm); margin-top: var(--space-md); }
+  .dec-ver-detalle { margin-top: var(--space-md); font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-ver-detalle summary { cursor: pointer; color: var(--color-primary); }
+  .dec-ver-detalle ul { margin: var(--space-sm) 0 0; padding-left: 1.1em; }
+
+  .dec-rango { display:flex; gap:10px; margin: var(--space-sm) 0; }
+  .dec-rango-c, .dec-rango-t { flex:1; padding: var(--space-sm); border-radius: var(--radius-md); }
+  .dec-rango-c { background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+  .dec-rango-t { background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+  .dec-rango span { display:block; font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-rango b { font-size: var(--font-size-lg); }
+  .dec-offline { display:block; font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px; }
+
+  .dec-veredicto[data-nivel="recomendable"] { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
+  .dec-veredicto[data-nivel="cautela"]      { background: color-mix(in srgb, var(--color-warning) 10%, transparent); }
+  .dec-veredicto[data-nivel="no"]           { background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
+  .dec-veredicto[data-nivel="sin-presupuesto"] { background: var(--bg-light-secondary); }
+  .dec-veredicto[data-nivel="ahorro"]       { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
+
+  .btn-ghost { background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); min-height: 44px; border-radius: var(--radius-md); cursor: pointer; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dec-seg, .dec-veredicto { transition: none; }
+    .dec-orbe, .dec-orbe::after { animation: none; }
+  }
+  .dec-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+  .dec-chip { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; }
+  .dec-chip[aria-pressed="true"] { background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary); }
+  .dec-chips-vacio { font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-chips-vacio a { color: var(--color-primary); }
+</style>
+
+<script>
+  (function () {
+    'use strict';
+    function $(id) { return document.getElementById(id); }
+    function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+    var estado = { ambito: 'hogar', categoriaId: null };
+    var catsPorId = {};   // id → categoría
+    var hoy = mesActual();
+
+    async function cargarCategorias() {
+      var cats = await getCategoriasFavoritas('gasto');
+      catsPorId = {};
+      var cont = $('decFavoritas');
+      cont.innerHTML = '';
+      if (!cats.length) {
+        cont.innerHTML = '<p class="dec-chips-vacio">Aún no tienes categorías favoritas. <a href="#configuracion">Márcalas en Configuración</a> para consultarlas.</p>';
+        $('decSubmit').disabled = true;
+        return;
+      }
+      $('decSubmit').disabled = false;
+      cats.forEach(function (c, i) {
+        catsPorId[c.id] = c;
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'dec-chip'; b.textContent = c.nombre;
+        b.setAttribute('data-id', c.id);
+        b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+        if (i === 0) estado.categoriaId = c.id;
+        b.addEventListener('click', function () {
+          estado.categoriaId = c.id;
+          Array.prototype.forEach.call(cont.querySelectorAll('.dec-chip'), function (x) {
+            x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+          });
+        });
+        cont.appendChild(b);
+      });
+    }
+
+    Array.prototype.forEach.call(document.querySelectorAll('#decAmbito .dec-seg'), function (b) {
+      b.addEventListener('click', function () {
+        estado.ambito = b.getAttribute('data-ambito');
+        Array.prototype.forEach.call(document.querySelectorAll('#decAmbito .dec-seg'), function (x) {
+          var on = x === b;
+          x.classList.toggle('dec-seg--active', on);
+          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      });
+    });
+
+    // _rangoSemana() — provista globalmente por js/db.js; devuelve
+    // { desde, hasta, diasTranscurridos } de la semana en curso (lun–hoy).
+
+    // ── Recolecta las métricas para calcularRango + metaCritica ───
+    async function recolectarMetricas(cat, ambito) {
+      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
+      var rSem = _rangoSemana();
+      var diasMes = new Date(hoy.anio, hoy.mes, 0).getDate();
+
+      var res = await Promise.all([
+        getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
+        getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
+        (ambito === 'personal' ? getBalancePersonal(hoy.mes, hoy.anio) : getBalanceHogar(hoy.mes, hoy.anio)),
+        getMetas(ambito),
+        getRecurrentes(),
+      ]);
+      var gastoMes = res[0], gastoSemana = res[1], balance = res[2];
+      var metasPend = (res[3] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
+      var recs = res[4] || [];
+
+      var colchon = 0, metaCritica = null;
+      metasPend.forEach(function (mt) {
+        if (!mt.fecha_limite) return;
+        var hoyD = new Date(), limD = new Date(mt.fecha_limite);
+        var meses = Math.max((limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth()), 1);
+        var faltante = Number(mt.monto_objetivo) - Number(mt.monto_actual);
+        colchon += faltante / meses;
+        if (!metaCritica || meses <= 2) metaCritica = { nombre: mt.nombre, aporteTipico: Math.round(faltante / meses) };
+      });
+
+      var recurrentesPendientes = recs.reduce(function (s, r) {
+        if (!r.activo || !r.proximo_cargo) return s;
+        if (r.proximo_cargo < rMes.desde || r.proximo_cargo > rMes.hasta) return s;
+        return s + Number(r.monto);
+      }, 0);
+
+      return {
+        metricas: {
+          limite: cat.limite_mensual == null ? null : Number(cat.limite_mensual),
+          gastoMes: gastoMes, ingresos: balance.ingresos, gastos: balance.gastos,
+          recurrentesPendientes: recurrentesPendientes, colchonMetas: Math.round(colchon),
+          gastoSemana: gastoSemana, diasSemana: rSem.diasTranscurridos, diasMes: diasMes,
+        },
+        metaCritica: metaCritica,
+      };
+    }
+
+    // ── Íconos Tabler (sprite) — la app no usa emojis. ─────────
+    function _icoSvg(nombre) {
+      return '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-' + nombre + '"></use></svg>';
+    }
+
+    // revelar(box) — muestra el contenedor y dispara la animación de entrada.
+    function revelar(box) {
+      box.hidden = false;
+      void box.offsetWidth; // forzar reflow para que la transición arranque desde el estado oculto
+      box.classList.add('visible');
+      box.setAttribute('tabindex', '-1');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function ocultarVeredicto() {
+      var box = $('decVeredicto');
+      box.classList.remove('visible');
+      box.hidden = true;
+    }
+
+    function mostrarCargando(on) {
+      $('decCargando').hidden = !on;
+      $('decSubmit').disabled = on;
+    }
+
+    // mostrarToast(msg, ms) — toast local autocontenido. En esta vista no existe
+    // un toast global (cada vista define el suyo), así que creamos un elemento
+    // flotante efímero. Firma (msg, ms) según lo consumido en el handler.
+    var _toastTimer = null;
+    function mostrarToast(msg, ms) {
+      var t = $('brujToast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'brujToast';
+        t.setAttribute('role', 'status');
+        t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+          'background:var(--text-dark,#222);color:#fff;padding:10px 18px;border-radius:999px;' +
+          'font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:9999;max-width:90%;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.hidden = false;
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3000);
+    }
+
+    function renderBrujula(v, monto, datos, cat) {
+      var box = $('decVeredicto');
+      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro' };
+      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen' };
+      box.className = 'dec-veredicto ' + (CLASE[v.nivel] || '');
+      box.setAttribute('data-nivel', v.nivel);
+
+      var html = '<div class="dec-ver-cabecera">' + TIT[v.nivel] + '</div>';
+      if (v.nivel === 'consulta') {
+        html += '<div class="dec-rango"><div class="dec-rango-c"><span>Cómodo</span><b>' + formatMonto(v.comodo) + '</b></div>' +
+                '<div class="dec-rango-t"><span>Tope</span><b>' + formatMonto(v.tope) + '</b></div></div>';
+      }
+      html += '<p class="dec-ver-razon">' + v.razon + '</p>';
+
+      if (v.nivel === 'no') {
+        var plan = planMeta(monto, v.tope, new Date());
+        html += '<p class="dec-ver-cifra">Vuélvela meta: aparta <span class="signature-num">' + formatMonto(plan.aporteMes) + '</span>/mes y la tienes para ' + plan.fechaMeta + '.</p>';
+      }
+      var co = costoOportunidad(monto, cat, datos.metaCritica);
+      if ((v.nivel === 'cautela' || v.nivel === 'no') && co) {
+        html += '<p class="dec-ver-detalle">' + co.texto + '</p>';
+      }
+
+      html += '<div class="dec-ver-acciones">';
+      if (v.nivel === 'no') {
+        var offline = !navigator.onLine;
+        html += '<button type="button" class="btn btn-primary" id="decCrearMeta"' + (offline ? ' disabled' : '') + '>Crear meta</button>' +
+                (offline ? '<span class="dec-offline">Necesitas conexión para esto.</span>' : '');
+      } else if (v.nivel !== 'sin-margen') {
+        html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar gasto</button>';
+      }
+      html += '</div>';
+      box.innerHTML = html;
+
+      var cm = $('decCrearMeta');
+      if (cm) cm.addEventListener('click', async function () {
+        cm.disabled = true;
+        try {
+          var plan2 = planMeta(monto, v.tope, new Date());
+          await insertMeta({ nombre: cat.nombre, monto_objetivo: monto, fecha_limite: plan2.fechaMeta, ambito: estado.ambito });
+          mostrarToast('Meta creada', 3000);
+        } catch (err) { console.error('crear meta:', err); cm.disabled = false; }
+      });
+      var reg = $('decRegistrar');
+      if (reg) reg.addEventListener('click', function () {
+        if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
+        else window.location.hash = '#transaccion';
+      });
+      revelar(box);
+    }
+    function mostrarErrorBrujula() {
+      var box = $('decVeredicto');
+      box.className = 'dec-veredicto'; box.setAttribute('data-nivel', '');
+      box.innerHTML = '<div class="dec-ver-cabecera">' + _icoSvg('cloud') + ' La Brújula está nublada</div>' +
+        '<p class="dec-ver-razon">No pude leer tus datos ahora. Inténtalo de nuevo.</p>';
+      revelar(box);
+    }
+
+    $('decForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var raw = String($('decMonto').value).replace(',', '.').trim();
+      var monto = raw === '' ? 0 : parseFloat(raw);
+      var cat = catsPorId[estado.categoriaId];
+      ocultarVeredicto();
+      if (!cat) return;
+
+      mostrarCargando(true);
+      try {
+        var datos = await recolectarMetricas(cat, estado.ambito);
+        var v = calcularRango(monto, datos.metricas, cat);
+        renderBrujula(v, monto, datos, cat);
+      } catch (err) {
+        console.error('Brújula: fallo al consultar:', err);
+        mostrarErrorBrujula();
+      } finally {
+        mostrarCargando(false);
+      }
+    });
+
+    // ── Estado general del hogar ──────────────────────────────
+    async function renderEstadoGeneral() {
+      var cats = await getCategorias('gasto');
+      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null; });
+      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
+
+      var usos = await Promise.all(conLimite.map(function (c) {
+        return getGastoCategoria(c.id, 'hogar', rMes.desde, rMes.hasta).then(function (g) {
+          return { nombre: c.nombre, pct: Number(c.limite_mensual) > 0 ? g / Number(c.limite_mensual) : 0 };
+        });
+      }));
+      var metas = await getMetas('hogar');
+      var metasRiesgo = (metas || []).filter(function (mt) {
+        if (Number(mt.monto_actual) >= Number(mt.monto_objetivo) || !mt.fecha_limite) return false;
+        var hoyD = new Date(), limD = new Date(mt.fecha_limite);
+        var meses = (limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth());
+        return meses <= 1;
+      });
+
+      var rojas = usos.filter(function (u) { return u.pct > 1; });
+      var ambar = usos.filter(function (u) { return u.pct >= 0.8 && u.pct <= 1; });
+      var salud = (rojas.length || metasRiesgo.length) ? 'riesgo' : (ambar.length ? 'ajustado' : 'sano');
+
+      var focos = [];
+      rojas.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' superó su presupuesto'); });
+      ambar.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' cerca del límite'); });
+      metasRiesgo.slice(0, 1).forEach(function (mt) { focos.push('Meta ' + mt.nombre + ' en riesgo de plazo'); });
+
+      var titulos = {
+        sano:     '<span style="color:var(--color-success)">' + _icoSvg('circle-check')   + '</span> Hogar sano',
+        ajustado: '<span style="color:var(--color-warning)">' + _icoSvg('alert-triangle') + '</span> Mes ajustado',
+        riesgo:   '<span style="color:var(--color-danger)">'  + _icoSvg('alert-octagon')  + '</span> En riesgo',
+      };
+      var box = $('decEstado');
+      box.setAttribute('data-salud', salud);
+      box.innerHTML = '<div class="dec-estado-titulo">' + titulos[salud] + '</div>' +
+        (focos.length ? '<ul class="dec-estado-focos"><li>' + focos.join('</li><li>') + '</li></ul>'
+                      : '<p class="dec-estado-focos">Todo dentro de presupuesto este mes.</p>');
+    }
+
+    cargarCategorias();
+    renderEstadoGeneral();
+  })();
+</script>
