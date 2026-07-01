@@ -1823,7 +1823,7 @@
     (function initHogarConfig() {
       var sec = $('cfgHogarSection');
       if (!sec) return;
-      function render() {
+      async function render() {
         var hay = (typeof tieneHogar === 'function') && tieneHogar();
         sec.style.display = hay ? 'block' : 'none';
         if (!hay) return;
@@ -1831,7 +1831,9 @@
         var hogar = st.hogar || {};
         var miembros = st.miembros || [];
         var uid = (window.currentUser && window.currentUser.id) || null;
+        var modo = hogar.reparto || '50_50';
         var body = $('cfgHogarBody');
+        var catsHogar = (await getCategorias('gasto')).filter(function (c) { return c.user_id == null; });
         body.innerHTML =
           '<div class="cfg-input-group">' +
             '<label class="cfg-label" for="cfgHogarNombre">Nombre del hogar</label>' +
@@ -1848,6 +1850,24 @@
               '<input class="cfg-input cfg-hogar-aporte" type="number" min="0" step="0.01" value="' + escHtml(String(val)) + '">' +
               '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-aporte-save">Guardar</button>' +
             '</div>';
+          }).join('') +
+          '<div class="cfg-datos-separador"></div>' +
+          '<p class="cfg-label">Reparto de gastos del hogar</p>' +
+          '<div class="cfg-input-group">' +
+            '<select id="cfgHogarReparto" class="cfg-select">' +
+              '<option value="50_50"' + (modo === '50_50' ? ' selected' : '') + '>Mitad y mitad (50/50)</option>' +
+              '<option value="proporcional"' + (modo === 'proporcional' ? ' selected' : '') + '>Proporcional al ingreso</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="cfg-datos-separador"></div>' +
+          '<p class="cfg-label">Presupuesto del hogar por categoría (S/)</p>' +
+          catsHogar.map(function (c) {
+            var lim = (c.limite_mensual_hogar != null ? c.limite_mensual_hogar : '');
+            return '<div class="cfg-input-group" data-catid="' + escHtml(c.id) + '">' +
+              '<label class="cfg-label">' + escHtml(c.nombre) + '</label>' +
+              '<input class="cfg-input cfg-hogar-limite" type="number" min="0" step="0.01" value="' + escHtml(String(lim)) + '">' +
+              '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-limite-save">Guardar</button>' +
+            '</div>';
           }).join('');
         $('cfgHogarNombreSave').addEventListener('click', async function () {
           try { await renombrarHogar($('cfgHogarNombre').value); mostrarToast('Nombre actualizado', 3000); }
@@ -1859,6 +1879,19 @@
             var uidM = grp.getAttribute('data-uid');
             var monto = Number(grp.querySelector('.cfg-hogar-aporte').value) || 0;
             try { await setAporteEsperado(uidM, monto); mostrarToast('Aporte actualizado', 3000); }
+            catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
+          });
+        });
+        $('cfgHogarReparto').addEventListener('change', async function () {
+          try { await setRepartoHogar(this.value); mostrarToast('Reparto actualizado', 3000); }
+          catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
+        });
+        Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-limite-save'), function (btn) {
+          btn.addEventListener('click', async function () {
+            var grp = btn.closest('[data-catid]');
+            var catId = grp.getAttribute('data-catid');
+            var val = parseFloat(grp.querySelector('.cfg-hogar-limite').value);
+            try { await updateCategoria(catId, { limite_mensual_hogar: (val > 0 ? val : null) }); mostrarToast('Presupuesto del hogar guardado', 3000); }
             catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
           });
         });
