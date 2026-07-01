@@ -1528,6 +1528,38 @@ async function renombrarHogar(nombre) {
   await _refrescarHogarState();
 }
 
+// setRepartoHogar(modo) — fija el modo de reparto del hogar ('50_50'|'proporcional').
+// Refresca el estado y emite hogar:changed. Lanza en fallo.
+async function setRepartoHogar(modo) {
+  const { error } = await supabase.rpc('set_reparto_hogar', { p_modo: modo });
+  if (error) throw error;
+  await _refrescarHogarState();
+}
+
+// getGastoHogarPorCategoria(mes, anio) — mapa { categoria_id: gasto_hogar } del mes.
+// Solo transacciones del hogar (hogar_id != null), tipo gasto. {} en error.
+async function getGastoHogarPorCategoria(mes, anio) {
+  try {
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('categoria_id, monto')
+      .not('hogar_id', 'is', null)
+      .eq('tipo', 'gasto')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (error) throw error;
+    const mapa = {};
+    (data || []).forEach((t) => {
+      mapa[t.categoria_id] = (mapa[t.categoria_id] || 0) + Number(t.monto);
+    });
+    return mapa;
+  } catch (err) {
+    console.error('Error en getGastoHogarPorCategoria():', err.message || err);
+    return {};
+  }
+}
+
 // getLiquidacionesHogar() — liquidaciones del hogar (para el cálculo del balance en cliente).
 // Returns: array de { de_user, a_user, monto, fecha } o [].
 async function getLiquidacionesHogar() {
