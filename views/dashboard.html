@@ -703,34 +703,31 @@
     // ── Render: presupuestos del mes ──────────────────────────
     // Cada presupuesto: chip tintado con el color de la categoría, nombre,
     // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
-    function renderPresupuestos(categorias, gastoPorCat) {
+    function renderPresupuestos(categorias, gastoPorCat, gastoHogarPorCat) {
       const card = $('dashPresupCard');
       const body = $('dashPresupBody');
       if (!card || !body) return;
-      // Fuente única: categorias.limite_mensual (misma que alertas in-app y push).
+      // Personal: categorias.limite_mensual. Hogar (solo con hogar): limite_mensual_hogar.
       const lista = (categorias || []).filter((c) => Number(c.limite_mensual) > 0);
-      if (!lista.length) { card.style.display = 'none'; return; }
+      const hay = (typeof tieneHogar === 'function') && tieneHogar();
+      const listaHogar = hay ? (categorias || []).filter((c) => Number(c.limite_mensual_hogar) > 0) : [];
+      if (!lista.length && !listaHogar.length) { card.style.display = 'none'; return; }
 
-      const rows = lista.map((cat) => {
-        const limite = Number(cat.limite_mensual) || 0;
-        const gastado = Number((gastoPorCat || {})[cat.id] || 0);
-        const est = (typeof estadoPresupuesto === 'function')
-          ? estadoPresupuesto(gastado, limite) : null;
+      function fila(cat, limite, gastado, esHogar) {
+        const est = (typeof estadoPresupuesto === 'function') ? estadoPresupuesto(gastado, limite) : null;
         if (!est) return '';
-
         // Validar el color como hex antes de interpolarlo en un style inline
         // (defensa: categorias.color es escribible vía API). Si no, champagne.
         const color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
         const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
-        const badge = est.superado
-          ? '<span class="dash-presup-badge">superado</span>' : '';
-
+        const badge = est.superado ? '<span class="dash-presup-badge">superado</span>' : '';
+        const tagHogar = esHogar ? '<span class="dash-badge dash-badge--hogar">Hogar</span>' : '';
         return `<div class="dash-presup">
           <span class="cat-chip" style="--chip-color:${color}" aria-hidden="true">${icon}</span>
           <div class="dash-presup-main">
             <div class="dash-presup-head">
               <span class="dash-presup-nombre">${esc(cat.nombre || 'Categoría')}</span>
-              ${badge}
+              ${tagHogar}${badge}
             </div>
             <span class="dash-presup-cifras">${esc(formatMonto(gastado))} / ${esc(formatMonto(limite))}</span>
             <div class="dash-presup-bar" role="progressbar"
@@ -740,9 +737,14 @@
             </div>
           </div>
         </div>`;
-      }).join('');
+      }
 
-      body.innerHTML = rows;
+      const rowsPersonal = lista.map((cat) =>
+        fila(cat, Number(cat.limite_mensual) || 0, Number((gastoPorCat || {})[cat.id] || 0), false)).join('');
+      const rowsHogar = listaHogar.map((cat) =>
+        fila(cat, Number(cat.limite_mensual_hogar) || 0, Number((gastoHogarPorCat || {})[cat.id] || 0), true)).join('');
+
+      body.innerHTML = rowsPersonal + rowsHogar;
       card.style.display = 'block';
     }
 
@@ -886,7 +888,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend, gastosCatHogar] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -900,6 +902,7 @@
         getCategorias('gasto'),
         getGastosPorCategoriaMes(mes, anio),
         cargarSafeToSpend(),
+        getGastoHogarPorCategoria(mes, anio),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
@@ -913,8 +916,9 @@
       if (insights.status === 'fulfilled') renderInsights(insights.value);
       if (safeToSpend.status === 'fulfilled') renderSafeToSpend(safeToSpend.value);
       if (categoriasGasto.status === 'fulfilled') {
-        const gMap = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
-        renderPresupuestos(categoriasGasto.value, gMap);
+        const gMap  = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
+        const gMapH = gastosCatHogar.status === 'fulfilled' ? gastosCatHogar.value : {};
+        renderPresupuestos(categoriasGasto.value, gMap, gMapH);
       }
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
