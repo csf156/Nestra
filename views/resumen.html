@@ -541,10 +541,10 @@
       var hoyIso  = (function () { var d = new Date(); var p = pad2; return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()); })();
 
       var completadas = (metas || []).filter(function (m) {
-        return m.estado === 'completada' && m.fecha_limite >= desde && m.fecha_limite <= hasta;
+        return m.estado === 'lograda' && m.fecha_limite >= desde && m.fecha_limite <= hasta;
       });
       var vencidas = (metas || []).filter(function (m) {
-        return m.estado !== 'completada' && m.fecha_limite &&
+        return m.estado !== 'lograda' && m.fecha_limite &&
                m.fecha_limite >= desde && m.fecha_limite <= hasta &&
                m.fecha_limite <= hoyIso;
       });
