@@ -26,12 +26,12 @@
         <button type="button" class="dec-seg" data-ambito="personal" aria-pressed="false">Personal</button>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar al oráculo</button>
+    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar a la Brújula</button>
   </form>
 
   <div class="dec-cargando" id="decCargando" role="status" aria-live="polite" hidden>
     <div class="dec-orbe" aria-hidden="true"></div>
-    <span class="dec-cargando-txt">El oráculo medita tu consulta…</span>
+    <span class="dec-cargando-txt">La Brújula orienta tu consulta…</span>
   </div>
 
   <section class="dec-veredicto" id="decVeredicto" data-nivel="" aria-live="polite" hidden></section>
@@ -67,7 +67,7 @@
   .dec-submit { min-height: 48px; }
   .dec-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  /* Spinner místico (orbe del oráculo) */
+  /* Spinner místico (orbe de la Brújula) */
   .dec-cargando { flex-direction: column; align-items: center; gap: var(--space-md); padding: var(--space-xl) var(--space-md); color: var(--text-secondary); }
   .dec-cargando[hidden] { display: none; }
   .dec-cargando:not([hidden]) { display: flex; }
@@ -207,9 +207,14 @@
         if (!metaCritica || meses <= 2) metaCritica = { nombre: mt.nombre, aporteTipico: Math.round(faltante / meses) };
       });
 
+      // Recurrentes por venir: proximo_cargo de HOY al fin de mes (lo que resta
+      // por cobrarse). NO se reusa rMes (su 'hasta' es hoy, correcto solo para gastoMes).
+      var mm = String(hoy.mes).padStart(2, '0');
+      var hoyISO = hoy.anio + '-' + mm + '-' + String(new Date().getDate()).padStart(2, '0');
+      var finMesISO = hoy.anio + '-' + mm + '-' + String(diasMes).padStart(2, '0');
       var recurrentesPendientes = recs.reduce(function (s, r) {
         if (!r.activo || !r.proximo_cargo) return s;
-        if (r.proximo_cargo < rMes.desde || r.proximo_cargo > rMes.hasta) return s;
+        if (r.proximo_cargo < hoyISO || r.proximo_cargo > finMesISO) return s;
         return s + Number(r.monto);
       }, 0);
 
