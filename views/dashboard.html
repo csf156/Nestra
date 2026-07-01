@@ -10,6 +10,7 @@
 
   <!-- ── SECCIÓN 1.5 — Safe-to-spend (hero) ───────────────────── -->
   <section id="dashSafeToSpend" class="dash-s2s" aria-live="polite"></section>
+  <div id="brujulaMicroahorro" class="dash-microahorro" hidden></div>
 
   <!-- Error global de conexión -->
   <div id="dashConnError" class="alert error" role="alert" aria-live="assertive" style="display:none;">
@@ -157,6 +158,11 @@
     font-size: var(--font-size-sm);
     opacity: 0.92;
   }
+
+  .dash-microahorro { margin: var(--space-md) 0; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--border-light); background: color-mix(in srgb, var(--color-success) 8%, transparent); display:flex; flex-direction:column; gap: var(--space-sm); }
+  .dash-microahorro[hidden] { display:none; }
+  .dash-microahorro-txt { font-size: var(--font-size-base); color: var(--text-dark); }
+  .dash-microahorro .dash-offline { color: var(--text-secondary); font-size: var(--font-size-sm); }
 
   /* ── Cards base ─────────────────────────────────────────── */
   .dash .card { margin-bottom: var(--space-md); }
@@ -781,6 +787,27 @@
     // sin barra (no tiene objetivo): solo el monto acumulado y su variación
     // porcentual del mes. Las metas normales (máx 3 en curso) llevan barra.
     // El progreso se actualiza solo (aportes/ahorros) — sin aporte manual.
+    function renderMicroahorro(balancePersonal, metas) {
+      var cont = $('brujulaMicroahorro');
+      if (!cont || typeof sugerirMicroahorro !== 'function') return;
+      var liquidez = Math.max(0, Number(balancePersonal.ingresos) - Number(balancePersonal.gastos));
+      var s = sugerirMicroahorro(metas || [], liquidez, new Date());
+      if (!s) { cont.hidden = true; return; }
+      var offline = !navigator.onLine;
+      cont.innerHTML = '<div class="dash-microahorro-txt">' + s.texto + '</div>' +
+        '<button type="button" class="btn btn-primary" id="microApartar"' + (offline ? ' disabled' : '') + '>Apartar ' + formatMonto(s.sugerido) + '</button>' +
+        (offline ? '<span class="dash-offline">Necesitas conexión para esto.</span>' : '');
+      cont.hidden = false;
+      var b = $('microApartar');
+      if (b) b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          await insertAporteDirecto(s.meta_id, s.sugerido);
+          cont.innerHTML = '<div class="dash-microahorro-txt">Aporte de ' + formatMonto(s.sugerido) + ' registrado en ' + s.meta + '.</div>';
+        } catch (err) { console.error('microahorro aporte:', err); b.disabled = false; }
+      });
+    }
+
     async function renderMetas(metas) {
       const body = $('dashMetasBody');
       body.setAttribute('aria-busy', 'false');
@@ -891,6 +918,9 @@
       }
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
+      if (personal.status === 'fulfilled' && metas.status === 'fulfilled') {
+        renderMicroahorro(personal.value, metas.value);
+      }
 
       // Si TODO falló, es problema de conexión: avisar.
       const todoFallo = [hogar, personal, alertas, txs, metas]
