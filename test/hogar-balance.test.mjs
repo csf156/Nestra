@@ -45,3 +45,29 @@ test('ambos sin ingresos → 50/50', () => {
   assert.strictEqual(r.pctA, 0.5);
   assert.strictEqual(r.recibeA, 250);
 });
+
+test('modo proporcional: parte justa pesada por ingresos hogar', () => {
+  // A aportó 600 de ingresos hogar, B 400 → pesoA 60%. Gastos: A pagó 200, B 0.
+  // total gastos = 200; parte justa A = 0.6*200 = 120; neto A = 200-120 = 80.
+  const txs = [
+    { user_id: A, tipo: 'ingreso', ambito: 'hogar', hogar_id: 'H', monto: 600 },
+    { user_id: B, tipo: 'ingreso', ambito: 'hogar', hogar_id: 'H', monto: 400 },
+    { user_id: A, tipo: 'gasto',   ambito: 'hogar', hogar_id: 'H', monto: 200 },
+  ];
+  const r = calcularBalanceHogar(txs, [], A, B, 'proporcional');
+  assert.strictEqual(r.neto, 80);
+  assert.strictEqual(r.acreedor, A);
+  assert.strictEqual(r.deudor, B);
+});
+
+test('modo proporcional con ambos ingresos 0 → cae a 50/50', () => {
+  const txs = [gas(A, 100), gas(B, 40)];
+  const r = calcularBalanceHogar(txs, [], A, B, 'proporcional');
+  assert.strictEqual(r.neto, 30); // (100-40)/2
+});
+
+test('sin modo (retrocompat) = 50/50', () => {
+  const txs = [gas(A, 100), gas(B, 40)];
+  const r = calcularBalanceHogar(txs, [], A, B);
+  assert.strictEqual(r.neto, 30);
+});
