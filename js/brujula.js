@@ -53,6 +53,20 @@ function planMeta(monto, tope, hoy) {
   return { faltante: faltante, aporteMes: aporteMes, fechaMeta: fechaMeta };
 }
 
-if (typeof window !== 'undefined') { window.calcularRango = calcularRango; window.planMeta = planMeta; }
+// costoOportunidad(monto, categoria, metaCritica) — empujón anti-impulso.
+// Solo para categorías NO esenciales (esencial === false explícito) y con meta.
+// Devuelve { n, texto } o null.
+function costoOportunidad(monto, categoria, metaCritica) {
+  if (categoria.esencial !== false) return null;
+  if (!metaCritica || !(metaCritica.aporteTipico > 0)) return null;
+  var n = Math.max(1, Math.round(monto / metaCritica.aporteTipico));
+  return {
+    n: n,
+    texto: 'Esto equivale a ' + n + ' aporte' + (n === 1 ? '' : 's') +
+      ' a ' + metaCritica.nombre + '. ¿Es necesario ahora? Dale 48 h.',
+  };
+}
 
-export { calcularRango, planMeta };
+if (typeof window !== 'undefined') { window.calcularRango = calcularRango; window.planMeta = planMeta; window.costoOportunidad = costoOportunidad; }
+
+export { calcularRango, planMeta, costoOportunidad };

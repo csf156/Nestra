@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calcularRango, planMeta } from '../js/brujula.js';
+import { calcularRango, planMeta, costoOportunidad } from '../js/brujula.js';
 
 const HOY = new Date(2026, 6, 1); // 2026-07-01
 
@@ -68,4 +68,26 @@ test('planMeta: reparte el monto en 3 meses y calcula fecha', () => {
 test('planMeta: aporteMes redondea hacia arriba', () => {
   const p = planMeta(100, 0, HOY);
   assert.equal(p.aporteMes, 34); // ceil(100/3)
+});
+
+test('costoOportunidad: categoría no esencial → texto con nº de aportes', () => {
+  const cat = { nombre: 'Ocio', esencial: false };
+  const r = costoOportunidad(100, cat, { nombre: 'Viaje', aporteTipico: 50 });
+  assert.equal(r.n, 2); // round(100/50)
+  assert.match(r.texto, /Viaje/);
+});
+
+test('costoOportunidad: categoría esencial → null', () => {
+  const cat = { nombre: 'Comida', esencial: true };
+  assert.equal(costoOportunidad(100, cat, { nombre: 'Viaje', aporteTipico: 50 }), null);
+});
+
+test('costoOportunidad: sin meta crítica → null', () => {
+  const cat = { nombre: 'Ocio', esencial: false };
+  assert.equal(costoOportunidad(100, cat, null), null);
+});
+
+test('costoOportunidad: esencial undefined se trata como esencial (null)', () => {
+  const cat = { nombre: 'X' };
+  assert.equal(costoOportunidad(100, cat, { nombre: 'Viaje', aporteTipico: 50 }), null);
 });
