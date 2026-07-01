@@ -422,7 +422,8 @@
       // Balance "quién debe qué" (solo con un segundo miembro).
       var bal = { neto: 0, acreedor: null, deudor: null };
       if (otro && typeof window.calcularBalanceHogar === 'function') {
-        bal = window.calcularBalanceHogar(txs, liqs, uidActual, otro);
+        var modo = (estado.hogar && estado.hogar.reparto) || '50_50';
+        bal = window.calcularBalanceHogar(txs, liqs, uidActual, otro, modo);
       }
 
       // ── Bloque código ──

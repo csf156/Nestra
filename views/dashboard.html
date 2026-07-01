@@ -951,7 +951,8 @@
         const otro = ((estado.miembros || []).find((m) => m.user_id !== uid) || {}).user_id || null;
         if (!otro || typeof calcularBalanceHogar !== 'function') return; // hace falta un 2º miembro
         const [txs, liqs] = await Promise.all([getTransacciones({}), getLiquidacionesHogar()]);
-        const bal  = calcularBalanceHogar(txs, liqs, uid, otro);
+        const modo = (estado.hogar && estado.hogar.reparto) || '50_50';
+        const bal  = calcularBalanceHogar(txs, liqs, uid, otro, modo);
         const card = $('dashDeudaCard');
         const body = $('dashDeudaBody');
         if (!card || !body) return;
