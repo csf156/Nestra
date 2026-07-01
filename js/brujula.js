@@ -67,6 +67,30 @@ function costoOportunidad(monto, categoria, metaCritica) {
   };
 }
 
-if (typeof window !== 'undefined') { window.calcularRango = calcularRango; window.planMeta = planMeta; window.costoOportunidad = costoOportunidad; }
+// sugerirMicroahorro(metas, liquidezMes, hoy) — nudge de ahorro para el dashboard.
+// Elige la meta en curso más cercana a su fecha límite. Sugiere 10% de la
+// liquidez sin pasar del faltante. Devuelve { meta_id, meta, sugerido, texto } o null.
+function sugerirMicroahorro(metas, liquidezMes, hoy) {
+  if (!(liquidezMes > 0)) return null;
+  var enCurso = (metas || []).filter(function (m) {
+    return m.estado === 'en_curso' && Number(m.monto_actual) < Number(m.monto_objetivo);
+  });
+  if (!enCurso.length) return null;
+  enCurso.sort(function (a, b) {
+    var fa = a.fecha_limite || '9999-12-31';
+    var fb = b.fecha_limite || '9999-12-31';
+    return fa < fb ? -1 : fa > fb ? 1 : 0;
+  });
+  var meta = enCurso[0];
+  var faltante = Number(meta.monto_objetivo) - Number(meta.monto_actual);
+  var sugerido = Math.min(Math.round(liquidezMes * 0.1), Math.round(faltante));
+  if (sugerido <= 0) return null;
+  return {
+    meta_id: meta.id, meta: meta.nombre, sugerido: sugerido,
+    texto: 'Aparta ' + sugerido + ' y te acercas a ' + meta.nombre + '.',
+  };
+}
 
-export { calcularRango, planMeta, costoOportunidad };
+if (typeof window !== 'undefined') { window.calcularRango = calcularRango; window.planMeta = planMeta; window.costoOportunidad = costoOportunidad; window.sugerirMicroahorro = sugerirMicroahorro; }
+
+export { calcularRango, planMeta, costoOportunidad, sugerirMicroahorro };

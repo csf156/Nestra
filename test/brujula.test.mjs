@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calcularRango, planMeta, costoOportunidad } from '../js/brujula.js';
+import { calcularRango, planMeta, costoOportunidad, sugerirMicroahorro } from '../js/brujula.js';
 
 const HOY = new Date(2026, 6, 1); // 2026-07-01
 
@@ -90,4 +90,31 @@ test('costoOportunidad: sin meta crítica → null', () => {
 test('costoOportunidad: esencial undefined se trata como esencial (null)', () => {
   const cat = { nombre: 'X' };
   assert.equal(costoOportunidad(100, cat, { nombre: 'Viaje', aporteTipico: 50 }), null);
+});
+
+test('sugerirMicroahorro: elige meta más cercana y sugiere 10% de liquidez', () => {
+  const metas = [
+    { id: 'a', nombre: 'Lejana', monto_actual: 0, monto_objetivo: 1000, estado: 'en_curso', fecha_limite: '2026-12-01' },
+    { id: 'b', nombre: 'Cercana', monto_actual: 0, monto_objetivo: 1000, estado: 'en_curso', fecha_limite: '2026-08-01' },
+  ];
+  const r = sugerirMicroahorro(metas, 500, HOY);
+  assert.equal(r.meta_id, 'b');
+  assert.equal(r.sugerido, 50); // round(500 * 0.1)
+  assert.match(r.texto, /Cercana/);
+});
+
+test('sugerirMicroahorro: no pasa del faltante de la meta', () => {
+  const metas = [{ id: 'b', nombre: 'Casi', monto_actual: 970, monto_objetivo: 1000, estado: 'en_curso', fecha_limite: '2026-08-01' }];
+  const r = sugerirMicroahorro(metas, 500, HOY); // 10% = 50, pero faltan 30
+  assert.equal(r.sugerido, 30);
+});
+
+test('sugerirMicroahorro: sin liquidez → null', () => {
+  const metas = [{ id: 'b', nombre: 'X', monto_actual: 0, monto_objetivo: 1000, estado: 'en_curso', fecha_limite: '2026-08-01' }];
+  assert.equal(sugerirMicroahorro(metas, 0, HOY), null);
+});
+
+test('sugerirMicroahorro: sin metas en curso → null', () => {
+  const metas = [{ id: 'b', nombre: 'X', monto_actual: 1000, monto_objetivo: 1000, estado: 'cumplida', fecha_limite: '2026-08-01' }];
+  assert.equal(sugerirMicroahorro(metas, 500, HOY), null);
 });
