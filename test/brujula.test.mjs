@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calcularRango } from '../js/brujula.js';
+import { calcularRango, planMeta } from '../js/brujula.js';
 
 const HOY = new Date(2026, 6, 1); // 2026-07-01
 
@@ -56,4 +56,16 @@ test('sin liquidez → sin-margen', () => {
   const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // liquidez = 900-800-200-100 = -200 → 0
   assert.equal(r.nivel, 'sin-margen');
   assert.equal(r.tope, 0);
+});
+
+test('planMeta: reparte el monto en 3 meses y calcula fecha', () => {
+  const p = planMeta(380, 200, HOY); // HOY = 2026-07-01
+  assert.equal(p.faltante, 180);       // 380 - 200
+  assert.equal(p.aporteMes, 127);      // ceil(380/3) = 127
+  assert.equal(p.fechaMeta, '2026-10-01'); // +3 meses
+});
+
+test('planMeta: aporteMes redondea hacia arriba', () => {
+  const p = planMeta(100, 0, HOY);
+  assert.equal(p.aporteMes, 34); // ceil(100/3)
 });

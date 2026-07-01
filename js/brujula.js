@@ -39,6 +39,20 @@ function calcularRango(monto, m, categoria) {
     razon: 'Superarías tu tope de este mes (' + tope + ').' };
 }
 
-if (typeof window !== 'undefined') window.calcularRango = calcularRango;
+// planMeta(monto, tope, hoy) — plan de ahorro para una compra que no cabe.
+// Horizonte fijo de 3 meses. Devuelve { faltante, aporteMes, fechaMeta }.
+function planMeta(monto, tope, hoy) {
+  var MESES_PLAN = 3;
+  var faltante = Math.max(0, Math.round(monto - tope));
+  var aporteMes = Math.ceil(monto / MESES_PLAN);
+  var y = hoy.getFullYear();
+  var mIdx = hoy.getMonth() + MESES_PLAN;
+  var fecha = new Date(y, mIdx, 1);
+  var p = function (n) { return String(n).padStart(2, '0'); };
+  var fechaMeta = fecha.getFullYear() + '-' + p(fecha.getMonth() + 1) + '-01';
+  return { faltante: faltante, aporteMes: aporteMes, fechaMeta: fechaMeta };
+}
 
-export { calcularRango };
+if (typeof window !== 'undefined') { window.calcularRango = calcularRango; window.planMeta = planMeta; }
+
+export { calcularRango, planMeta };
