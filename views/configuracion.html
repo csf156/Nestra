@@ -293,6 +293,12 @@
         <input id="cfgEditLimite" class="cfg-input" type="number" min="0" step="0.01">
       </div>
       <div class="cfg-input-group">
+        <label class="cfg-check" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="cfgEditEsencial">
+          <span>Gasto esencial (la Brújula no te frenará en esta categoría)</span>
+        </label>
+      </div>
+      <div class="cfg-input-group">
         <label class="cfg-label">Ícono</label>
         <button type="button" class="cfg-edit-icono-btn" id="cfgEditIconoBtn">
           <span class="cfg-edit-icono-preview" id="cfgEditIconoPreview"></span>
@@ -991,6 +997,7 @@
       _editIconoSel = cat.icono || null;
       $('cfgEditNombre').value = cat.nombre || '';
       $('cfgEditLimite').value = cat.limite_mensual != null ? cat.limite_mensual : '';
+      $('cfgEditEsencial').checked = (cat.esencial !== false);
       $('cfgEditIconoPreview').innerHTML = (typeof iconoCategoria === 'function') ? iconoCategoria(_editIconoSel) : '';
       $('cfgEditModal').removeAttribute('hidden');
       setTimeout(function () { $('cfgEditNombre').focus(); }, 50);
@@ -1014,13 +1021,14 @@
         nombre: nombre,
         limite_mensual: limStr === '' ? null : parseFloat(limStr),
         icono: _editIconoSel,
+        esencial: $('cfgEditEsencial').checked,
       };
       var btn = $('cfgEditGuardar');
       btn.disabled = true;
       try {
         await updateCategoria(_editCatId, datos);
         var cat = _cats.find(function (c) { return c.id === _editCatId; });
-        if (cat) { cat.nombre = datos.nombre; cat.limite_mensual = datos.limite_mensual; cat.icono = datos.icono; }
+        if (cat) { cat.nombre = datos.nombre; cat.limite_mensual = datos.limite_mensual; cat.icono = datos.icono; cat.esencial = datos.esencial; }
         cerrarEdicion();
         renderCategorias(_cats);
         mostrarToast('Categoría actualizada', 3000);
