@@ -610,7 +610,7 @@
         <div class="dash-neto">
           <div>
             <span class="dash-neto-label">Balance acumulado</span>
-            <span class="dash-neto-sublabel">${deltaMesHtml(b.balance)}</span>
+            <span class="dash-neto-sublabel">${deltaMesHtml(b.balance - ahorros)}</span>
           </div>
           <span class="dash-neto-value ${netoClass(acum.balance)}">${esc(formatMonto(acum.balance))}</span>
         </div>`;
@@ -641,7 +641,7 @@
         <div class="dash-neto">
           <div>
             <span class="dash-neto-label">Balance acumulado</span>
-            <span class="dash-neto-sublabel">${deltaMesHtml(b.balance)}</span>
+            <span class="dash-neto-sublabel">${deltaMesHtml(b.balance - ahorros)}</span>
           </div>
           <span class="dash-neto-value ${netoClass(acum.balance)}">${esc(formatMonto(acum.balance))}</span>
         </div>`;

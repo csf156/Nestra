@@ -402,29 +402,31 @@ async function getBalancePersonal(mes, anio) {
 }
 
 
-// getSaldoAcumuladoHogar() — balance del hogar sumando todos los tiempos (sin filtro de mes).
+// getSaldoAcumuladoHogar() — saldo disponible del hogar (todos los tiempos).
+// balance = ingresos − gastos − ahorros (el ahorro es dinero apartado, no disponible).
 // Returns: { ingresos, gastos, balance }. Ceros en error.
 async function getSaldoAcumuladoHogar() {
   try {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .not('hogar_id', 'is', null)
-      .neq('tipo', 'ahorro');
+      .not('hogar_id', 'is', null);
     if (error) throw error;
-    let ingresos = 0, gastos = 0;
+    let ingresos = 0, gastos = 0, ahorros = 0;
     (data || []).forEach((t) => {
       if (t.tipo === 'ingreso') ingresos += Number(t.monto);
       else if (t.tipo === 'gasto') gastos += Number(t.monto);
+      else if (t.tipo === 'ahorro') ahorros += Number(t.monto);
     });
-    return { ingresos, gastos, balance: ingresos - gastos };
+    return { ingresos, gastos, balance: ingresos - gastos - ahorros };
   } catch (err) {
     console.error('Error en getSaldoAcumuladoHogar():', err.message || err);
     return { ingresos: 0, gastos: 0, balance: 0 };
   }
 }
 
-// getSaldoAcumuladoPersonal() — balance personal acumulado (todos los tiempos).
+// getSaldoAcumuladoPersonal() — saldo disponible personal (todos los tiempos).
+// balance = ingresos − gastos − ahorros (el ahorro es dinero apartado, no disponible).
 // Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
 async function getSaldoAcumuladoPersonal() {
   try {
@@ -433,10 +435,9 @@ async function getSaldoAcumuladoPersonal() {
       .from('transacciones')
       .select('tipo, monto, aporte_id')
       .eq('user_id', userId)
-      .is('hogar_id', null)
-      .neq('tipo', 'ahorro');
+      .is('hogar_id', null);
     if (error) throw error;
-    let ingresos = 0, gastos = 0, aporte_realizado = 0;
+    let ingresos = 0, gastos = 0, ahorros = 0, aporte_realizado = 0;
     (data || []).forEach((t) => {
       const monto = Number(t.monto);
       if (t.tipo === 'ingreso') {
@@ -444,9 +445,11 @@ async function getSaldoAcumuladoPersonal() {
       } else if (t.tipo === 'gasto') {
         gastos += monto;
         if (t.aporte_id) aporte_realizado += monto;
+      } else if (t.tipo === 'ahorro') {
+        ahorros += monto;
       }
     });
-    return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos };
+    return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos - ahorros };
   } catch (err) {
     console.error('Error en getSaldoAcumuladoPersonal():', err.message || err);
     return { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 };
