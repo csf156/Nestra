@@ -1,6 +1,8 @@
 # Nestra v2 — reglas del proyecto
 
-App PWA vanilla (sin build). Rama de trabajo/deploy: `v2`. Producción v1 vive en `main` — no tocarla.
+App PWA vanilla (sin build). Rama de trabajo/deploy: `v2`.
+
+**v1 retirada el 2026-07-01.** `main` ahora sirve el código v2 sobre la base v2 (`ombnhxueclqfeyjzhroz`) — se hizo cutover (PR #5) tras migrar los datos reales de los 2 usuarios de la base v1 a la v2. `js/config.js` ya NO tiene gate por hostname: todos los hosts usan la base v2. Ambas ramas (`v2` y `main`) llevan la misma config. Hosts vivos: `nestra-8rl.pages.dev` (Cloudflare Pages, rama v2) y `csf156.github.io/Nestra/` (GitHub Pages, rama main) — ambos = mismo código v2, misma base v2.
 
 ## Deploy y preview en el teléfono del usuario
 
