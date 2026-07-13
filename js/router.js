@@ -14,6 +14,40 @@ function navigateTo(route) {
   window.location.hash = `#${route}`;
 }
 
+// mostrarOnboardingSiHaceFalta() — monta el overlay de onboarding si el perfil
+// del usuario aún no lo completó. Devuelve true si tomó la pantalla.
+// Lee window.currentProfile (cargado al login, incluye onboarding_completado y
+// moneda). No bloquea la app si el perfil no carga. Side effect: sincroniza la
+// cache de moneda desde el perfil.
+async function mostrarOnboardingSiHaceFalta() {
+  if (document.getElementById('onboarding')) return false;
+  try { if (localStorage.getItem('nestra-onboarding-done') === '1') return false; } catch (e) {}
+  let perfil = window.currentProfile || null;
+  if (!perfil) {
+    try {
+      const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+      if (u && u.id && typeof loadProfile === 'function') perfil = await loadProfile(u.id);
+    } catch (e) { return false; }
+  }
+  if (!perfil) return false;
+  if (typeof cacheMonedaDesdePerfil === 'function') cacheMonedaDesdePerfil(perfil);
+  if (perfil.onboarding_completado) {
+    try { localStorage.setItem('nestra-onboarding-done', '1'); } catch (e) {}
+    return false;
+  }
+  try {
+    const html = await fetch('views/onboarding.html').then((r) => r.text());
+    const wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+    executeScripts(wrap); // re-ejecuta el <script> inline del overlay
+    return true;
+  } catch (e) {
+    console.error('onboarding mount failed:', e && e.message);
+    return false;
+  }
+}
+
 // executeScripts(container) — Re-create <script> tags so they run
 // Browsers do NOT execute <script> inserted via innerHTML. This finds each
 // script in the injected view and replaces it with a fresh node, which the
@@ -114,9 +148,11 @@ const ROUTES = {
   transaccion: { view: 'transaccion' },
   graficos: { view: 'graficos' },
   metas: { view: 'metas' },
-  decisiones: { view: 'decisiones' },
+  brujula: { view: 'brujula' },
+  decisiones: { view: 'brujula' },
   resumen: { view: 'resumen' },
   prestamos: { view: 'prestamos' },
+  hogar: { view: 'hogar' },
   configuracion: { view: 'configuracion' },
 };
 
@@ -168,6 +204,13 @@ async function handleRouteChange() {
       console.log('User already authenticated, redirecting to dashboard');
       window.location.hash = `#${DEFAULT_ROUTE}`;
       return;
+    }
+
+    // Onboarding (primer login): si el perfil no lo completó, tomar la pantalla
+    // antes de cargar cualquier vista protegida. Al terminar navega a #dashboard.
+    if (!isPublic) {
+      const ob = await mostrarOnboardingSiHaceFalta();
+      if (ob) return;
     }
 
     // Hide navbar on public views, show it inside the app

@@ -8,6 +8,10 @@
     </div>
   </header>
 
+  <!-- ── SECCIÓN 1.5 — Safe-to-spend (hero) ───────────────────── -->
+  <section id="dashSafeToSpend" class="dash-s2s" aria-live="polite"></section>
+  <div id="brujulaMicroahorro" class="dash-microahorro" hidden></div>
+
   <!-- Error global de conexión -->
   <div id="dashConnError" class="alert error" role="alert" aria-live="assertive" style="display:none;">
     No se pudo conectar con el servidor. Revisa tu conexión y recarga la página.
@@ -17,9 +21,9 @@
   <div class="dash-balances">
 
     <!-- Balance del hogar -->
-    <section class="card dash-balance-card" aria-labelledby="hogarTitle">
+    <section class="card dash-balance-card" id="dashHogarCard" aria-labelledby="hogarTitle" style="display:none">
       <h2 class="dash-card-title" id="hogarTitle">
-        <span aria-hidden="true">🏠</span> Hogar
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-home"></use></svg> Hogar
         <span class="dash-card-periodo" id="hogarPeriodo"></span>
       </h2>
       <div id="hogarBody" class="dash-balance-body" aria-busy="true">
@@ -32,7 +36,7 @@
     <!-- Balance personal -->
     <section class="card dash-balance-card" aria-labelledby="personalTitle">
       <h2 class="dash-card-title" id="personalTitle">
-        <span aria-hidden="true">👤</span> Tu balance
+        <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> Tu balance
         <span class="dash-card-periodo" id="personalPeriodo"></span>
       </h2>
       <div id="personalBody" class="dash-balance-body" aria-busy="true">
@@ -43,8 +47,26 @@
     </section>
   </div>
 
+  <!-- ── Fase 6 — Quién debe qué (solo si hay hogar compartido) ── -->
+  <section class="card dash-balance-card" id="dashDeudaCard" aria-labelledby="deudaTitle" style="display:none">
+    <h2 class="dash-card-title" id="deudaTitle">
+      <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-users"></use></svg> Quién debe qué
+      <a href="#hogar" class="dash-card-periodo" style="text-decoration:none">Ver hogar →</a>
+    </h2>
+    <div id="dashDeudaBody" class="dash-balance-body"></div>
+  </section>
+
+  <!-- ── SECCIÓN 3.5 — Insights ───────────────────────────────── -->
+  <section id="dashInsights" class="dash-insights" aria-label="Insights" aria-live="polite"></section>
+
   <!-- ── SECCIÓN 4 — Alertas ──────────────────────────────────── -->
   <section id="dashAlertas" class="dash-alertas" aria-live="polite" aria-label="Alertas activas"></section>
+
+  <!-- ── SECCIÓN 4.5 — Presupuestos del mes ───────────────────────── -->
+  <section class="card dash-presup-card" id="dashPresupCard" aria-labelledby="presupTitle" style="display:none">
+    <h2 class="dash-card-title" id="presupTitle">Presupuestos del mes</h2>
+    <div id="dashPresupBody" aria-live="polite"></div>
+  </section>
 
   <!-- ── SECCIÓN 5 — Últimas transacciones ────────────────────── -->
   <section class="card dash-tx-card" aria-labelledby="txTitle">
@@ -96,11 +118,51 @@
   }
   .dash-saludo {
     margin: 0;
+    font-family: var(--font-display);
     font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-bold);
     color: var(--text-dark);
     line-height: 1.15;
   }
+
+  /* ── Safe-to-spend (hero) ───────────────────────────────── */
+  .dash-s2s:not(:empty) { margin-bottom: var(--space-lg); }
+  .dash-s2s-card {
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-success));
+    color: #fff;
+    box-shadow: var(--shadow-md);
+  }
+  .dash-s2s-card--excedido {
+    background: linear-gradient(135deg, var(--color-danger), #8a1c1c);
+  }
+  .dash-s2s-label {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.9;
+  }
+  .dash-s2s-monto {
+    margin: var(--space-xs) 0 0;
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    font-weight: var(--font-weight-bold);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-s2s-sub {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--font-size-sm);
+    opacity: 0.92;
+  }
+
+  .dash-microahorro { margin: var(--space-md) 0; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--border-light); background: color-mix(in srgb, var(--color-success) 8%, transparent); display:flex; flex-direction:column; gap: var(--space-sm); }
+  .dash-microahorro[hidden] { display:none; }
+  .dash-microahorro-txt { font-size: var(--font-size-base); color: var(--text-dark); }
+  .dash-microahorro .dash-offline { color: var(--text-secondary); font-size: var(--font-size-sm); }
 
   /* ── Cards base ─────────────────────────────────────────── */
   .dash .card { margin-bottom: var(--space-md); }
@@ -171,7 +233,10 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+    gap: var(--space-sm);
   }
+  /* El lado de la etiqueta puede encogerse; el monto nunca se parte en 2 líneas. */
+  .dash-neto > div { min-width: 0; }
   .dash-neto-label {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
@@ -180,9 +245,12 @@
     letter-spacing: 0.04em;
   }
   .dash-neto-value {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-bold);
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   /* Signo no solo por color (WCAG 1.4.1): glifo ▲/▼ */
   .dash-neto-value--pos { color: var(--color-success); }
@@ -192,7 +260,7 @@
 
   .dash-line-value--ingreso { color: var(--color-success); }
   .dash-line-value--gasto   { color: var(--color-danger); }
-  .dash-line-value--ahorro  { color: #3b82f6; }
+  .dash-line-value--ahorro  { color: var(--color-info); }
   .dash-line--aporte { font-size: var(--font-size-xs); }
   .dash-line--aporte .dash-line-label { font-style: italic; }
 
@@ -205,6 +273,70 @@
   }
   .dash-delta--pos { color: var(--color-success); font-weight: var(--font-weight-semibold); }
   .dash-delta--neg { color: var(--color-danger);  font-weight: var(--font-weight-semibold); }
+
+  /* ── Insights (carrusel mobile-first) ──────────────────── */
+  .dash-insights:not(:empty) { margin-bottom: var(--space-md); }
+  .dash-insights-track {
+    display: flex;
+    gap: var(--space-sm);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    /* sangra a los bordes de pantalla en móvil → swipe edge-to-edge */
+    margin-inline: calc(-1 * var(--space-md));
+    padding-inline: var(--space-md);
+    padding-bottom: var(--space-xs);
+    scrollbar-width: thin;
+  }
+  .insight-card {
+    flex: 0 0 auto;
+    width: min(85%, 300px);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    border-left: 2px solid var(--insight-color, var(--border-light));
+    background: color-mix(in srgb, var(--insight-color, var(--color-primary)) 4%, var(--bg-light-secondary));
+    box-shadow: none;
+  }
+  .insight-card--warn  { --insight-color: var(--color-warning); }
+  .insight-card--good  { --insight-color: var(--color-success); }
+  .insight-card--alert { --insight-color: var(--color-danger);  }
+  .insight-card--info  { --insight-color: var(--color-primary); }
+  .insight-icono .cat-icono { width: 24px; height: 24px; }
+  .insight-titulo {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-dark);
+    line-height: 1.25;
+  }
+  .insight-subtexto {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
+  .insight-accion {
+    margin-top: auto;
+    padding-top: var(--space-xs);
+    min-height: 44px;            /* target táctil */
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+  .insight-accion:hover { text-decoration: underline; }
+  @media (min-width: 600px) {
+    .insight-card { width: 280px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-insights-track { scroll-behavior: auto; }
+  }
 
   /* ── Alertas ────────────────────────────────────────────── */
   .dash-alertas:not(:empty) { margin-bottom: var(--space-md); display: grid; gap: var(--space-sm); }
@@ -256,8 +388,8 @@
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .dash-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
-  .dash-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
+  .dash-badge--hogar    { background: color-mix(in srgb, var(--color-primary) 12%, transparent);   color: var(--color-primary); }
+  .dash-badge--personal { background: color-mix(in srgb, var(--text-secondary) 15%, transparent); color: var(--text-secondary); }
   .dash-tx-monto {
     font-weight: var(--font-weight-bold);
     font-variant-numeric: tabular-nums;
@@ -293,6 +425,68 @@
   .dash-metas-auto {
     font-size: var(--font-size-xs); color: var(--text-secondary);
     margin: var(--space-sm) 0 0; font-style: italic;
+  }
+
+  /* ── Presupuestos ───────────────────────────────────────── */
+  .dash-presup {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) 0;
+  }
+  .dash-presup + .dash-presup { border-top: 1px solid var(--border-light); }
+  .dash-presup-main { flex: 1; min-width: 0; }
+  /* Fila 1: nombre (trunca) + badge protegido a su derecha.
+     Las cifras van en su propia línea (.dash-presup-cifras) para que el
+     nombre nunca se recorte por completo en pantallas estrechas. */
+  .dash-presup-head {
+    display: flex; align-items: baseline;
+    gap: var(--space-sm); margin-bottom: 2px;
+  }
+  .dash-presup-nombre {
+    flex: 1 1 auto; min-width: 0;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-dark);
+    font-size: var(--font-size-sm);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dash-presup-cifras {
+    display: block; text-align: right;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-presup-bar {
+    height: 2px;
+    background: var(--border-light);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .dash-presup-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.4s ease-out;
+  }
+  .dash-presup-bar-fill--verde { background: var(--color-success); }
+  .dash-presup-bar-fill--ambar { background: var(--color-warning); }
+  .dash-presup-bar-fill--rojo  { background: var(--color-danger); }
+  .dash-presup-badge {
+    display: inline-block;
+    flex-shrink: 0;
+    padding: 1px var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 0.62rem;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    vertical-align: middle;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dash-presup-bar-fill { transition: none; }
   }
 
   /* Fondos de emergencia — tiles compactos, predominantes, sin barra.
@@ -359,6 +553,7 @@
     .sk { animation: none; }
     .dash-meta-bar-fill { transition: none; }
   }
+
 </style>
 
 <script>
@@ -438,10 +633,11 @@
           <span class="dash-line-label">Ahorros</span>
           <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorros))}</span>
         </div>
+        ${(typeof tieneHogar === 'function' && tieneHogar()) ? `
         <div class="dash-line dash-line--aporte">
           <span class="dash-line-label">↳ de eso, aporte al hogar</span>
           <span class="dash-line-value">${esc(formatMonto(b.aporte_realizado))}</span>
-        </div>
+        </div>` : ''}
         <div class="dash-neto">
           <div>
             <span class="dash-neto-label">Balance acumulado</span>
@@ -457,9 +653,99 @@
       if (!alertas || !alertas.length) { panel.innerHTML = ''; return; }
       panel.innerHTML = alertas.map((a) => `
         <div class="alert-item alert-item--${esc(a.nivel)}" role="status">
-          <span class="alert-icon" aria-hidden="true">${esc(a.icono)}</span>
+          <span class="alert-icon" aria-hidden="true">${a.icono}</span>
           <span>${esc(a.mensaje)}</span>
         </div>`).join('');
+    }
+
+    // ── Render: insights (carrusel horizontal) ────────────────
+    function renderInsights(insights) {
+      const cont = $('dashInsights');
+      if (!cont) return;
+      if (!insights || !insights.length) { cont.innerHTML = ''; return; }
+      const cards = insights.map((i) => {
+        const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(i.icono) : '';
+        const accion = i.accion
+          ? `<a class="insight-accion" href="${esc(i.accion.href)}">${esc(i.accion.label)} →</a>`
+          : '';
+        return `<article class="insight-card insight-card--${esc(i.tipo)}">
+          <div class="insight-icono" aria-hidden="true">${icon}</div>
+          <h3 class="insight-titulo">${esc(i.titulo)}</h3>
+          <p class="insight-subtexto">${esc(i.subtexto)}</p>
+          ${accion}
+        </article>`;
+      }).join('');
+      cont.innerHTML = `<div class="dash-insights-track">${cards}</div>`;
+    }
+
+    // ── Render: safe-to-spend (hero) ──────────────────────────
+    function renderSafeToSpend(res) {
+      const cont = $('dashSafeToSpend');
+      if (!cont) return;
+      if (!res) { cont.innerHTML = ''; return; }
+      if (res.estado === 'excedido') {
+        cont.innerHTML = `
+          <div class="dash-s2s-card dash-s2s-card--excedido">
+            <p class="dash-s2s-label">Este mes</p>
+            <p class="dash-s2s-monto">${esc(formatMonto(res.exceso))}</p>
+            <p class="dash-s2s-sub">Te pasaste de lo disponible. Cuida los próximos ${res.diasRestantes} días.</p>
+          </div>`;
+        return;
+      }
+      cont.innerHTML = `
+        <div class="dash-s2s-card">
+          <p class="dash-s2s-label">Puedes gastar hoy</p>
+          <p class="dash-s2s-monto">${esc(formatMonto(res.diario))}</p>
+          <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${res.diasRestantes} día${res.diasRestantes === 1 ? '' : 's'}.</p>
+        </div>`;
+    }
+
+    // ── Render: presupuestos del mes ──────────────────────────
+    // Cada presupuesto: chip tintado con el color de la categoría, nombre,
+    // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
+    function renderPresupuestos(categorias, gastoPorCat, gastoHogarPorCat) {
+      const card = $('dashPresupCard');
+      const body = $('dashPresupBody');
+      if (!card || !body) return;
+      // Personal: categorias.limite_mensual. Hogar (solo con hogar): limite_mensual_hogar.
+      const lista = (categorias || []).filter((c) => Number(c.limite_mensual) > 0);
+      const hay = (typeof tieneHogar === 'function') && tieneHogar();
+      const listaHogar = hay ? (categorias || []).filter((c) => Number(c.limite_mensual_hogar) > 0) : [];
+      if (!lista.length && !listaHogar.length) { card.style.display = 'none'; return; }
+
+      function fila(cat, limite, gastado, esHogar) {
+        const est = (typeof estadoPresupuesto === 'function') ? estadoPresupuesto(gastado, limite) : null;
+        if (!est) return '';
+        // Validar el color como hex antes de interpolarlo en un style inline
+        // (defensa: categorias.color es escribible vía API). Si no, champagne.
+        const color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
+        const icon = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
+        const badge = est.superado ? '<span class="dash-presup-badge">superado</span>' : '';
+        const tagHogar = esHogar ? '<span class="dash-badge dash-badge--hogar">Hogar</span>' : '';
+        return `<div class="dash-presup">
+          <span class="cat-chip" style="--chip-color:${color}" aria-hidden="true">${icon}</span>
+          <div class="dash-presup-main">
+            <div class="dash-presup-head">
+              <span class="dash-presup-nombre">${esc(cat.nombre || 'Categoría')}</span>
+              ${tagHogar}${badge}
+            </div>
+            <span class="dash-presup-cifras">${esc(formatMonto(gastado))} / ${esc(formatMonto(limite))}</span>
+            <div class="dash-presup-bar" role="progressbar"
+                 aria-valuenow="${est.ancho}" aria-valuemin="0" aria-valuemax="100"
+                 aria-label="Presupuesto de ${esc(cat.nombre || 'categoría')}: ${est.pctReal}%">
+              <div class="dash-presup-bar-fill dash-presup-bar-fill--${est.color}" style="width:${est.ancho}%;"></div>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      const rowsPersonal = lista.map((cat) =>
+        fila(cat, Number(cat.limite_mensual) || 0, Number((gastoPorCat || {})[cat.id] || 0), false)).join('');
+      const rowsHogar = listaHogar.map((cat) =>
+        fila(cat, Number(cat.limite_mensual_hogar) || 0, Number((gastoHogarPorCat || {})[cat.id] || 0), true)).join('');
+
+      body.innerHTML = rowsPersonal + rowsHogar;
+      card.style.display = 'block';
     }
 
     // ── Render: últimas transacciones ─────────────────────────
@@ -467,7 +753,14 @@
       const body = $('dashTxBody');
       body.setAttribute('aria-busy', 'false');
       if (!txs || !txs.length) {
-        body.innerHTML = '<p class="dash-empty">Aún no hay transacciones.</p>';
+        body.innerHTML = (typeof renderEmptyState === 'function')
+          ? renderEmptyState({
+              icon: 'receipt-off',
+              title: 'Aún no hay transacciones',
+              desc: 'Registra tu primer gasto o ingreso para verlo aquí.',
+              ctaLabel: 'Registrar', ctaHref: '#transaccion'
+            })
+          : '<p class="dash-empty">Aún no hay transacciones.</p>';
         return;
       }
       body.innerHTML = txs.map((t) => {
@@ -475,13 +768,14 @@
         const esIngreso = t.tipo === 'ingreso';
         const signo = esIngreso ? '+' : '−';
         const cls = esIngreso ? 'dash-tx-monto--ingreso' : 'dash-tx-monto--gasto';
+        const mostrarBadge = (typeof tieneHogar === 'function') && tieneHogar();
         const badge = t.ambito === 'hogar' ? 'hogar' : 'personal';
         const badgeTxt = t.ambito === 'hogar' ? 'Hogar' : 'Personal';
         return `<div class="dash-tx">
           <div class="dash-tx-main">
             <span class="dash-tx-cat">${(typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : ''}${esc(cat)}</span>
             <span class="dash-tx-meta">
-              <span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>
+              ${mostrarBadge ? `<span class="dash-badge dash-badge--${badge}">${esc(badgeTxt)}</span>` : ''}
               ${esc(formatFecha(t.fecha))}
             </span>
           </div>
@@ -495,6 +789,27 @@
     // sin barra (no tiene objetivo): solo el monto acumulado y su variación
     // porcentual del mes. Las metas normales (máx 3 en curso) llevan barra.
     // El progreso se actualiza solo (aportes/ahorros) — sin aporte manual.
+    function renderMicroahorro(balancePersonal, metas) {
+      var cont = $('brujulaMicroahorro');
+      if (!cont || typeof sugerirMicroahorro !== 'function') return;
+      var liquidez = Math.max(0, Number(balancePersonal.ingresos) - Number(balancePersonal.gastos));
+      var s = sugerirMicroahorro(metas || [], liquidez, new Date());
+      if (!s) { cont.hidden = true; return; }
+      var offline = !navigator.onLine;
+      cont.innerHTML = '<div class="dash-microahorro-txt">' + s.texto + '</div>' +
+        '<button type="button" class="btn btn-primary" id="microApartar"' + (offline ? ' disabled' : '') + '>Apartar ' + formatMonto(s.sugerido) + '</button>' +
+        (offline ? '<span class="dash-offline">Necesitas conexión para esto.</span>' : '');
+      cont.hidden = false;
+      var b = $('microApartar');
+      if (b) b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          await insertAporteDirecto(s.meta_id, s.sugerido);
+          cont.innerHTML = '<div class="dash-microahorro-txt">Aporte de ' + formatMonto(s.sugerido) + ' registrado en ' + s.meta + '.</div>';
+        } catch (err) { console.error('microahorro aporte:', err); b.disabled = false; }
+      });
+    }
+
     async function renderMetas(metas) {
       const body = $('dashMetasBody');
       body.setAttribute('aria-busy', 'false');
@@ -512,9 +827,9 @@
       const fondosTiles = fondos.map((f) => {
         const total = Number(f.monto_actual) || 0;
         const ambito = f.ambito === 'hogar' ? 'Hogar' : 'Personal';
-        const icono = f.ambito === 'hogar' ? '🏠' : '👤';
+        const icono = (typeof iconoCategoria === 'function') ? iconoCategoria(f.ambito === 'hogar' ? 'home' : 'user') : '';
         return `<div class="dash-fondo">
-          <span class="dash-fondo-label"><span aria-hidden="true">${icono}</span> Fondo · ${esc(ambito)}</span>
+          <span class="dash-fondo-label">${icono} Fondo · ${esc(ambito)}</span>
           <span class="dash-fondo-monto">${esc(formatMonto(total))}</span>
           <span class="dash-fondo-var" id="fondoVar-${esc(f.id)}"></span>
         </div>`;
@@ -573,7 +888,7 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal] = await Promise.allSettled([
+      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend, gastosCatHogar] = await Promise.allSettled([
         getBalanceHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
@@ -583,6 +898,11 @@
         getSaldoAcumuladoPersonal(),
         getAhorrosHogar(mes, anio),
         getAhorrosPersonal(mes, anio),
+        cargarInsights(),
+        getCategorias('gasto'),
+        getGastosPorCategoriaMes(mes, anio),
+        cargarSafeToSpend(),
+        getGastoHogarPorCategoria(mes, anio),
       ]);
 
       const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
@@ -593,13 +913,67 @@
       if (hogar.status === 'fulfilled')    renderHogar(hogar.value, acumH, ahorH);
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
+      if (insights.status === 'fulfilled') renderInsights(insights.value);
+      if (safeToSpend.status === 'fulfilled') renderSafeToSpend(safeToSpend.value);
+      if (categoriasGasto.status === 'fulfilled') {
+        const gMap  = gastosCat.status === 'fulfilled' ? gastosCat.value : {};
+        const gMapH = gastosCatHogar.status === 'fulfilled' ? gastosCatHogar.value : {};
+        renderPresupuestos(categoriasGasto.value, gMap, gMapH);
+      }
       if (txs.status === 'fulfilled')      renderTransacciones(txs.value);
       if (metas.status === 'fulfilled')    renderMetas(metas.value);
+      if (personal.status === 'fulfilled' && metas.status === 'fulfilled') {
+        renderMicroahorro(personal.value, metas.value);
+      }
 
       // Si TODO falló, es problema de conexión: avisar.
       const todoFallo = [hogar, personal, alertas, txs, metas]
         .every((r) => r.status === 'rejected');
       if (todoFallo) $('dashConnError').style.display = 'flex';
+    })();
+
+    // Gating Fase 6.1: la card "Balance del hogar" solo si el usuario tiene hogar.
+    (function aplicarGatingHogar() {
+      function aplicar() {
+        var card = document.getElementById('dashHogarCard');
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (card) card.style.display = hay ? '' : 'none';
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
+
+    // ── Fase 6 — "Quién debe qué" (card solo si hay hogar compartido) ──
+    // Carga aparte: es opcional y no debe tumbar el resto del dashboard.
+    (async function cargarDeudaHogar() {
+      try {
+        if (typeof tieneHogar === 'function' && !tieneHogar()) return; // gating Fase 6.1
+        if (typeof getEstadoHogar !== 'function') return;
+        const estado = await getEstadoHogar();
+        if (!estado || !estado.hogar) return;
+        const uid  = (window.currentUser && window.currentUser.id) || null;
+        const otro = ((estado.miembros || []).find((m) => m.user_id !== uid) || {}).user_id || null;
+        if (!otro || typeof calcularBalanceHogar !== 'function') return; // hace falta un 2º miembro
+        const [txs, liqs] = await Promise.all([getTransacciones({}), getLiquidacionesHogar()]);
+        const modo = (estado.hogar && estado.hogar.reparto) || '50_50';
+        const bal  = calcularBalanceHogar(txs, liqs, uid, otro, modo);
+        const card = $('dashDeudaCard');
+        const body = $('dashDeudaBody');
+        if (!card || !body) return;
+        if (bal.neto === 0) {
+          body.innerHTML = '<p class="dash-neto-label">Están a mano</p>';
+        } else {
+          const meDeben = bal.acreedor === uid;
+          body.innerHTML =
+            '<div class="dash-neto"><div><span class="dash-neto-label">' +
+              (meDeben ? 'Te deben' : 'Le debes') + '</span></div>' +
+            '<span class="dash-neto-value ' + netoClass(meDeben ? bal.neto : -bal.neto) + '">' +
+              esc(formatMonto(bal.neto)) + '</span></div>';
+        }
+        card.style.display = '';
+      } catch (e) {
+        // Hogar no disponible (p.ej. tabla aún sin migrar) → no mostrar la card.
+      }
     })();
   })();
 </script>

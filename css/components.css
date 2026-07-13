@@ -158,23 +158,37 @@ a.card:hover {
   transform: translateY(1px);
 }
 
+/* Foco global champagne + selección de texto */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-/* — Primary ─────────── filled esmeralda */
+/* — Primary ─────────── filled champagne */
 .btn-primary {
   background-color: var(--color-primary);
-  color: #fff;
+  color: #08080f;
   border-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--color-primary) 82%, #000);
-  border-color:     color-mix(in srgb, var(--color-primary) 82%, #000);
+  background-color: var(--accent-hover);
+  border-color:     var(--accent-hover);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+/* En claro --color-primary es oscuro → texto blanco */
+html.light .btn-primary { color: #ffffff; }
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .btn-primary { color: #ffffff; }
 }
 
 /* — Secondary ────────── outline neutro */
@@ -239,8 +253,13 @@ a.card:hover {
   flex-shrink: 0;
 }
 
-.btn-primary .spinner,
-.btn-danger  .spinner {
+/* Sobre champagne el texto es oscuro → spinner oscuro (currentColor) */
+.btn-primary .spinner {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+}
+
+.btn-danger .spinner {
   border-color: rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
 }
@@ -674,27 +693,11 @@ input[type="radio"] {
   letter-spacing: 0.02em;
 }
 
-/* — Semánticos */
-.badge-success {
-  background-color: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: var(--color-success);
-}
-
-.badge-warning {
-  background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
-  color: var(--color-warning);
-}
-
-.badge-danger {
-  background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
-  color: var(--color-danger);
-}
-
-.badge-neutral {
-  background-color: var(--bg-light-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-light);
-}
+/* — Semánticos (tintes tokenizados, válidos en ambos temas) */
+.badge-success { background: color-mix(in srgb, var(--color-success) 16%, transparent); color: var(--color-success); }
+.badge-warning { background: color-mix(in srgb, var(--color-warning) 16%, transparent); color: var(--color-warning); }
+.badge-danger  { background: color-mix(in srgb, var(--color-danger)  16%, transparent); color: var(--color-danger);  }
+.badge-neutral { background: color-mix(in srgb, var(--text-secondary) 14%, transparent); color: var(--text-secondary); }
 
 /* — Ámbito */
 .badge-hogar {
@@ -702,29 +705,21 @@ input[type="radio"] {
   color: var(--color-primary);
 }
 
+/* Indigo claro por defecto (legible sobre el dark-default) */
 .badge-personal {
-  background-color: color-mix(in srgb, #6366f1 13%, transparent);
-  color: #6366f1;
-}
-
-/* Ajuste personal para dark (indigo es oscuro, necesita variante clara) */
-html.dark .badge-personal,
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .badge-personal {
-    background-color: rgba(129, 140, 248, 0.18);
-    color: #a5b4fc;
-  }
-}
-
-html.dark .badge-personal {
   background-color: rgba(129, 140, 248, 0.18);
   color: #a5b4fc;
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not(.light) .badge-personal {
-    background-color: rgba(129, 140, 248, 0.18);
-    color: #a5b4fc;
+/* En tema claro, indigo más saturado/oscuro para contraste sobre fondo claro */
+html.light .badge-personal {
+  background-color: color-mix(in srgb, #6366f1 13%, transparent);
+  color: #6366f1;
+}
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .badge-personal {
+    background-color: color-mix(in srgb, #6366f1 13%, transparent);
+    color: #6366f1;
   }
 }
 
@@ -800,21 +795,21 @@ html.dark .badge-personal {
 
 .progress {
   width: 100%;
-  height: 6px;
+  height: 2px;
   background-color: var(--border-light);
-  border-radius: 99px;
+  border-radius: 9999px;
   overflow: hidden;
   flex-shrink: 0;
 }
 
-.progress-md { height: 8px; }
-.progress-lg { height: 12px; }
+.progress-md { height: 6px; }
+.progress-lg { height: 10px; }
 
 .progress-bar {
   height: 100%;
-  border-radius: inherit;
+  border-radius: 9999px;
   background-color: var(--progress-color, var(--color-primary));
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s ease;
   min-width: 0;
 }
 
@@ -1067,6 +1062,22 @@ html.dark .badge-personal {
   opacity: 0.45;
   margin-bottom: var(--space-xs);
 }
+/* Variante SVG (sprite Tabler) del ícono de empty state */
+svg.empty-state-icon {
+  width: 44px;
+  height: 44px;
+  stroke: currentColor;
+}
+
+.empty-state-cta {
+  margin-top: var(--space-md);
+}
+
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+  opacity: 0.9;
+}
 
 .empty-state-title {
   font-size: var(--font-size-base);
@@ -1203,7 +1214,7 @@ hr, .divider {
   width: 32px;
   height: 32px;
   background-color: var(--color-primary);
-  color: #fff;
+  color: #08080f;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1326,3 +1337,133 @@ hr, .divider {
   vertical-align: -0.15em;
   flex-shrink: 0;
 }
+
+/* Chip de ícono de categoría — 24×24, fondo tintado del color de la categoría */
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--chip-color, var(--color-primary)) 14%, transparent);
+  color: var(--chip-color, var(--color-primary));
+}
+.cat-chip .cat-icono,
+.cat-chip svg { width: 14px; height: 14px; }
+
+/* ── PWA: banner offline + badge pendientes ───────────────────── */
+/* Mobile-first. Banner FIJO arriba (el body es flex-column en móvil y
+   flex-row en desktop, así que no puede ir en flujo). Para no TAPAR nada,
+   js/sync.js mide su altura en --offline-banner-h y empujamos el contenido
+   (y la sidebar en desktop) esa misma cantidad. */
+.offline-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-warning, #f59e0b);
+  color: #1f2937;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  animation: offlineFade 0.2s ease-out;
+}
+.offline-banner[hidden] { display: none; }
+@keyframes offlineFade { from { opacity: 0; } to { opacity: 1; } }
+/* Empujar el contenido para que el banner fijo no lo tape. */
+body.nestra-offline main { padding-top: var(--offline-banner-h, 0px); }
+/* Desktop: el nav es sidebar fija (top:0); bajarla bajo el banner también. */
+@media (min-width: 768px) {
+  body.nestra-offline nav { top: var(--offline-banner-h, 0px); }
+}
+
+.pending-badge {
+  position: fixed;
+  /* Sobre el nav inferior móvil (60px) y por encima del FAB (52px),
+     para no taparlos. */
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 52px + var(--space-md));
+  right: var(--space-lg);
+  z-index: 95;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--shadow-md);
+}
+.pending-badge[hidden] { display: none; }
+.pending-badge-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; opacity: 0.9;
+  animation: pendingPulse 1.4s ease-in-out infinite;
+}
+@keyframes pendingPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+/* ── PWA: prompt de instalación custom ─────────────────────────── */
+.install-prompt {
+  position: fixed;
+  left: 50%;
+  /* Apilado por encima del nav (60px), el FAB (52px) y el badge, para no
+     tapar ninguno. Mobile-first; es un bottom-sheet descartable. */
+  bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 52px + var(--space-md) + 56px);
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: calc(100% - 2 * var(--space-md));
+  max-width: 420px;
+  padding: var(--space-md);
+  background: var(--bg-light, #fff);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,.18));
+  animation: installSlideUp 0.25s ease-out;
+}
+.install-prompt[hidden] { display: none; }
+@keyframes installSlideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.install-prompt-icon { border-radius: var(--radius-md); flex-shrink: 0; }
+.install-prompt-body { flex: 1; min-width: 0; }
+.install-prompt-title { margin: 0 0 2px; font-weight: var(--font-weight-bold); color: var(--text-dark); }
+.install-prompt-text { margin: 0; font-size: var(--font-size-xs); color: var(--text-secondary); }
+.install-prompt-actions { display: flex; flex-direction: column; gap: var(--space-xs); flex-shrink: 0; }
+@media (min-width: 420px) { .install-prompt-actions { flex-direction: row; } }
+
+/* ── Onboarding (Fase 5) — mobile-first ───────────────────────── */
+.onboarding {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-lg); background: var(--bg-light);
+  overflow-y: auto;
+}
+.ob-card { width: 100%; max-width: 28rem; }
+.ob-dots { display: flex; gap: var(--space-sm); justify-content: center; margin-bottom: var(--space-xl); }
+.ob-dot { width: 28px; height: 2px; background: var(--border-light); border-radius: 1px; transition: background 0.2s; }
+.ob-dot.is-active { background: var(--color-primary); }
+.ob-step { display: none; flex-direction: column; gap: var(--space-md); }
+.ob-step.is-active { display: flex; }
+.ob-title { font-family: var(--font-display); font-weight: 400; }
+.ob-desc { color: var(--text-secondary); }
+.ob-field { display: flex; flex-direction: column; gap: var(--space-xs); font-size: var(--font-size-sm); }
+.ob-cats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm); }
+.ob-cat-chip {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md); border: 1px solid var(--border-light);
+  border-radius: var(--radius-md); background: var(--bg-light-secondary);
+  color: var(--text-dark); cursor: pointer; text-align: left;
+}
+.ob-cat-chip .cat-icono { width: 18px; height: 18px; }
+.ob-cat-chip.is-on { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.ob-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-lg); }
+.ob-actions .btn-primary { margin-left: auto; }

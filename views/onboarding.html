@@ -1,0 +1,189 @@
+<div id="onboarding" class="onboarding" role="dialog" aria-modal="true" aria-label="Configuración inicial">
+  <div class="ob-card">
+    <div class="ob-dots" aria-hidden="true">
+      <span class="ob-dot is-active"></span><span class="ob-dot"></span><span class="ob-dot"></span>
+    </div>
+
+    <!-- Paso 1: moneda + ingreso -->
+    <section class="ob-step is-active" data-step="1">
+      <h1 class="ob-title">Bienvenido a Nestra</h1>
+      <p class="ob-desc">Empecemos por tu nombre, tu moneda y tu ingreso mensual.</p>
+      <label class="ob-field">
+        <span>Tu nombre</span>
+        <input id="obNombre" class="input" type="text" maxlength="40" autocomplete="given-name" placeholder="¿Cómo te llamas?">
+      </label>
+      <label class="ob-field">
+        <span>Moneda principal</span>
+        <select id="obMoneda" class="input"></select>
+      </label>
+      <label class="ob-field">
+        <span>Ingreso mensual</span>
+        <input id="obIngreso" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+      </label>
+      <div class="ob-actions">
+        <button class="btn btn-primary ob-next" data-next="2" type="button">Continuar</button>
+      </div>
+    </section>
+
+    <!-- Paso 2: categorías -->
+    <section class="ob-step" data-step="2">
+      <h1 class="ob-title">Tus categorías</h1>
+      <p class="ob-desc">Elige al menos 3 para empezar. Puedes ajustarlas luego.</p>
+      <div id="obCats" class="ob-cats"></div>
+      <div class="ob-actions">
+        <button class="btn btn-ghost ob-back" data-back="1" type="button">Atrás</button>
+        <button class="btn btn-primary ob-next" data-next="3" type="button">Continuar</button>
+      </div>
+    </section>
+
+    <!-- Paso 3: transacción ejemplo -->
+    <section class="ob-step" data-step="3">
+      <h1 class="ob-title">Tu primer gasto</h1>
+      <p class="ob-desc">Registra un gasto de ejemplo para ver Nestra con vida.</p>
+      <label class="ob-field">
+        <span>Categoría</span>
+        <select id="obTxCat" class="input"></select>
+      </label>
+      <label class="ob-field">
+        <span>Monto</span>
+        <input id="obTxMonto" class="input" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00">
+      </label>
+      <div class="ob-actions">
+        <button class="btn btn-ghost ob-back" data-back="2" type="button">Atrás</button>
+        <button class="btn btn-ghost ob-skip" type="button">Omitir</button>
+        <button class="btn btn-primary ob-finish" type="button">Empezar</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  var root = $('onboarding');
+  if (!root) return;
+  var creadas = []; // categorías disponibles para el paso 3
+
+  // Poblar monedas
+  var selM = $('obMoneda');
+  var monedas = window.MONEDAS || { PEN: { symbol: 'S/' } };
+  Object.keys(monedas).forEach(function (code) {
+    var o = document.createElement('option');
+    o.value = code; o.textContent = code + ' (' + monedas[code].symbol + ')';
+    selM.appendChild(o);
+  });
+  selM.value = (typeof getMonedaActiva === 'function') ? getMonedaActiva() : 'PEN';
+
+  // Chips sugeridos (nombre + icono Tabler SIN prefijo + color)
+  var SUGERIDAS = [
+    { nombre: 'Comida', icono: 'tools-kitchen-2', color: '#e8b94a' },
+    { nombre: 'Transporte', icono: 'car', color: '#6ea8e8' },
+    { nombre: 'Hogar', icono: 'home', color: '#5ec98a' },
+    { nombre: 'Ocio', icono: 'device-gamepad-2', color: '#c9a84c' },
+    { nombre: 'Salud', icono: 'heart', color: '#f08a8a' },
+    { nombre: 'Servicios', icono: 'bolt', color: '#a8a29a' }
+  ];
+  var elegidas = new Set();
+  var cont = $('obCats');
+  SUGERIDAS.forEach(function (c, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'ob-cat-chip'; b.dataset.i = i;
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = (typeof iconoCategoria === 'function' ? iconoCategoria(c.icono) : '') +
+      '<span>' + c.nombre + '</span>';
+    b.addEventListener('click', function () {
+      if (elegidas.has(i)) { elegidas.delete(i); b.classList.remove('is-on'); b.setAttribute('aria-pressed', 'false'); }
+      else { elegidas.add(i); b.classList.add('is-on'); b.setAttribute('aria-pressed', 'true'); }
+    });
+    cont.appendChild(b);
+  });
+
+  function goto(step) {
+    root.querySelectorAll('.ob-step').forEach(function (s) {
+      s.classList.toggle('is-active', s.dataset.step === String(step));
+    });
+    root.querySelectorAll('.ob-dot').forEach(function (d, i) {
+      d.classList.toggle('is-active', i < step);
+    });
+  }
+
+  root.querySelectorAll('.ob-back').forEach(function (btn) {
+    btn.addEventListener('click', function () { goto(Number(btn.dataset.back)); });
+  });
+
+  // Paso 1 → 2: guardar nombre + moneda + recurrente ingreso
+  root.querySelector('[data-next="2"]').addEventListener('click', async function () {
+    var nombre = ($('obNombre').value || '').trim();
+    if (!nombre) { alert('Ingresa tu nombre para continuar.'); $('obNombre').focus(); return; }
+    if (typeof updateProfile === 'function') {
+      try { await updateProfile({ nombre: nombre }); } catch (e) {}
+    }
+    if (window.currentProfile) window.currentProfile.nombre = nombre;
+    var code = selM.value;
+    if (typeof setMoneda === 'function') await setMoneda(code);
+    var ing = Number($('obIngreso').value);
+    if (ing > 0 && typeof upsertRecurrente === 'function') {
+      try {
+        await upsertRecurrente({
+          descripcion: 'Ingreso mensual', monto: ing, tipo: 'ingreso',
+          frecuencia: 'mensual', dia_cargo: 1, activo: true
+        });
+      } catch (e) {}
+    }
+    goto(2);
+  });
+
+  // Paso 2 → 3: crear categorías elegidas (evitar duplicados por nombre)
+  root.querySelector('[data-next="3"]').addEventListener('click', async function () {
+    if (elegidas.size < 3) { alert('Elige al menos 3 categorías.'); return; }
+    creadas = [];
+    var existentes = [];
+    try { existentes = (await getCategorias('gasto')) || []; } catch (e) {}
+    var nombresExist = new Set(existentes.map(function (c) { return (c.nombre || '').toLowerCase(); }));
+    var items = Array.from(elegidas).map(function (i) { return SUGERIDAS[i]; });
+    for (var k = 0; k < items.length; k++) {
+      var c = items[k];
+      if (nombresExist.has(c.nombre.toLowerCase())) {
+        var ya = existentes.find(function (e) { return (e.nombre || '').toLowerCase() === c.nombre.toLowerCase(); });
+        if (ya) creadas.push(ya);
+        continue;
+      }
+      try {
+        var nueva = await insertCategoria({
+          nombre: c.nombre, tipo: 'gasto', icono: c.icono, color: c.color, estado: 'activa'
+        });
+        if (nueva) creadas.push(nueva);
+      } catch (e) {}
+    }
+    // poblar select del paso 3
+    var sel = $('obTxCat'); sel.innerHTML = '';
+    creadas.forEach(function (c) {
+      var o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre; sel.appendChild(o);
+    });
+    goto(3);
+  });
+
+  async function finalizar(crearTx) {
+    if (crearTx) {
+      var monto = Number($('obTxMonto').value);
+      var catId = $('obTxCat').value;
+      if (monto > 0 && catId && typeof insertTransaccion === 'function') {
+        var hoy = new Date();
+        var iso = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+        try {
+          await insertTransaccion({ tipo: 'gasto', ambito: 'personal', categoria_id: catId, monto: monto, fecha: iso });
+        } catch (e) {}
+      }
+    }
+    if (typeof updateProfile === 'function') {
+      try { await updateProfile({ onboarding_completado: true }); } catch (e) {}
+    }
+    try { localStorage.setItem('nestra-onboarding-done', '1'); } catch (e) {}
+    root.remove();
+    if (typeof navigateTo === 'function') navigateTo('#dashboard'); else location.hash = '#dashboard';
+  }
+
+  root.querySelector('.ob-finish').addEventListener('click', function () { finalizar(true); });
+  root.querySelector('.ob-skip').addEventListener('click', function () { finalizar(false); });
+})();
+</script>

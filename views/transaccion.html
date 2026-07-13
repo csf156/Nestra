@@ -19,9 +19,46 @@
 
   <div class="card tx-card">
 
+    <!-- ── Panel rápido (entrada principal) ───────────────────────── -->
+    <div id="txQuickPanel" class="tx-quick" style="display:none;">
+      <label for="txQuickInput" class="tx-quick-label">Registro rápido</label>
+      <div class="tx-quick-row">
+        <input type="text" id="txQuickInput" class="tx-quick-input" autocomplete="off"
+               inputmode="text" placeholder='Ej: "Uber 15", "ahorro hogar 50", "ingreso trabajo 100"'
+               aria-label="Registro rápido de transacción" />
+        <button type="button" id="txQuickAdd" class="btn btn-primary tx-quick-add">Agregar</button>
+      </div>
+      <div id="txQuickChips" class="tx-plantillas" aria-label="Plantillas"></div>
+      <p id="txQuickError" class="form-error" role="alert" style="display:none;"></p>
+      <button type="button" id="txQuickMas" class="tx-quick-mas">Más opciones (formulario completo)</button>
+    </div>
+    <div id="txQuickConfirm" class="tx-quick-confirm" style="display:none;" aria-live="polite">
+      <div class="tx-quick-confirm-check" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg></div>
+      <p id="txQuickConfirmMsg" class="tx-quick-confirm-msg"></p>
+      <div id="txQuickEditCat" style="display:none; margin:var(--space-sm) 0;">
+        <select id="txQuickEditSelect" class="cfg-select"></select>
+      </div>
+      <div class="tx-quick-confirm-actions">
+        <button type="button" id="txQuickUndo" class="btn btn-secondary btn-sm">Deshacer</button>
+        <button type="button" id="txQuickEditBtn" class="btn btn-secondary btn-sm">Editar categoría</button>
+        <button type="button" id="txQuickDone" class="btn btn-primary btn-sm">Listo</button>
+      </div>
+    </div>
+    <div id="txQuickAsk" class="tx-quick-confirm" style="display:none;" aria-live="polite">
+      <p id="txQuickAskMsg" class="tx-quick-confirm-msg"></p>
+      <div class="tx-quick-ask-cat">
+        <select id="txQuickAskSelect"></select>
+      </div>
+      <p id="txQuickAskError" class="form-error" role="alert" style="display:none;"></p>
+      <div class="tx-quick-confirm-actions">
+        <button type="button" id="txQuickAskSave" class="btn btn-primary btn-sm">Guardar</button>
+        <button type="button" id="txQuickAskMas" class="btn btn-secondary btn-sm">Más opciones</button>
+      </div>
+    </div>
+
     <!-- ── Pantalla de éxito (oculta hasta guardar) ─────────────── -->
     <div id="txExito" class="tx-exito" style="display:none;" aria-live="polite">
-      <div class="tx-exito-icon" aria-hidden="true">✓</div>
+      <div class="tx-exito-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-circle-check"></use></svg></div>
       <p class="tx-exito-msg">Transacción guardada</p>
       <div id="txAlertaPost" style="display:none; margin-top: var(--space-md);"></div>
       <button type="button" class="btn btn-primary" id="txExitoContinuar"
@@ -30,6 +67,11 @@
 
     <!-- ── Formulario ────────────────────────────────────────────── -->
     <form id="transaccionForm" novalidate>
+      <!-- Preview de captura compartida (Web Share Target) -->
+      <div id="txSharePreview" class="tx-share-preview" style="display:none;">
+        <img id="txShareImg" alt="Captura compartida" />
+        <p class="form-hint">Captura recibida. Verifica el monto detectado o ingrésalo manualmente.</p>
+      </div>
 
       <!-- Tipo -->
       <div class="form-group tx-toggle-group">
@@ -45,11 +87,14 @@
           </button>
           <button type="button" class="tx-toggle-btn tx-toggle-btn--ahorro"
                   id="btnTipoAhorro" aria-pressed="false">
-            <span class="tx-toggle-icon" aria-hidden="true">🐷</span> Ahorro
+            <span class="tx-toggle-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-pig-money"></use></svg></span> Ahorro
           </button>
         </div>
         <input type="hidden" id="tipo" value="gasto">
       </div>
+
+      <!-- Plantillas de 1 toque -->
+      <div id="txPlantillas" class="tx-plantillas" aria-label="Plantillas"></div>
 
       <!-- Ámbito -->
       <div class="form-group tx-toggle-group">
@@ -64,7 +109,7 @@
       </div>
 
       <!-- Categoría -->
-      <div class="form-group">
+      <div class="form-group" id="categoriaGroup">
         <label for="categoria">Categoría</label>
         <select id="categoria" name="categoria" required>
           <option value="">Cargando categorías...</option>
@@ -84,7 +129,7 @@
           <button type="button" class="btn btn-primary btn-small"
                   id="nuevaCatGuardar">Crear</button>
           <button type="button" class="btn btn-secondary btn-small"
-                  id="nuevaCatCancelar" aria-label="Cancelar nueva categoría">✕</button>
+                  id="nuevaCatCancelar" aria-label="Cancelar nueva categoría"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-x"></use></svg></button>
         </div>
         <span id="nuevaCatError" class="form-error" role="alert" style="display:none;"></span>
       </div>
@@ -94,7 +139,7 @@
         <div class="form-group">
           <label for="monto">Monto</label>
           <div class="tx-monto-wrap">
-            <span class="tx-currency" aria-hidden="true">S/</span>
+            <span class="tx-currency" id="txCurrency" aria-hidden="true">S/</span>
             <input type="number" id="monto" name="monto" step="0.01" min="0.01"
                    inputmode="decimal" placeholder="0.00" required />
           </div>
@@ -105,6 +150,17 @@
           <label for="fecha">Fecha</label>
           <input type="date" id="fecha" name="fecha" required />
         </div>
+      </div>
+
+      <!-- Split: dividir en varias categorías -->
+      <div class="form-group tx-split-toggle">
+        <label><input type="checkbox" id="txSplitOn"> Dividir en varias categorías</label>
+      </div>
+      <div id="txSplitBox" class="tx-split-box" style="display:none;">
+        <div id="txSplitLineas"></div>
+        <button type="button" class="btn btn-secondary btn-small" id="txSplitAdd">+ Línea</button>
+        <p class="form-hint">Suma líneas: <span id="txSplitSuma">0.00</span> / <span id="txSplitTotal">0.00</span></p>
+        <span id="txSplitError" class="form-error" role="alert" style="display:none;"></span>
       </div>
 
       <!-- Préstamo: deudor + estado (condicional) -->
@@ -142,6 +198,13 @@
       <div class="form-group">
         <label for="nota">Nota <span class="label-opcional">(opcional)</span></label>
         <textarea id="nota" name="nota" rows="2" placeholder="Descripción libre..."></textarea>
+      </div>
+
+      <!-- Recibo -->
+      <div class="form-group">
+        <label for="reciboFile">Recibo <span class="label-opcional">(opcional)</span></label>
+        <input type="file" id="reciboFile" accept="image/*" capture="environment">
+        <img id="reciboPreview" class="recibo-preview" alt="Vista previa del recibo" style="display:none;">
       </div>
 
       <!-- Error general -->
@@ -240,7 +303,8 @@
   }
   .tx-toggle-btn {
     flex: 1;
-    padding: var(--space-sm) var(--space-md);
+    min-width: 0;
+    padding: var(--space-sm) var(--space-xs);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     background: var(--bg-light);
@@ -265,7 +329,7 @@
   }
   .tx-toggle-btn.tx-active {
     background: var(--color-primary);
-    color: #fff;
+    color: var(--bg-light);
   }
   .tx-toggle-btn--gasto.tx-active {
     background: var(--color-danger);
@@ -274,7 +338,7 @@
     background: var(--color-success);
   }
   .tx-toggle-btn--ahorro.tx-active {
-    background: #3b82f6;
+    background: var(--color-info);
   }
   .tx-toggle-btn:focus-visible {
     outline: 2px solid var(--color-primary);
@@ -404,7 +468,7 @@
     height: 64px;
     border-radius: 50%;
     background: var(--color-success);
-    color: #fff;
+    color: var(--bg-light);
     font-size: 2rem;
     display: flex;
     align-items: center;
@@ -447,10 +511,212 @@
   }
   .tx-cat-icono { display: inline-flex; align-items: center; margin-left: var(--space-xs); }
   .tx-cat-icono .cat-icono { width: 18px; height: 18px; color: var(--text-secondary); }
+  .tx-share-preview {
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+  }
+  .tx-share-preview img {
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: var(--radius-sm);
+    display: block;
+    margin: 0 auto var(--space-xs);
+  }
+
+  /* ── Quick-add prefill: highlight categoria faltante ────── */
+  .tx-cat-needed select { outline: 2px solid var(--color-warning); outline-offset: 2px; }
+
+  /* ── Split multi-categoría ───────────────────────────────── */
+  .tx-split-box { border:1px solid var(--color-border, var(--border-light)); border-radius:var(--radius-sm); padding:var(--space-sm); margin-bottom:var(--space-md); }
+  .tx-split-linea { display:flex; gap:var(--space-xs); margin-bottom:var(--space-xs); align-items:center; }
+  .tx-split-linea .sp-cat { flex:1; }
+  .tx-split-linea .sp-monto { width:90px; }
+  .tx-split-linea .sp-del { background:none; border:none; font-size:1.3rem; cursor:pointer; color:var(--color-text-muted, var(--text-secondary)); }
+
+  /* ── Recibo preview ─────────────────────────────────────── */
+  .recibo-preview { max-width: 120px; border-radius: var(--radius-sm); margin-top: var(--space-sm); display:block; }
+
+  /* ── Quick-add panel ────────────────────────────────────── */
+  .tx-quick {
+    padding: var(--space-sm) 0 var(--space-md);
+  }
+  .tx-quick-label {
+    display: block;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: var(--space-sm);
+  }
+  .tx-quick-row {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+  }
+  .tx-quick-input {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-sm) var(--space-md);
+    min-height: 48px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: var(--text-dark);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .tx-quick-input::placeholder { color: var(--text-secondary); opacity: 0.7; font-weight: var(--font-weight-normal); }
+  .tx-quick-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 22%, transparent);
+  }
+  .tx-quick-add {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 48px;
+    padding-inline: var(--space-lg);
+    font-weight: var(--font-weight-semibold);
+  }
+  .tx-quick-mas {
+    display: block;
+    margin-top: var(--space-sm);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    padding: var(--space-xs) 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .tx-quick-mas:hover { color: var(--color-primary); }
+
+  /* ── Quick-add confirmation ──────────────────────────────── */
+  .tx-quick-confirm {
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    animation: txFadeIn 0.25s ease-out;
+  }
+  .tx-quick-confirm-check {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto var(--space-md);
+    color: var(--color-success);
+    animation: txPop 0.3s ease-out;
+  }
+  .tx-quick-confirm-check svg { width: 100%; height: 100%; }
+  .tx-quick-confirm-msg {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-normal);
+    color: var(--text-secondary);
+    margin: 0 auto var(--space-lg);
+    line-height: 1.5;
+    max-width: 28ch;
+  }
+  .tx-quick-confirm-msg .qc-em {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
+  }
+  .tx-quick-confirm-actions {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn-sm {
+    padding: var(--space-xs) var(--space-md);
+    font-size: var(--font-size-sm);
+    min-height: 40px;
+  }
+
+  @media (max-width: 480px) {
+    .tx-quick-row { flex-direction: column; }
+    .tx-quick-add { width: 100%; }
+    .tx-quick-confirm-actions { flex-direction: column; }
+    .tx-quick-confirm-actions .btn { width: 100%; }
+  }
+
+  /* ── Plantilla chips ─────────────────────────────────────── */
+  .tx-plantillas { display:flex; flex-wrap:wrap; gap:var(--space-xs); margin-bottom:var(--space-md); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full, 9999px);
+    border: 1px solid var(--border-light);
+    background: var(--bg-light-secondary);
+    color: var(--text-dark);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .chip:hover { background: var(--border-light); border-color: var(--color-primary); }
+  .chip:disabled { opacity: 0.5; cursor: not-allowed; }
+  .chip-plantilla { cursor: pointer; }
+
+  /* ── Selector de categoría con buscador (combobox) ───────── */
+  .ss-wrap { position: relative; }
+  .ss-input {
+    width: 100%;
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-light);
+    color: var(--text-dark);
+    font-size: var(--font-size-base);
+  }
+  .ss-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+  .ss-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+  .ss-list {
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 4px);
+    z-index: 30;
+    margin: 0;
+    padding: var(--space-xs);
+    list-style: none;
+    background: var(--bg-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+  }
+  .ss-item {
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    font-size: var(--font-size-base);
+  }
+  .ss-item:hover, .ss-item.ss-active { background: var(--border-light); }
+
+  /* ── Panel "concepto nuevo" ──────────────────────────────── */
+  .tx-quick-ask-cat { margin: var(--space-md) 0; text-align: left; }
 </style>
 
 <script>
   (function () {
+    // Símbolo de moneda activa en el prefijo del input de monto.
+    (function () {
+      var cur = document.getElementById('txCurrency');
+      if (cur && typeof monedaSimbolo === 'function') cur.textContent = monedaSimbolo();
+    })();
     const form           = document.getElementById('transaccionForm');
     const tipoEl         = document.getElementById('tipo');
     const ambitoEl       = document.getElementById('ambito');
@@ -491,6 +757,23 @@
     const txAlertaPost     = document.getElementById('txAlertaPost');
     const txExitoContinuar = document.getElementById('txExitoContinuar');
 
+    // ── Panel rápido: modo helpers ────────────────────────────
+    const elQuickPanel = document.getElementById('txQuickPanel');
+    const elHeader = document.querySelector('.tx-header');
+    function _modoRapido() {
+      elQuickPanel.style.display = 'block';
+      form.style.display = 'none';
+      if (elHeader) elHeader.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      setTimeout(() => { document.getElementById('txQuickInput').focus(); }, 50);
+    }
+    function _modoForm() {
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      if (elHeader) elHeader.style.display = '';
+      form.style.display = '';
+    }
+
     const CAT_PRESTAMO = 'Dinero que prestamos';
 
     // Modo edición: si el historial dejó window._editTx, precargamos los
@@ -513,6 +796,9 @@
     function ocultar(el)      { el.style.display = 'none'; el.textContent = ''; }
 
     function _salir() {
+      _reciboBlob = null;
+      var prev = document.getElementById('reciboPreview');
+      if (prev) { prev.src = ''; prev.style.display = 'none'; }
       if (window._modalMode && typeof cerrarModal === 'function') {
         cerrarModal();
       } else {
@@ -529,7 +815,10 @@
       btnTipoIngreso.setAttribute('aria-pressed', String(val === 'ingreso'));
       btnTipoAhorro.classList.toggle('tx-active', val === 'ahorro');
       btnTipoAhorro.setAttribute('aria-pressed', String(val === 'ahorro'));
-      cargarCategorias();
+      var esAhorro = (val === 'ahorro');
+      document.getElementById('categoriaGroup').style.display = esAhorro ? 'none' : '';
+      if (esAhorro) { _ocultarNuevaCat(); _ocultarPrestamo(); }
+      else cargarCategorias();
       _mostrarAporteHogar();
     }
     function _setAmbito(val) {
@@ -546,6 +835,18 @@
     btnTipoAhorro.addEventListener('click',   () => _setTipo('ahorro'));
     btnAmbitoPersonal.addEventListener('click', () => _setAmbito('personal'));
     btnAmbitoHogar.addEventListener('click',    () => _setAmbito('hogar'));
+
+    // Gating Fase 6.1: sin hogar, no se ofrece el ámbito hogar.
+    (function gateAmbito() {
+      var fila = btnAmbitoPersonal.closest('.tx-toggle-group, .form-group, .tx-seg, .tx-toggle, .form-row, fieldset') || btnAmbitoPersonal.parentElement;
+      function aplicar() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (fila) fila.style.display = hay ? '' : 'none';
+        if (!hay && typeof _setAmbito === 'function') _setAmbito('personal');
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
 
     // ── Aporte al hogar ───────────────────────────────────────
     function _mostrarAporteHogar() {
@@ -577,8 +878,7 @@
       _ocultarNuevaCat();
       _ocultarPrestamo();
       try {
-        const catTipo = tipo === 'ahorro' ? 'gasto' : tipo;
-        const cats = await getCategorias(catTipo);
+        const cats = await getCategorias(tipo);
         if (!cats.length) {
           categoriaEl.innerHTML = '<option value="">Sin categorías</option>';
           return;
@@ -589,6 +889,10 @@
           '<option value="__nueva__">+ Nueva categoría</option>';
         if (autoSelectId) categoriaEl.value = autoSelectId;
         if (_esPrestamo() && !editTx) _mostrarPrestamo();
+        if (typeof searchableSelect === 'function') {
+          searchableSelect(categoriaEl, { specialItems: [{ value: '__nueva__', text: '+ Nueva categoría' }], placeholder: 'Buscar categoría…' });
+          if (categoriaEl._ssSync) categoriaEl._ssSync();
+        }
       } catch (err) {
         console.error('Error cargando categorías:', err);
         categoriaEl.innerHTML = '<option value="">Error al cargar</option>';
@@ -614,6 +918,7 @@
         var icono = opt ? opt.getAttribute('data-icono') : null;
         icoEl.innerHTML = (categoriaEl.value && typeof iconoCategoria === 'function') ? iconoCategoria(icono) : '';
       })();
+      if (categoriaEl._ssSync) categoriaEl._ssSync();
     });
 
     // ── Nueva categoría al vuelo ──────────────────────────────
@@ -666,6 +971,80 @@
 
     montoEl.addEventListener('input', () => ocultar(montoError));
 
+    // ── Recibo: compresión y previsualización ─────────────────
+    function comprimirImagen(file, maxLado, calidad) {
+      return new Promise(function (resolve, reject) {
+        var img = new Image();
+        img.onload = function () {
+          var w = img.width, h = img.height;
+          if (w > h && w > maxLado) { h = Math.round(h * maxLado / w); w = maxLado; }
+          else if (h > maxLado) { w = Math.round(w * maxLado / h); h = maxLado; }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error('toBlob null')); }, 'image/webp', calidad);
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+    var _reciboBlob = null;
+    document.getElementById('reciboFile').addEventListener('change', async function (e) {
+      var file = e.target.files[0]; if (!file) { _reciboBlob = null; return; }
+      try {
+        _reciboBlob = await comprimirImagen(file, 1280, 0.7);
+        var prev = document.getElementById('reciboPreview');
+        prev.src = URL.createObjectURL(_reciboBlob); prev.style.display = 'block';
+      } catch (_) { _reciboBlob = null; }
+    });
+
+    // ── Split multi-categoría ─────────────────────────────────
+    (function initSplit() {
+      const on = document.getElementById('txSplitOn');
+      const box = document.getElementById('txSplitBox');
+      const lineasEl = document.getElementById('txSplitLineas');
+      const sumaEl = document.getElementById('txSplitSuma');
+      const totalEl = document.getElementById('txSplitTotal');
+      if (!on) return;
+      window._splitActivo = false;
+      const catOptions = () => categoriaEl.innerHTML;
+      function addLinea() {
+        const div = document.createElement('div');
+        div.className = 'tx-split-linea';
+        div.innerHTML = `<select class="sp-cat">${catOptions()}</select>` +
+          `<input type="number" class="sp-monto" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00">` +
+          `<button type="button" class="sp-del" aria-label="Quitar">×</button>`;
+        lineasEl.appendChild(div);
+        div.querySelector('.sp-del').onclick = () => { div.remove(); recalc(); };
+        div.querySelector('.sp-monto').addEventListener('input', recalc);
+        recalc();
+      }
+      function recalc() {
+        let s = 0;
+        lineasEl.querySelectorAll('.sp-monto').forEach((i) => { s += parseFloat(i.value) || 0; });
+        sumaEl.textContent = s.toFixed(2);
+        totalEl.textContent = (parseFloat(montoEl.value) || 0).toFixed(2);
+      }
+      on.addEventListener('change', () => {
+        window._splitActivo = on.checked;
+        box.style.display = on.checked ? '' : 'none';
+        document.getElementById('categoriaGroup').style.display = on.checked ? 'none' : '';
+        if (on.checked && !lineasEl.children.length) { addLinea(); addLinea(); }
+        recalc();
+      });
+      document.getElementById('txSplitAdd').onclick = addLinea;
+      montoEl.addEventListener('input', recalc);
+      window._leerSplit = function () {
+        const lineas = [];
+        lineasEl.querySelectorAll('.tx-split-linea').forEach((d) => {
+          const cat = d.querySelector('.sp-cat').value;
+          const m = parseFloat(d.querySelector('.sp-monto').value);
+          if (cat && m > 0) lineas.push({ categoria_id: cat, monto: m });
+        });
+        return lineas;
+      };
+    })();
+
     // ── Validación ────────────────────────────────────────────
     function validar() {
       let ok = true;
@@ -674,7 +1053,8 @@
       ocultar(deudorError);
       ocultar(formError);
 
-      if (!categoriaEl.value) {
+      // En modo split, la categoría única no es requerida (está oculta).
+      if (!window._splitActivo && tipoEl.value !== 'ahorro' && !categoriaEl.value) {
         const msg = nuevaCatGroup.style.display !== 'none'
           ? 'Completa o cancela la nueva categoría primero.'
           : 'Selecciona una categoría.';
@@ -750,6 +1130,26 @@
       e.preventDefault();
       if (!validar()) return;
 
+      // ── Split path ──
+      if (window._splitActivo) {
+        const lineas = window._leerSplit();
+        const total = parseFloat(montoEl.value) || 0;
+        const suma = lineas.reduce((a, l) => a + l.monto, 0);
+        const err = document.getElementById('txSplitError');
+        if (lineas.length < 2) { err.textContent = 'Agrega al menos 2 líneas.'; err.style.display='block'; return; }
+        if (Math.abs(suma - total) > 0.001) { err.textContent = `La suma (${suma.toFixed(2)}) debe igualar el total (${total.toFixed(2)}).`; err.style.display='block'; return; }
+        err.style.display = 'none';
+        try {
+          await insertSplit(
+            { tipo: tipoEl.value, ambito: document.getElementById('ambito').value, fecha: document.getElementById('fecha').value, nota: notaEl.value.trim() || null },
+            lineas
+          );
+          window._splitActivo = false;
+          if (typeof mostrarExito === 'function') mostrarExito(lineas[0].categoria_id);
+        } catch (e) { err.textContent = 'No se pudo guardar la división. Reintenta.'; err.style.display='block'; }
+        return;
+      }
+
       const monto           = parseFloat(montoEl.value);
       const fecha           = fechaEl.value;
       const nota            = notaEl.value.trim() || null;
@@ -763,14 +1163,14 @@
           await updateTransaccion(editTx.id, {
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
-            categoria_id: savedCatId,
+            categoria_id: tipoEl.value === 'ahorro' ? null : savedCatId,
             monto,
             fecha,
             nota,
           });
           // Re-distribuir aportes a metas si la categoría es/era "Ahorro".
           // Best-effort: fallo no revierte la edición ya guardada.
-          await _reDistribuirAhorro(editTx.id, savedCatId);
+          await _reDistribuirAhorro(editTx.id, tipoEl.value);
           await mostrarExito(savedCatId);
           return;
         }
@@ -780,13 +1180,17 @@
           const tx = await insertTransaccion({
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
-            categoria_id: savedCatId,
+            categoria_id: tipoEl.value === 'ahorro' ? null : savedCatId,
             monto,
             fecha,
             nota,
           });
           if (prestamoGroup.style.display !== 'none') {
             await insertPrestamo(tx.id, deudorEl.value.trim(), estadoPrestamoEl.value);
+          }
+          if (_reciboBlob && tx && tx.id && typeof subirRecibo === 'function') {
+            try { await subirRecibo(tx.id, _reciboBlob); } catch (_) {}
+            _reciboBlob = null;
           }
         }
         await mostrarExito(savedCatId);
@@ -812,6 +1216,7 @@
       btnTipoIngreso.setAttribute('aria-pressed', String(editTx.tipo === 'ingreso'));
       btnTipoAhorro.classList.toggle('tx-active', editTx.tipo === 'ahorro');
       btnTipoAhorro.setAttribute('aria-pressed', String(editTx.tipo === 'ahorro'));
+      document.getElementById('categoriaGroup').style.display = (editTx.tipo === 'ahorro') ? 'none' : '';
 
       ambitoEl.value = editTx.ambito;
       btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
@@ -826,8 +1231,268 @@
 
       cargarCategorias(editTx.categoria_id);
     } else {
-      cargarCategorias();
+      // Prefill desde Quick-Add del dashboard. Tiene prioridad sobre share prefill.
+      // Se resuelve DESPUÉS de cargarCategorias() porque categoria_id se pasa
+      // como autoSelectId para que el <option> ya exista cuando se asigne.
+      const qp = window._quickAddPrefill || null;
+      window._quickAddPrefill = null;
+
+      if (qp) {
+        // Campos que no dependen de las opciones de categoría.
+        _setTipo(qp.tipo || 'gasto');
+        if (qp.monto) montoEl.value = qp.monto;
+        if (qp.nota)  notaEl.value  = qp.nota;
+        if (qp.fecha) fechaEl.value  = qp.fecha;
+        // cargarCategorias pre-selecciona el id si se le pasa; si no hay id
+        // se señala visualmente que hace falta elegir categoría.
+        cargarCategorias(qp.categoria_id || null).then(() => {
+          if (qp.categoria_id) {
+            categoriaEl.dispatchEvent(new Event('change'));
+          } else if (qp._forceCategoriaPick) {
+            document.getElementById('categoriaGroup').classList.add('tx-cat-needed');
+          }
+        });
+      } else {
+        cargarCategorias();
+      }
+
       _mostrarAporteHogar();
+
+      // Prefill desde Web Share Target (captura de Yape, etc.). Se consume una vez.
+      const sp = window._sharePrefill || null;
+      window._sharePrefill = null;
+      if (sp) {
+        if (sp.monto != null) montoEl.value = sp.monto;
+        if (sp.nota) notaEl.value = sp.nota;
+        if (sp.imageURL) {
+          const prev = document.getElementById('txSharePreview');
+          const img = document.getElementById('txShareImg');
+          if (prev && img) {
+            img.onload = function () { URL.revokeObjectURL(sp.imageURL); };
+            img.src = sp.imageURL;
+            prev.style.display = 'block';
+          }
+        }
+      }
+
+      // Decidir modo inicial: panel rápido solo para altas nuevas sin prefill.
+      const _esAltaNueva = !qp && !sp;
+      if (_esAltaNueva) _modoRapido(); else _modoForm();
     }
+
+    // ── Panel rápido: parse + guardado directo ────────────────
+    function _hoyISO() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+    async function _ctxPara(tipo) {
+      const learned = (typeof autocatLearned === 'function') ? await autocatLearned() : {};
+      const cats = await getCategorias(tipo === 'ahorro' ? 'gasto' : tipo);
+      const seed = window.NESTRA_SEED || {};
+      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed };
+    }
+    let _quickTokens = [], _quickTxId = null, _quickTipo = 'gasto';
+
+    function _prefillForm(r) {
+      _setTipo(r.tipo); _setAmbito(r.ambito);
+      montoEl.value = r.monto || '';
+      notaEl.value = r.descripcion || '';
+      if (r.fecha) fechaEl.value = r.fecha;
+    }
+
+    async function _quickAgregar() {
+      const errEl = document.getElementById('txQuickError');
+      errEl.style.display = 'none';
+      // Guard de versión: si el SW del teléfono sirve JS viejo (sin estos globales)
+      // mientras la vista es nueva, avisamos en vez de morir en silencio.
+      if (typeof parseQuickAdd !== 'function' || typeof tokenize !== 'function' ||
+          typeof matchCategoria !== 'function' || typeof insertTransaccion !== 'function') {
+        errEl.textContent = 'Hay una versión nueva de la app. Ciérrala por completo y vuelve a abrirla.';
+        errEl.style.display = 'block';
+        return;
+      }
+      try {
+        const txt = document.getElementById('txQuickInput').value.trim();
+        if (!txt) return;
+        const pre = parseQuickAdd(txt, { hoy: _hoyISO(), ctx: {} });
+        const ctx = await _ctxPara(pre.tipo);
+        const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
+        if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
+        _quickTokens = tokenize(r.descripcion || '');
+        _quickTipo = r.tipo;
+        if (r.tipo !== 'ahorro' && !r.categoria_id) {
+          await _mostrarAsk(r);
+          return;
+        }
+        const tx = await insertTransaccion({
+          tipo: r.tipo, ambito: r.ambito,
+          categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
+          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+        });
+        _quickTxId = tx && tx.id;
+        await _mostrarConfirm(r);
+      } catch (e) {
+        console.error('quickAgregar falló:', e);
+        errEl.textContent = 'No se pudo guardar. Reintenta.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    // ── Panel rápido: confirmación + deshacer + editar cat ────
+    function _fmtMonto(m) { return (typeof formatMonto === 'function') ? formatMonto(m) : ('S/ ' + Number(m).toFixed(2)); }
+    function _nombreCat(id, cats) { const c = cats.find((x) => x.id === id); return c ? c.nombre : ''; }
+    async function _mostrarConfirm(r) {
+      const msg = document.getElementById('txQuickConfirmMsg');
+      const cats = r.tipo === 'ahorro' ? [] : await getCategorias(r.tipo);
+      const tipoTxt = r.tipo === 'gasto' ? 'gasto' : (r.tipo === 'ingreso' ? 'ingreso' : 'ahorro');
+      const hogar = r.ambito === 'hogar' ? ' (hogar)' : '';
+      if (r.tipo === 'ahorro') {
+        msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>' + esc(hogar);
+      } else {
+        const cn = _nombreCat(r.categoria_id, cats);
+        msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> por <b class="qc-em">' + esc(_fmtMonto(r.monto)) +
+          '</b> en <b class="qc-em">' + esc(cn) + '</b>' + esc(hogar);
+      }
+      const editWrap = document.getElementById('txQuickEditCat');
+      const sel = document.getElementById('txQuickEditSelect');
+      const editBtn = document.getElementById('txQuickEditBtn');
+      editWrap.style.display = 'none';
+      if (r.tipo === 'ahorro') { editBtn.style.display = 'none'; }
+      else {
+        editBtn.style.display = '';
+        sel.innerHTML = cats.map((c) => '<option value="' + c.id + '"' + (c.id === r.categoria_id ? ' selected' : '') + '>' + esc(c.nombre) + '</option>').join('');
+        if (typeof searchableSelect === 'function') { searchableSelect(sel, { placeholder: 'Buscar categoría…' }); if (sel._ssSync) sel._ssSync(); }
+      }
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickAsk').style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'block';
+      if (window._modalMode) window._modalRefresh = true;
+    }
+    let _askR = null;
+    async function _mostrarAsk(r) {
+      _askR = r;
+      _quickTokens = tokenize(r.descripcion || '');
+      _quickTipo = r.tipo;
+      const msg = document.getElementById('txQuickAskMsg');
+      const tipoTxt = r.tipo === 'ingreso' ? 'ingreso' : 'gasto';
+      if (r.descripcion) {
+        msg.innerHTML = '«<b class="qc-em">' + esc(r.descripcion) + '</b>» es nuevo para mí. ¿A qué categoría lo agrego?';
+      } else {
+        msg.innerHTML = '¿A qué categoría agrego este ' + tipoTxt + ' de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>?';
+      }
+      const sel = document.getElementById('txQuickAskSelect');
+      const cats = await getCategorias(r.tipo);
+      sel.innerHTML = '<option value="">Selecciona…</option>' +
+        cats.map((c) => '<option value="' + c.id + '">' + esc(c.nombre) + '</option>').join('');
+      if (typeof searchableSelect === 'function') searchableSelect(sel, { placeholder: 'Buscar categoría…' });
+      else sel.style.display = '';
+      document.getElementById('txQuickAskError').style.display = 'none';
+      elQuickPanel.style.display = 'none';
+      document.getElementById('txQuickConfirm').style.display = 'none';
+      document.getElementById('txQuickAsk').style.display = 'block';
+    }
+    document.getElementById('txQuickAskSave').addEventListener('click', async () => {
+      const sel = document.getElementById('txQuickAskSelect');
+      const errEl = document.getElementById('txQuickAskError');
+      const catId = sel.value;
+      if (!catId) { errEl.textContent = 'Elige una categoría.'; errEl.style.display = 'block'; return; }
+      try {
+        const r = _askR;
+        const tx = await insertTransaccion({
+          tipo: r.tipo, ambito: r.ambito, categoria_id: catId,
+          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+        });
+        _quickTxId = tx && tx.id;
+        if (typeof autocatLearnTokens === 'function') await autocatLearnTokens(_quickTokens, catId);
+        await _mostrarConfirm(Object.assign({}, r, { categoria_id: catId }));
+      } catch (e) {
+        console.error('quickAsk save:', e);
+        errEl.textContent = 'No se pudo guardar. Reintenta.'; errEl.style.display = 'block';
+      }
+    });
+    document.getElementById('txQuickAskMas').addEventListener('click', () => {
+      if (_askR) _prefillForm(_askR);
+      document.getElementById('txQuickAsk').style.display = 'none';
+      _modoForm();
+    });
+    document.getElementById('txQuickAdd').addEventListener('click', _quickAgregar);
+    document.getElementById('txQuickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); _quickAgregar(); } });
+    document.getElementById('txQuickMas').addEventListener('click', () => { _modoForm(); });
+    document.getElementById('txQuickDone').addEventListener('click', () => { _salir(); });
+    document.getElementById('txQuickUndo').addEventListener('click', async () => {
+      if (_quickTxId) { try { await deleteTransaccion(_quickTxId); } catch (_) {} }
+      _quickTxId = null; window._modalRefresh = true; _salir();
+    });
+    document.getElementById('txQuickEditBtn').addEventListener('click', () => {
+      document.getElementById('txQuickEditCat').style.display = 'block';
+    });
+    document.getElementById('txQuickEditSelect').addEventListener('change', async (e) => {
+      const nuevo = e.target.value;
+      if (!_quickTxId || !nuevo) return;
+      try {
+        await updateTransaccion(_quickTxId, { categoria_id: nuevo });
+        if (typeof autocatLearnTokens === 'function') await autocatLearnTokens(_quickTokens, nuevo);
+        const cats = await getCategorias(_quickTipo);
+        document.getElementById('txQuickConfirmMsg').innerHTML =
+          'Actualicé la categoría a <b class="qc-em">' + esc(_nombreCat(nuevo, cats)) + '</b>';
+        document.getElementById('txQuickEditCat').style.display = 'none';
+      } catch (_) {}
+    });
+
+    // ── B) Autocat prefill al salir del campo nota ────────────
+    notaEl.addEventListener('blur', async () => {
+      if (categoriaEl.value) return;
+      if (typeof matchCategoria !== 'function' || typeof tokenize !== 'function' || typeof autocatLearned !== 'function') return;
+      if (tipoEl.value === 'ahorro') return;
+      const cats = await getCategorias(tipoEl.value);
+      const ctx = { learned: await autocatLearned(), categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed: window.NESTRA_SEED || {} };
+      const catId = matchCategoria(tokenize(notaEl.value), ctx);
+      if (catId) { categoriaEl.value = catId; categoriaEl.dispatchEvent(new Event('change')); }
+    });
+
+    // ── C) Plantillas de 1 toque ──────────────────────────────
+    (async function pintarPlantillas() {
+      const cont = document.getElementById('txPlantillas');
+      const contQ = document.getElementById('txQuickChips');
+      if (typeof getPlantillas !== 'function') return;
+      const ps = await getPlantillas();
+      if (!ps || !ps.length) return;
+      const chipsHtml = ps.map((p) =>
+        `<button type="button" class="chip chip-plantilla" data-id="${esc(String(p.id))}">${esc(p.nombre)} · ${esc(formatMonto(p.monto))}</button>`
+      ).join('');
+      // Chips en el formulario clásico
+      if (cont) {
+        cont.innerHTML = chipsHtml;
+        cont.querySelectorAll('[data-id]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const p = ps.find((x) => String(x.id) === btn.dataset.id);
+            if (!p) return;
+            btn.disabled = true;
+            try {
+              await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
+              if (typeof mostrarExito === 'function') mostrarExito(p.categoria_id);
+            } catch (_) { btn.disabled = false; }
+          });
+        });
+      }
+      // Chips en el panel rápido — guardado directo + confirmación
+      if (contQ) {
+        contQ.innerHTML = chipsHtml;
+        contQ.querySelectorAll('[data-id]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const p = ps.find((x) => String(x.id) === btn.dataset.id);
+            if (!p) return;
+            btn.disabled = true;
+            try {
+              const tx = await insertTransaccion({ tipo: p.tipo, ambito: p.ambito, categoria_id: p.categoria_id, monto: p.monto, nota: p.nombre });
+              _quickTxId = tx && tx.id;
+              _quickTipo = p.tipo;
+              _quickTokens = (typeof tokenize === 'function') ? tokenize(p.nombre) : [];
+              await _mostrarConfirm({ tipo: p.tipo, ambito: p.ambito, monto: p.monto, categoria_id: p.categoria_id });
+            } catch (_) { btn.disabled = false; }
+          });
+        });
+      }
+    })();
   })();
 </script>

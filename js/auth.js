@@ -98,6 +98,7 @@ async function logout() {
     localStorage.removeItem('sb-token');
     window.currentUser = null;
     window.currentProfile = null;
+    window.hogarState = null;
 
     if (realtimeChannel) {
       await supabase.removeChannel(realtimeChannel);
@@ -131,6 +132,11 @@ async function loadProfile(userId) {
 
     window.currentProfile = data;
     console.log('Profile loaded:', data.id);
+
+    // Estado de hogar para el gating de UI (Fase 6.1).
+    try { if (typeof getEstadoHogar === 'function') await getEstadoHogar(); }
+    catch (e) { window.hogarState = null; }
+
     return data;
   } catch (err) {
     console.error('Unexpected error in loadProfile():', err);
@@ -191,6 +197,7 @@ function handleSessionExpired() {
   localStorage.removeItem('sb-token');
   window.currentUser = null;
   window.currentProfile = null;
+  window.hogarState = null;
 
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);
@@ -252,6 +259,7 @@ async function initAuth() {
       console.log('No session token found');
       window.currentUser = null;
       window.currentProfile = null;
+      window.hogarState = null;
       return;
     }
 
@@ -262,6 +270,7 @@ async function initAuth() {
       localStorage.removeItem('sb-token');
       window.currentUser = null;
       window.currentProfile = null;
+      window.hogarState = null;
       return;
     }
 
@@ -279,6 +288,7 @@ async function initAuth() {
     console.error('Unexpected error in initAuth():', err);
     window.currentUser = null;
     window.currentProfile = null;
+    window.hogarState = null;
   }
 }
 

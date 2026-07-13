@@ -1,16 +1,22 @@
 // format.js — utilidades puras de formato (sin dependencias, funciones globales)
 
-// formatMonto() — formatea un número como Sol Peruano: "S/ 1,200.00"
+// formatMonto() — formatea un número según la moneda activa: "S/ 1,200.00", "$ 1,200.50".
+// Símbolo/locale/decimales vienen de moneda.js (window.monedaSimbolo, etc.).
+// Fallback a PEN ("S/", es-PE, 2 dec) si moneda.js no cargó. Símbolo y monto en
+// la misma línea (sin saltos).
 /**
  * @param {number} numero - Monto a formatear.
- * @returns {string} Monto formateado como "S/ X,XXX.XX". null/undefined/NaN → "S/ 0.00".
+ * @returns {string} Monto formateado con la moneda activa. null/undefined/NaN → "<sím> 0.00".
  */
 function formatMonto(numero) {
+  var sym = (typeof monedaSimbolo === 'function') ? monedaSimbolo() : 'S/';
+  var loc = (typeof monedaLocale === 'function') ? monedaLocale() : 'es-PE';
+  var dec = (typeof monedaDecimales === 'function') ? monedaDecimales() : 2;
   const num = Number(numero);
   if (numero === null || numero === undefined || Number.isNaN(num)) {
-    return "S/ 0.00";
+    return sym + " 0" + (dec ? "." + "0".repeat(dec) : "");
   }
-  return "S/ " + num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return sym + " " + num.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 // formatFecha() — convierte ISO a "DD/MM/YYYY" sin usar new Date (evita bug de timezone)

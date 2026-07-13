@@ -1,6 +1,6 @@
 <div class="dec">
   <header class="dec-header">
-    <h1 class="dec-title">Oráculo</h1>
+    <h1 class="dec-title">Brújula</h1>
     <p class="dec-sub">Consulta antes de gastar</p>
   </header>
 
@@ -12,7 +12,7 @@
       <div class="dec-monto">
         <span class="dec-monto-pre" aria-hidden="true">S/</span>
         <input class="dec-monto-input" id="decMonto" type="text" inputmode="decimal"
-               placeholder="0.00" autocomplete="off" />
+               placeholder="Monto (opcional — no sé cuánto)" autocomplete="off" />
       </div>
     </div>
     <div class="dec-field">
@@ -26,12 +26,12 @@
         <button type="button" class="dec-seg" data-ambito="personal" aria-pressed="false">Personal</button>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar al oráculo</button>
+    <button type="submit" class="btn btn-primary dec-submit" id="decSubmit">Consultar a la Brújula</button>
   </form>
 
   <div class="dec-cargando" id="decCargando" role="status" aria-live="polite" hidden>
     <div class="dec-orbe" aria-hidden="true"></div>
-    <span class="dec-cargando-txt">El oráculo medita tu consulta…</span>
+    <span class="dec-cargando-txt">La Brújula orienta tu consulta…</span>
   </div>
 
   <section class="dec-veredicto" id="decVeredicto" data-nivel="" aria-live="polite" hidden></section>
@@ -48,9 +48,9 @@
   .dec-estado[data-salud=""] { display: none; }
   .dec-estado-titulo { font-weight: var(--font-weight-semibold); color: var(--text-dark); display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 4px; }
   .dec-estado-focos { margin: 4px 0 0; padding-left: 1.1em; color: var(--text-secondary); }
-  .dec-estado[data-salud="sano"]     { background: rgba(16,185,129,0.10); }
-  .dec-estado[data-salud="ajustado"] { background: rgba(245,158,11,0.10); }
-  .dec-estado[data-salud="riesgo"]   { background: rgba(239,68,68,0.10); }
+  .dec-estado[data-salud="sano"]     { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
+  .dec-estado[data-salud="ajustado"] { background: color-mix(in srgb, var(--color-warning) 10%, transparent); }
+  .dec-estado[data-salud="riesgo"]   { background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
 
   .dec-form { display: flex; flex-direction: column; gap: var(--space-lg); background: var(--bg-light); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: var(--space-lg); box-shadow: var(--shadow-sm); }
   .dec-field { display: flex; flex-direction: column; gap: var(--space-sm); }
@@ -63,17 +63,17 @@
 
   .dec-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); }
   .dec-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); cursor: pointer; }
-  .dec-seg--active { background: var(--color-primary); color: #fff; }
+  .dec-seg--active { background: var(--color-primary); color: var(--bg-light); }
   .dec-submit { min-height: 48px; }
   .dec-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  /* Spinner místico (orbe del oráculo) */
+  /* Spinner místico (orbe de la Brújula) */
   .dec-cargando { flex-direction: column; align-items: center; gap: var(--space-md); padding: var(--space-xl) var(--space-md); color: var(--text-secondary); }
   .dec-cargando[hidden] { display: none; }
   .dec-cargando:not([hidden]) { display: flex; }
   .dec-orbe { width: 56px; height: 56px; border-radius: 50%; position: relative;
-    background: radial-gradient(circle at 32% 30%, rgba(52,211,153,0.95), rgba(5,150,105,0.45) 60%, transparent 72%);
-    box-shadow: 0 0 18px rgba(16,185,129,0.55); animation: dec-pulso 1.4s ease-in-out infinite; }
+    background: radial-gradient(circle at 32% 30%, color-mix(in srgb, var(--color-success) 95%, transparent), color-mix(in srgb, var(--color-success) 45%, transparent) 60%, transparent 72%);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-success) 55%, transparent); animation: dec-pulso 1.4s ease-in-out infinite; }
   .dec-orbe::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--color-primary); animation: dec-giro 1s linear infinite; }
   .dec-cargando-txt { font-size: var(--font-size-sm); font-style: italic; }
   @keyframes dec-pulso { 0%, 100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.12); opacity: 1; } }
@@ -86,9 +86,9 @@
   .dec-veredicto[hidden] { display: none; }
 
   /* Clases semánticas del veredicto (tres estados solicitados) */
-  .dec-veredicto.veredicto-ok      { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
-  .dec-veredicto.veredicto-alerta  { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
-  .dec-veredicto.veredicto-peligro { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); }
+  .dec-veredicto.veredicto-ok      { background: color-mix(in srgb, var(--color-success) 12%, transparent); border-color: color-mix(in srgb, var(--color-success) 35%, transparent); }
+  .dec-veredicto.veredicto-alerta  { background: color-mix(in srgb, var(--color-warning) 12%, transparent); border-color: color-mix(in srgb, var(--color-warning) 35%, transparent); }
+  .dec-veredicto.veredicto-peligro { background: color-mix(in srgb, var(--color-danger) 12%, transparent); border-color: color-mix(in srgb, var(--color-danger) 35%, transparent); }
   .dec-veredicto.veredicto-ok .dec-ver-cabecera      { color: var(--color-success); }
   .dec-veredicto.veredicto-alerta .dec-ver-cabecera  { color: var(--color-warning); }
   .dec-veredicto.veredicto-peligro .dec-ver-cabecera { color: var(--color-danger); }
@@ -101,11 +101,19 @@
   .dec-ver-detalle summary { cursor: pointer; color: var(--color-primary); }
   .dec-ver-detalle ul { margin: var(--space-sm) 0 0; padding-left: 1.1em; }
 
-  .dec-veredicto[data-nivel="recomendable"] { background: rgba(16,185,129,0.10); }
-  .dec-veredicto[data-nivel="cautela"]      { background: rgba(245,158,11,0.10); }
-  .dec-veredicto[data-nivel="no"]           { background: rgba(239,68,68,0.10); }
+  .dec-rango { display:flex; gap:10px; margin: var(--space-sm) 0; }
+  .dec-rango-c, .dec-rango-t { flex:1; padding: var(--space-sm); border-radius: var(--radius-md); }
+  .dec-rango-c { background: color-mix(in srgb, var(--color-success) 12%, transparent); }
+  .dec-rango-t { background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
+  .dec-rango span { display:block; font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .dec-rango b { font-size: var(--font-size-lg); }
+  .dec-offline { display:block; font-size: var(--font-size-sm); color: var(--text-secondary); margin-top: 4px; }
+
+  .dec-veredicto[data-nivel="recomendable"] { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
+  .dec-veredicto[data-nivel="cautela"]      { background: color-mix(in srgb, var(--color-warning) 10%, transparent); }
+  .dec-veredicto[data-nivel="no"]           { background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
   .dec-veredicto[data-nivel="sin-presupuesto"] { background: var(--bg-light-secondary); }
-  .dec-veredicto[data-nivel="ahorro"]       { background: rgba(16,185,129,0.10); }
+  .dec-veredicto[data-nivel="ahorro"]       { background: color-mix(in srgb, var(--color-success) 10%, transparent); }
 
   .btn-ghost { background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); min-height: 44px; border-radius: var(--radius-md); cursor: pointer; }
 
@@ -115,7 +123,7 @@
   }
   .dec-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
   .dec-chip { min-height: 44px; padding: 0 var(--space-md); border: 1px solid var(--border-light); border-radius: 999px; background: var(--bg-light); color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; }
-  .dec-chip[aria-pressed="true"] { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .dec-chip[aria-pressed="true"] { background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary); }
   .dec-chips-vacio { font-size: var(--font-size-sm); color: var(--text-secondary); }
   .dec-chips-vacio a { color: var(--color-primary); }
 </style>
@@ -169,84 +177,62 @@
       });
     });
 
-    // ── Recolecta las métricas necesarias para una consulta ───
-    async function recolectar(cat, ambito) {
-      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01',
-                   hasta: _rangoSemana().hasta };
+    // _rangoSemana() — provista globalmente por js/db.js; devuelve
+    // { desde, hasta, diasTranscurridos } de la semana en curso (lun–hoy).
+
+    // ── Recolecta las métricas para calcularRango + metaCritica ───
+    async function recolectarMetricas(cat, ambito) {
+      var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
       var rSem = _rangoSemana();
       var diasMes = new Date(hoy.anio, hoy.mes, 0).getDate();
-      var diaHoy = new Date().getDate();
 
-      var resultados = await Promise.all([
+      var res = await Promise.all([
         getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
         getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
         (ambito === 'personal' ? getBalancePersonal(hoy.mes, hoy.anio) : getBalanceHogar(hoy.mes, hoy.anio)),
         getMetas(ambito),
+        getRecurrentes(),
       ]);
-      var gastoMes = resultados[0], gastoSemana = resultados[1], balance = resultados[2];
-      var metasPend = (resultados[3] || []).filter(function (x) {
-        return Number(x.monto_actual) < Number(x.monto_objetivo);
-      });
+      var gastoMes = res[0], gastoSemana = res[1], balance = res[2];
+      var metasPend = (res[3] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
+      var recs = res[4] || [];
 
       var colchon = 0, metaCritica = null;
       metasPend.forEach(function (mt) {
         if (!mt.fecha_limite) return;
-        var hoyD = new Date();
-        var limD = new Date(mt.fecha_limite);
+        var hoyD = new Date(), limD = new Date(mt.fecha_limite);
         var meses = Math.max((limD.getFullYear() - hoyD.getFullYear()) * 12 + (limD.getMonth() - hoyD.getMonth()), 1);
         var faltante = Number(mt.monto_objetivo) - Number(mt.monto_actual);
         colchon += faltante / meses;
-        if (!metaCritica || meses <= 2) metaCritica = mt.nombre;
+        if (!metaCritica || meses <= 2) metaCritica = { nombre: mt.nombre, aporteTipico: Math.round(faltante / meses) };
       });
 
+      // Recurrentes por venir: proximo_cargo de HOY al fin de mes (lo que resta
+      // por cobrarse). NO se reusa rMes (su 'hasta' es hoy, correcto solo para gastoMes).
+      var mm = String(hoy.mes).padStart(2, '0');
+      var hoyISO = hoy.anio + '-' + mm + '-' + String(new Date().getDate()).padStart(2, '0');
+      var finMesISO = hoy.anio + '-' + mm + '-' + String(diasMes).padStart(2, '0');
+      var recurrentesPendientes = recs.reduce(function (s, r) {
+        if (!r.activo || !r.proximo_cargo) return s;
+        if (r.proximo_cargo < hoyISO || r.proximo_cargo > finMesISO) return s;
+        return s + Number(r.monto);
+      }, 0);
+
       return {
-        limite: Number(cat.limite_mensual),
-        gastoMes: gastoMes,
-        gastoSemana: gastoSemana,
-        diasMes: diasMes,
-        diaHoy: diaHoy,
-        diasSemana: rSem.diasTranscurridos,
-        ingresos: balance.ingresos, gastos: balance.gastos,
-        colchon: colchon, metaCritica: metaCritica,
+        metricas: {
+          limite: cat.limite_mensual == null ? null : Number(cat.limite_mensual),
+          gastoMes: gastoMes, ingresos: balance.ingresos, gastos: balance.gastos,
+          recurrentesPendientes: recurrentesPendientes, colchonMetas: Math.round(colchon),
+          gastoSemana: gastoSemana, diasSemana: rSem.diasTranscurridos, diasMes: diasMes,
+        },
+        metaCritica: metaCritica,
       };
     }
 
-    // ── Dictamen puro a partir de monto + métricas + categoría ─
-    function dictaminar(monto, m, cat) {
-      if (cat.nombre === 'Ahorro') {
-        return { nivel: 'ahorro', razon: 'Estás ahorrando, no gastando. Adelante.' };
-      }
-      if (cat.limite_mensual == null) {
-        return { nivel: 'sin-presupuesto', razon: 'Define un presupuesto para ' + cat.nombre + ' y podré aconsejarte.' };
-      }
-      var margen = m.limite - m.gastoMes;
-      var sugerido = Math.max(0, margen);
-      var objetivoSemanal = m.limite * 7 / m.diasMes;
-      var ritmoSemanal = m.gastoSemana / Math.max(m.diasSemana, 1);
-      var aceleracion = (ritmoSemanal * 7) > objetivoSemanal;
-      // El colchón de metas YA NO bloquea: solo avisa si la compra reduce de forma
-      // notable lo que apartas para metas este mes (umbral 20% del colchón).
-      var comeAhorro = m.colchon > 0 && monto > (m.colchon * 0.2) && (m.gastos + monto) > (m.ingresos - m.colchon);
-
-      // "No recomendable" SOLO por exceder el presupuesto de la categoría.
-      if (monto > margen) {
-        return { nivel: 'no', razon: 'Superarías tu presupuesto de ' + cat.nombre + ' por ' + formatMonto(monto - margen) + '.', sugerido: sugerido, margen: margen };
-      }
-      // "Con cautela": cabe en el presupuesto pero hay una señal (ritmo o ahorro de metas).
-      if (aceleracion || comeAhorro) {
-        var razonC = comeAhorro
-          ? 'Cabe en tu presupuesto, pero reduciría lo que apartas para ' + (m.metaCritica || 'tus metas') + ' este mes.'
-          : 'Cabe en tu presupuesto, pero vas rápido esta semana.';
-        return { nivel: 'cautela', razon: razonC, sugerido: sugerido, margen: margen };
-      }
-      return { nivel: 'recomendable', razon: 'Te alcanza. Usarías ' + Math.round((m.gastoMes + monto) / m.limite * 100) + '% de tu presupuesto de ' + cat.nombre + '.', sugerido: sugerido, margen: margen };
+    // ── Íconos Tabler (sprite) — la app no usa emojis. ─────────
+    function _icoSvg(nombre) {
+      return '<svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-' + nombre + '"></use></svg>';
     }
-
-    // ── Render de la tarjeta de veredicto ─────────────────────
-    var ICONOS = { recomendable: '✅', cautela: '⚠️', no: '⛔', 'sin-presupuesto': '⚙️', ahorro: '💰' };
-    var TITULOS = { recomendable: 'Recomendable', cautela: 'Con cautela', no: 'No recomendable', 'sin-presupuesto': 'Fija un presupuesto primero', ahorro: 'Adelante' };
-    // Mapeo de los 5 niveles a las 3 clases semánticas de color.
-    var CLASE_VER = { recomendable: 'veredicto-ok', ahorro: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-presupuesto': '' };
 
     // revelar(box) — muestra el contenedor y dispara la animación de entrada.
     function revelar(box) {
@@ -262,31 +248,75 @@
       box.hidden = true;
     }
 
-    function renderVeredicto(v, monto, m, cat) {
+    function mostrarCargando(on) {
+      $('decCargando').hidden = !on;
+      $('decSubmit').disabled = on;
+    }
+
+    // mostrarToast(msg, ms) — toast local autocontenido. En esta vista no existe
+    // un toast global (cada vista define el suyo), así que creamos un elemento
+    // flotante efímero. Firma (msg, ms) según lo consumido en el handler.
+    var _toastTimer = null;
+    function mostrarToast(msg, ms) {
+      var t = $('brujToast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'brujToast';
+        t.setAttribute('role', 'status');
+        t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);' +
+          'background:var(--bg-light);color:var(--text-dark);border:1px solid var(--border-light);' +
+          'padding:10px 18px;border-radius:999px;font-size:14px;box-shadow:var(--shadow-lg);z-index:9999;max-width:90%;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.hidden = false;
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3000);
+    }
+
+    function renderBrujula(v, monto, datos, cat) {
       var box = $('decVeredicto');
-      box.className = 'dec-veredicto' + (CLASE_VER[v.nivel] ? ' ' + CLASE_VER[v.nivel] : '');
+      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro' };
+      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen' };
+      box.className = 'dec-veredicto ' + (CLASE[v.nivel] || '');
       box.setAttribute('data-nivel', v.nivel);
-      var html = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">' + ICONOS[v.nivel] + '</span>' + TITULOS[v.nivel] + '</div>' +
-        '<p class="dec-ver-razon">' + v.razon + '</p>';
-      if (v.nivel === 'no' || v.nivel === 'cautela') {
-        html += '<p class="dec-ver-cifra">Te sugiero gastar hasta ' + formatMonto(v.sugerido) + '.</p>';
+
+      var html = '<div class="dec-ver-cabecera">' + TIT[v.nivel] + '</div>';
+      if (v.nivel === 'consulta') {
+        html += '<div class="dec-rango"><div class="dec-rango-c"><span>Cómodo</span><b>' + formatMonto(v.comodo) + '</b></div>' +
+                '<div class="dec-rango-t"><span>Tope</span><b>' + formatMonto(v.tope) + '</b></div></div>';
       }
-      if (m && v.nivel !== 'sin-presupuesto' && v.nivel !== 'ahorro') {
-        html += '<details class="dec-ver-detalle"><summary>Ver desglose</summary><ul>' +
-          '<li>Presupuesto de ' + cat.nombre + ': ' + formatMonto(m.limite) + '</li>' +
-          '<li>Gastado este mes: ' + formatMonto(m.gastoMes) + '</li>' +
-          '<li>Margen restante: ' + formatMonto(m.limite - m.gastoMes) + '</li>' +
-          '<li>Ahorro comprometido (metas): ' + formatMonto(m.colchon) + '</li>' +
-          '</ul></details>';
+      html += '<p class="dec-ver-razon">' + v.razon + '</p>';
+
+      if (v.nivel === 'no') {
+        var plan = planMeta(monto, v.tope, new Date());
+        html += '<p class="dec-ver-cifra">Vuélvela meta: aparta <span class="signature-num">' + formatMonto(plan.aporteMes) + '</span>/mes y la tienes para ' + plan.fechaMeta + '.</p>';
       }
+      var co = costoOportunidad(monto, cat, datos.metaCritica);
+      if ((v.nivel === 'cautela' || v.nivel === 'no') && co) {
+        html += '<p class="dec-ver-detalle">' + co.texto + '</p>';
+      }
+
       html += '<div class="dec-ver-acciones">';
-      if (v.nivel === 'sin-presupuesto') {
-        html += '<a class="btn btn-primary" href="#configuracion">Fijar presupuesto</a>';
-      } else {
-        html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar de todos modos</button>';
+      if (v.nivel === 'no') {
+        var offline = !navigator.onLine;
+        html += '<button type="button" class="btn btn-primary" id="decCrearMeta"' + (offline ? ' disabled' : '') + '>Crear meta</button>' +
+                (offline ? '<span class="dec-offline">Necesitas conexión para esto.</span>' : '');
+      } else if (v.nivel !== 'sin-margen') {
+        html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar gasto</button>';
       }
       html += '</div>';
       box.innerHTML = html;
+
+      var cm = $('decCrearMeta');
+      if (cm) cm.addEventListener('click', async function () {
+        cm.disabled = true;
+        try {
+          var plan2 = planMeta(monto, v.tope, new Date());
+          await insertMeta({ nombre: cat.nombre, monto_objetivo: monto, fecha_limite: plan2.fechaMeta, ambito: estado.ambito });
+          mostrarToast('Meta creada', 3000);
+        } catch (err) { console.error('crear meta:', err); cm.disabled = false; }
+      });
       var reg = $('decRegistrar');
       if (reg) reg.addEventListener('click', function () {
         if (typeof abrirModalTransaccion === 'function') abrirModalTransaccion();
@@ -294,46 +324,30 @@
       });
       revelar(box);
     }
-
-    function mostrarCargando(on) {
-      $('decCargando').hidden = !on;
-      $('decSubmit').disabled = on;
-    }
-    function mostrarErrorOraculo() {
+    function mostrarErrorBrujula() {
       var box = $('decVeredicto');
-      box.className = 'dec-veredicto';
-      box.setAttribute('data-nivel', '');
-      box.innerHTML = '<div class="dec-ver-cabecera"><span class="dec-ver-icono" aria-hidden="true">🌫️</span>El oráculo está nublado</div>' +
-        '<p class="dec-ver-razon">El Oráculo está nublado en este momento. Inténtalo de nuevo.</p>';
+      box.className = 'dec-veredicto'; box.setAttribute('data-nivel', '');
+      box.innerHTML = '<div class="dec-ver-cabecera">' + _icoSvg('cloud') + ' La Brújula está nublada</div>' +
+        '<p class="dec-ver-razon">No pude leer tus datos ahora. Inténtalo de nuevo.</p>';
       revelar(box);
     }
 
     $('decForm').addEventListener('submit', async function (e) {
       e.preventDefault();
-      var monto = parseFloat(String($('decMonto').value).replace(',', '.'));
+      var raw = String($('decMonto').value).replace(',', '.').trim();
+      var monto = raw === '' ? 0 : parseFloat(raw);
       var cat = catsPorId[estado.categoriaId];
-
-      // Ocultar cualquier resultado previo antes de evaluar.
       ocultarVeredicto();
+      if (!cat) return;
 
-      if (!cat || !(monto > 0)) {
-        renderVeredicto({ nivel: 'sin-presupuesto', razon: 'Ingresa un monto y una categoría válidos.' }, 0, null, cat || { nombre: '' });
-        return;
-      }
-      // Casos sin consulta a Supabase (Ahorro / sin presupuesto): resolver directo.
-      if (cat.nombre === 'Ahorro' || cat.limite_mensual == null) {
-        renderVeredicto(dictaminar(monto, { limite: NaN }, cat), monto, null, cat);
-        return;
-      }
-
-      // Consulta con agregación en Supabase: spinner + botón bloqueado + try/catch.
       mostrarCargando(true);
       try {
-        var m = await recolectar(cat, estado.ambito);
-        renderVeredicto(dictaminar(monto, m, cat), monto, m, cat);
+        var datos = await recolectarMetricas(cat, estado.ambito);
+        var v = calcularRango(monto, datos.metricas, cat);
+        renderBrujula(v, monto, datos, cat);
       } catch (err) {
-        console.error('Oráculo: fallo al consultar Supabase:', err);
-        mostrarErrorOraculo();
+        console.error('Brújula: fallo al consultar:', err);
+        mostrarErrorBrujula();
       } finally {
         mostrarCargando(false);
       }
@@ -342,7 +356,7 @@
     // ── Estado general del hogar ──────────────────────────────
     async function renderEstadoGeneral() {
       var cats = await getCategorias('gasto');
-      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null && c.nombre !== 'Ahorro'; });
+      var conLimite = (cats || []).filter(function (c) { return c.limite_mensual != null; });
       var rMes = { desde: hoy.anio + '-' + String(hoy.mes).padStart(2, '0') + '-01', hasta: _rangoSemana().hasta };
 
       var usos = await Promise.all(conLimite.map(function (c) {
@@ -367,7 +381,11 @@
       ambar.slice(0, 2).forEach(function (u) { focos.push(u.nombre + ' cerca del límite'); });
       metasRiesgo.slice(0, 1).forEach(function (mt) { focos.push('Meta ' + mt.nombre + ' en riesgo de plazo'); });
 
-      var titulos = { sano: '🟢 Hogar sano', ajustado: '🟡 Mes ajustado', riesgo: '🔴 En riesgo' };
+      var titulos = {
+        sano:     '<span style="color:var(--color-success)">' + _icoSvg('circle-check')   + '</span> Hogar sano',
+        ajustado: '<span style="color:var(--color-warning)">' + _icoSvg('alert-triangle') + '</span> Mes ajustado',
+        riesgo:   '<span style="color:var(--color-danger)">'  + _icoSvg('alert-octagon')  + '</span> En riesgo',
+      };
       var box = $('decEstado');
       box.setAttribute('data-salud', salud);
       box.innerHTML = '<div class="dec-estado-titulo">' + titulos[salud] + '</div>' +

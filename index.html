@@ -2,10 +2,58 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <script>
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem('nestra-theme'); } catch (e) {}
+        if (t !== 'dark' && t !== 'light') t = 'dark';
+        document.documentElement.classList.add(t);
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('nestra-bio-enabled') === '1' &&
+              localStorage.getItem('nestra-bio-credid') &&
+              localStorage.getItem('sb-token')) {
+            document.documentElement.classList.add('bio-locked');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      #bioLock { display: none; }
+      html.bio-locked #bioLock {
+        display: flex;
+        position: fixed; inset: 0; z-index: 9999;
+        flex-direction: column; align-items: center; justify-content: center;
+        gap: 1rem; padding: 2rem; text-align: center;
+        background: var(--bg-light, #fff); color: var(--text-dark, #111);
+      }
+      #bioLock .bio-lock-icon { width: 56px; height: 56px; opacity: 0.85; }
+      #bioLock h2 { margin: 0; font-size: 1.25rem; }
+      #bioLock p { margin: 0; color: var(--text-secondary, #666); max-width: 22rem; }
+      #bioLock .bio-pass-btn {
+        background: none; border: none; color: var(--text-secondary, #666);
+        text-decoration: underline; cursor: pointer; font-size: 0.9rem;
+      }
+    </style>
+    <link rel="preload" href="assets/fonts/Outfit-Regular.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/PlayfairDisplay-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Nestra - Gestor de Finanzas Personales</title>
     <link rel="icon" type="image/png" href="assets/nestra_logo.png">
-    <link rel="apple-touch-icon" href="assets/nestra_logo.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#08080f">
+    <meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Nestra">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="assets/icon-512.png">
 
     <!-- CSS Files -->
     <link rel="stylesheet" href="css/base.css">
@@ -13,6 +61,29 @@
     <link rel="stylesheet" href="css/components.css">
 </head>
 <body class="no-chrome">
+    <!-- Candado biométrico (WebAuthn) — visible solo si html.bio-locked -->
+    <div id="bioLock" role="dialog" aria-modal="true" aria-labelledby="bioLockTitle">
+      <svg class="bio-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" aria-hidden="true">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <h2 id="bioLockTitle">Nestra está bloqueada</h2>
+      <p>Verifica tu identidad para acceder a tus datos.</p>
+      <button type="button" class="btn btn-primary" id="bioUnlock">Desbloquear</button>
+      <p id="bioLockStatus" role="alert" aria-live="assertive"></p>
+      <button type="button" class="bio-pass-btn" id="bioUsePassword">Usar mi contraseña</button>
+    </div>
+    <!-- Banner offline (oculto por defecto; lo controla js/sync.js) -->
+    <div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+      <span>Sin conexión — tus cambios se guardan y se sincronizarán al volver.</span>
+    </div>
+    <!-- Badge de pendientes por sincronizar (oculto si 0) -->
+    <div id="pendingBadge" class="pending-badge" role="status" aria-live="polite" hidden>
+      <span class="pending-badge-dot" aria-hidden="true"></span>
+      <span id="pendingBadgeText">0 por sincronizar</span>
+    </div>
     <!-- Navigation Bar -->
     <nav id="navbar" class="navbar">
         <div class="navbar-container">
@@ -69,9 +140,15 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#decisiones" class="nav-link" title="Oráculo">
+                    <a href="#hogar" class="nav-link" title="Hogar">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" class="nav-icon"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/></svg>
+                        <span class="nav-label">Hogar</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#brujula" class="nav-link" title="Brújula">
                         <svg viewBox="0 0 24 24" aria-hidden="true" class="nav-icon"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
-                        <span class="nav-label">Oráculo</span>
+                        <span class="nav-label">Brújula</span>
                     </a>
                 </li>
                 <li>
@@ -106,12 +183,18 @@
             integrity="sha384-p3ppjAbdEPObbT9B8J3Jc/6aBp2Gl54cFACgyZjDVLaR3+KwIc+eeU9V6vqHa/Ml"
             crossorigin="anonymous"></script>
 
+    <!-- IndexedDB (idb vendorizado) -->
+    <script src="js/vendor/idb-umd.js"></script>
+
     <!-- Application Scripts (in order) -->
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/moneda.js"></script>
     <script src="js/format.js"></script>
     <script src="js/iconos.js"></script>
+    <script src="js/ui.js"></script>
+    <script type="module" src="js/sparkline.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
             integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
             crossorigin="anonymous"></script>
@@ -119,8 +202,24 @@
             integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3"
             crossorigin="anonymous"></script>
     <script src="js/export.js"></script>
+    <!-- PWA / offline: comparador LWW (módulo: expone window.lwwWinner) + capa IndexedDB -->
+    <script type="module" src="js/sync-lww.js"></script>
+    <script src="js/nestra-db.js"></script>
     <script src="js/db.js"></script>
+    <script type="module" src="js/autocat.js"></script>
+    <script type="module" src="js/parse-quickadd.js"></script>
+    <script type="module" src="js/searchable-select.js"></script>
+    <script type="module" src="js/share-parse.js"></script>
+    <script src="js/sync.js"></script>
     <script src="js/alerts.js"></script>
+    <script type="module" src="js/insights.js"></script>
+    <script type="module" src="js/safe-to-spend.js"></script>
+    <script type="module" src="js/hogar-balance.js"></script>
+    <script type="module" src="js/hogar-aporte.js"></script>
+    <script type="module" src="js/presupuestos.js"></script>
+    <script type="module" src="js/recurrentes-detect.js"></script>
+    <script type="module" src="js/flujo-proyeccion.js"></script>
+    <script type="module" src="js/brujula.js"></script>
     <script src="js/router.js"></script>
     <script src="js/sidebar.js"></script>
 
@@ -128,7 +227,7 @@
     <div class="modal-overlay" id="logoutModal" role="dialog" aria-modal="true"
          aria-labelledby="logoutModalTitle">
         <div class="logout-modal-content" id="logoutModalDialog">
-            <p class="logout-modal-icon" aria-hidden="true">⚠️</p>
+            <p class="logout-modal-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-alert-triangle"></use></svg></p>
             <h2 class="logout-modal-title" id="logoutModalTitle">¿Cerrar sesión?</h2>
             <p class="logout-modal-body">Serás redirigido al inicio de sesión.</p>
             <p class="logout-modal-error" id="logoutModalError" role="alert" aria-live="assertive" style="display:none;"></p>
@@ -275,6 +374,7 @@
         historial:     { show: true,  label: '' },
         graficos:      { show: false, label: '' },
         metas:         { show: true,  label: 'Nueva meta' },
+        brujula:       { show: false, label: '' },
         decisiones:    { show: false, label: '' },
         resumen:       { show: false, label: '' },
         prestamos:     { show: true,  label: 'Nuevo préstamo' },
@@ -349,5 +449,21 @@
         }
       });
     </script>
+    <!-- Prompt de instalación PWA (custom; oculto por defecto) -->
+    <div id="installPrompt" class="install-prompt" role="dialog" aria-labelledby="installPromptTitle" hidden>
+      <img src="assets/icon-192.png" alt="" class="install-prompt-icon" width="44" height="44">
+      <div class="install-prompt-body">
+        <p class="install-prompt-title" id="installPromptTitle">Instala Nestra</p>
+        <p class="install-prompt-text" id="installPromptText">Añádela a tu pantalla de inicio para abrirla como una app.</p>
+      </div>
+      <div class="install-prompt-actions">
+        <button type="button" class="btn btn-secondary btn-small" id="installDismiss">Ahora no</button>
+        <button type="button" class="btn btn-primary btn-small" id="installAccept">Instalar</button>
+      </div>
+    </div>
+    <script src="js/pwa.js"></script>
+    <script src="js/push.js"></script>
+    <script src="js/webauthn.js"></script>
+    <script src="js/share-target.js"></script>
 </body>
 </html>

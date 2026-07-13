@@ -45,14 +45,15 @@ create table public.categorias (
 create table public.transacciones (
   id            uuid primary key default gen_random_uuid(),
   fecha         date not null default current_date,
-  tipo          text not null check (tipo in ('gasto', 'ingreso')),
+  tipo          text not null check (tipo in ('gasto', 'ingreso', 'ahorro')),
   ambito        text not null check (ambito in ('personal', 'hogar')),
   user_id       uuid not null references auth.users (id) on delete cascade,
-  categoria_id  uuid not null references public.categorias (id) on delete restrict,
+  categoria_id  uuid references public.categorias (id) on delete restrict,
   monto         numeric(10,2) not null check (monto > 0),
   nota          text,
   aporte_id     uuid,
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  constraint transacciones_categoria_por_tipo check (tipo = 'ahorro' or categoria_id is not null)
 );
 
 -- 1.4 prestamos -------------------------------------------------------
@@ -131,9 +132,23 @@ create table public.desafios (
   categoria_id   uuid references public.categorias (id) on delete set null
 );
 
+-- 1.7 presupuestos ----------------------------------------------------
+-- Límite mensual PERSONAL por categoría (por-usuario). Distinta de
+-- categorias.limite_mensual (global). RLS estricta por dueño.
+create table public.presupuestos (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users (id) on delete cascade,
+  categoria_id  uuid not null references public.categorias (id) on delete cascade,
+  monto_limite  numeric(10,2) not null check (monto_limite > 0),
+  periodo       text not null default 'mensual' check (periodo = 'mensual'),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (user_id, categoria_id, periodo)
+);
+
 
 -- =====================================================================
--- 1.7 ÍNDICES
+-- 1.8 ÍNDICES
 -- ---------------------------------------------------------------------
 -- PostgreSQL no crea índices automáticamente sobre columnas FK. Estos
 -- soportan los joins/filtros frecuentes y la evaluación de las políticas
@@ -159,10 +174,12 @@ create index idx_aportes_meta_meta_id        on public.aportes_meta (meta_id);
 create index idx_aportes_meta_transaccion_id on public.aportes_meta (transaccion_id);
 create index idx_desafios_user_id           on public.desafios (user_id);
 create index idx_desafios_categoria_id      on public.desafios (categoria_id);
+create unique index idx_presupuestos_user_cat_periodo
+  on public.presupuestos (user_id, categoria_id, periodo);
 
 
 -- =====================================================================
--- 1.8 VISTA metas_con_progreso
+-- 1.9 VISTA metas_con_progreso
 -- ---------------------------------------------------------------------
 -- Expone todas las columnas de metas EXCEPTO la columna física
 -- monto_actual, reemplazándola por la suma derivada de aportes_meta. Así
@@ -214,6 +231,7 @@ alter table public.prestamos     enable row level security;
 alter table public.metas         enable row level security;
 alter table public.aportes_meta  enable row level security;
 alter table public.desafios      enable row level security;
+alter table public.presupuestos  enable row level security;
 
 -- 2.1 profiles --------------------------------------------------------
 -- Lectura para cualquier autenticado (la app muestra ambos perfiles y
@@ -235,12 +253,23 @@ create policy "profiles_update_propio"
   with check ((select auth.uid()) = user_id);
 
 -- 2.2 categorias ------------------------------------------------------
--- Compartidas: cualquier autenticado lee y escribe.
-create policy "categorias_todo_autenticados"
-  on public.categorias for all
+-- Owner-scoped (fase0) con semillas compartidas: user_id NULL = categoría
+-- del sistema/hogar, visible y editable por cualquier miembro autenticado;
+-- las propias (user_id) solo su dueño. (Migración 20260618 + fix
+-- 20260622_categorias_editables_hogar que permite editar/borrar las NULL.)
+create policy "categorias_select" on public.categorias for select
   to authenticated
-  using (true)
-  with check (true);
+  using (user_id is null or (select auth.uid()) = user_id);
+create policy "categorias_insert" on public.categorias for insert
+  to authenticated
+  with check ((select auth.uid()) = user_id);
+create policy "categorias_update" on public.categorias for update
+  to authenticated
+  using      (user_id is null or (select auth.uid()) = user_id)
+  with check (user_id is null or (select auth.uid()) = user_id);
+create policy "categorias_delete" on public.categorias for delete
+  to authenticated
+  using (user_id is null or (select auth.uid()) = user_id);
 
 -- 2.3 transacciones ---------------------------------------------------
 -- Lectura/edición/borrado: hogar compartido o propias. Pero la INSERCIÓN
@@ -393,6 +422,14 @@ create policy "desafios_delete"
   to authenticated
   using (ambito = 'hogar' or (select auth.uid()) = user_id);
 
+-- 2.7 presupuestos ----------------------------------------------------
+-- Estrictamente por dueño: cada usuario solo ve/edita los suyos.
+create policy "presupuestos_acceso"
+  on public.presupuestos for all
+  to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
 
 -- =====================================================================
 -- 3. TRIGGER: perfil automático al registrar un usuario
@@ -453,7 +490,6 @@ insert into public.categorias (nombre, tipo, limite_mensual) values
   ('Entretenimiento',            'gasto', 150),
   ('Comer fuera',                'gasto', 400),
   ('Salidas en bicicleta',       'gasto', 150),
-  ('Ahorro',                     'gasto', null),
   ('Gastos hormiga',             'gasto', 100),
   ('Ganjah',                     'gasto', 100),
   ('Partes de bicicleta',        'gasto', 150),

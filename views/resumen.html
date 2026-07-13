@@ -13,7 +13,10 @@
 
   <!-- Loading -->
   <div id="resLoading" class="res-loading" role="status" aria-label="Cargando">
-    <div class="res-spinner"></div>
+    <div class="skeleton skeleton-card" style="height:88px"></div>
+    <div class="skeleton skeleton-card" style="height:88px"></div>
+    <div class="skeleton-text skeleton-title" style="width:50%"></div>
+    <div class="skeleton skeleton-card" style="height:120px"></div>
   </div>
 
   <!-- S1: Hogar -->
@@ -76,9 +79,9 @@
   <style>
   /* ── Root ──────────────────────────────────────────────── */
   .resumen {
-    --res-verde: #22c55e;
-    --res-ambar: #f59e0b;
-    --res-rojo:  var(--color-danger, #ef4444);
+    --res-verde: var(--color-success);
+    --res-ambar: var(--color-warning);
+    --res-rojo:  var(--color-danger);
     padding: var(--space-lg) var(--space-md);
     max-width: 760px;
     margin: 0 auto;
@@ -115,8 +118,9 @@
   /* ── Loading ───────────────────────────────────────────── */
   .resumen .res-loading {
     display: flex;
-    justify-content: center;
-    padding: var(--space-xl) 0;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-md) 0;
   }
   .resumen .res-spinner {
     width: 36px; height: 36px;
@@ -371,13 +375,18 @@
       else if (tono === 'balance') cls = valor < 0 ? ' res-kpi-valor--neg' : ' res-kpi-valor--pos';
       return '<div class="res-kpi-card">' +
         '<p class="res-kpi-label">' + escHtml(label) + '</p>' +
-        '<p class="res-kpi-valor' + cls + '">' + escHtml(formatMonto(valor)) + '</p>' +
+        '<p class="res-kpi-valor signature-num' + cls + '">' + escHtml(formatMonto(valor)) + '</p>' +
         renderDelta(delta, invertir) +
       '</div>';
     }
 
     /* ── Render Hogar ─────────────────────────────────────── */
     function renderHogar(actual, prev) {
+      // Gating Fase 6.1: la sección hogar solo aparece con hogar.
+      if (!(typeof tieneHogar === 'function' && tieneHogar())) {
+        $('resHogarSection').style.display = 'none';
+        return;
+      }
       $('resHogarKpis').innerHTML =
         kpiCard('Ingresos', actual.ingresos, calcDelta(actual.ingresos, prev.ingresos), false, 'pos') +
         kpiCard('Gastos',   actual.gastos,   calcDelta(actual.gastos,   prev.gastos),   true,  'neg') +
@@ -388,10 +397,11 @@
 
     /* ── Render Personal ──────────────────────────────────── */
     function renderPersonal(actual, prev) {
+      var hayHogar = (typeof tieneHogar === 'function') && tieneHogar();
       $('resPersonalKpis').innerHTML =
         kpiCard('Ingresos',        actual.ingresos,         calcDelta(actual.ingresos,         prev.ingresos),         false, 'pos') +
         kpiCard('Gastos',          actual.gastos,           calcDelta(actual.gastos,            prev.gastos),           true,  'neg') +
-        kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, 'neutral') +
+        (hayHogar ? kpiCard('Aporte al hogar', actual.aporte_realizado, calcDelta(actual.aporte_realizado,  prev.aporte_realizado), false, 'neutral') : '') +
         kpiCard('Balance',         actual.balance,          calcDelta(actual.balance,           prev.balance),          false, 'balance');
       $('resPersonalSection').style.display = 'block';
       $('resPersonalSection').style.opacity = '1';
@@ -531,10 +541,10 @@
       var hoyIso  = (function () { var d = new Date(); var p = pad2; return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()); })();
 
       var completadas = (metas || []).filter(function (m) {
-        return m.estado === 'completada' && m.fecha_limite >= desde && m.fecha_limite <= hasta;
+        return m.estado === 'lograda' && m.fecha_limite >= desde && m.fecha_limite <= hasta;
       });
       var vencidas = (metas || []).filter(function (m) {
-        return m.estado !== 'completada' && m.fecha_limite &&
+        return m.estado !== 'lograda' && m.fecha_limite &&
                m.fecha_limite >= desde && m.fecha_limite <= hasta &&
                m.fecha_limite <= hoyIso;
       });

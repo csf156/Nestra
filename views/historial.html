@@ -105,7 +105,7 @@
 <div class="modal-overlay" id="histDeleteModal" role="dialog" aria-modal="true"
      aria-labelledby="histDeleteTitle">
   <div class="modal-content hist-aporte-modal">
-    <p class="hist-aporte-icon" aria-hidden="true">🗑️</p>
+    <p class="hist-aporte-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-trash"></use></svg></p>
     <h2 class="hist-aporte-title" id="histDeleteTitle">¿Eliminar movimiento?</h2>
     <p class="hist-aporte-body" id="histDeleteBody"></p>
     <div class="hist-aporte-actions">
@@ -122,7 +122,7 @@
 <div class="modal-overlay" id="histAporteModal" role="dialog" aria-modal="true"
      aria-labelledby="histAporteTitle">
   <div class="modal-content hist-aporte-modal">
-    <p class="hist-aporte-icon" aria-hidden="true">⚠️</p>
+    <p class="hist-aporte-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-alert-triangle"></use></svg></p>
     <h2 class="hist-aporte-title" id="histAporteTitle">¿Borrar el aporte completo?</h2>
     <p class="hist-aporte-body" id="histAporteBody">
       Este movimiento es parte de un aporte al hogar. Borrarlo elimina
@@ -210,7 +210,7 @@
   }
   .hist-chip:hover { border-color: var(--color-primary); }
   .hist-chip--active {
-    background: var(--color-primary); color: #fff; border-color: var(--color-primary);
+    background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary);
   }
   .hist-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   .hist-chip-sep { width: 1px; height: 20px; background: var(--border-light); margin: 0 var(--space-xs); }
@@ -257,7 +257,7 @@
   .hist-tag {
     display: inline-flex; align-items: center; gap: var(--space-xs);
     padding: 2px var(--space-sm);
-    background: rgba(5,150,105,0.12); color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
   }
@@ -308,6 +308,18 @@
     border-bottom: 1px solid var(--border-light);
   }
   .hist-day:first-child { margin-top: 0; }
+  .hist-catgrupo {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0 var(--space-xs);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px solid var(--border-light);
+  }
+  .hist-catgrupo:first-child { margin-top: 0; }
+  .hist-catgrupo-nombre {
+    font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+  }
   .hist-day-label {
     font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold);
     color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
@@ -359,19 +371,19 @@
     font-weight: var(--font-weight-semibold); text-transform: uppercase;
     letter-spacing: 0.03em;
   }
-  .hist-badge--gasto    { background: rgba(239,68,68,0.12); color: var(--color-danger); }
-  .hist-badge--ingreso  { background: rgba(34,197,94,0.12); color: var(--color-success); }
-  .hist-badge--ahorro   { background: rgba(59,130,246,0.12); color: #2563eb; }
-  .hist-badge--hogar    { background: rgba(5,150,105,0.12); color: var(--color-primary); }
-  .hist-badge--personal { background: rgba(107,114,128,0.15); color: var(--text-secondary); }
-  .hist-badge--aporte   { background: rgba(245,158,11,0.15); color: var(--color-warning); }
+  .hist-badge--gasto    { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
+  .hist-badge--ingreso  { background: color-mix(in srgb, var(--color-success) 12%, transparent); color: var(--color-success); }
+  .hist-badge--ahorro   { background: color-mix(in srgb, var(--color-info) 12%, transparent); color: var(--color-info); }
+  .hist-badge--hogar    { background: color-mix(in srgb, var(--color-primary) 12%, transparent); color: var(--color-primary); }
+  .hist-badge--personal { background: color-mix(in srgb, var(--text-secondary) 15%, transparent); color: var(--text-secondary); }
+  .hist-badge--aporte   { background: color-mix(in srgb, var(--color-warning) 15%, transparent); color: var(--color-warning); }
   .hist-tx-monto {
     font-weight: var(--font-weight-bold); font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
   .hist-tx-monto--ingreso { color: var(--color-success); }
   .hist-tx-monto--gasto   { color: var(--color-danger); }
-  .hist-tx-monto--ahorro  { color: #2563eb; }
+  .hist-tx-monto--ahorro  { color: var(--color-info); }
   .hist-tx-caret {
     flex-shrink: 0; color: var(--text-secondary); font-size: 0.9rem;
     transition: transform 0.2s;
@@ -418,7 +430,7 @@
     font-size: 0.95rem; line-height: 1;
   }
   .hist-iconbtn:hover { background: var(--border-light); color: var(--color-primary); }
-  .hist-iconbtn--del:hover { background: rgba(239,68,68,0.12); color: var(--color-danger); }
+  .hist-iconbtn--del:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
   .hist-iconbtn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 
   @media (min-width: 720px) {
@@ -455,8 +467,12 @@
   .hist-tot-ingreso::before { content: "↑ "; }
   .hist-tot-gasto { color: var(--color-danger); font-weight: var(--font-weight-semibold); }
   .hist-tot-gasto::before { content: "↓ "; }
-  .hist-tot-neto { font-weight: var(--font-weight-bold); color: var(--text-dark); }
-  .hist-tot-neto::before { content: "= "; color: var(--text-secondary); }
+  .hist-tot-neto {
+    font-family: var(--font-display); font-weight: 400;
+    font-size: 1.75rem; line-height: 1.1; color: var(--text-dark);
+    font-variant-numeric: tabular-nums;
+  }
+  .hist-tot-neto::before { content: "= "; font-family: inherit; color: var(--text-secondary); }
   .hist-resumen .btn { white-space: nowrap; flex-shrink: 0; margin-left: auto; }
   /* Móvil: apilar (conteo, totales que envuelven, botón a todo el ancho). */
   @media (max-width: 599px) {
@@ -469,7 +485,7 @@
   .hist-fab {
     position: fixed; right: var(--space-lg); bottom: calc(60px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
     width: 56px; height: 56px; border-radius: 50%;
-    background: var(--color-primary); color: #fff; border: none;
+    background: var(--color-primary); color: var(--bg-light); border: none;
     font-size: 2rem; line-height: 1;
     display: flex; align-items: center; justify-content: center;
     box-shadow: var(--shadow-lg); cursor: pointer; z-index: 860;
@@ -495,6 +511,13 @@
   }
   .hist-aporte-actions { display: flex; gap: var(--space-md); }
   .hist-aporte-actions .btn { flex: 1; }
+
+  /* ── Recibo thumbnail ───────────────────────────────────── */
+  .recibo-thumb { max-width: 100%; max-height: 180px; border-radius: var(--radius-sm); margin-top: var(--space-sm); }
+  .recibo-cont { padding: 0 0 var(--space-sm); }
+
+  /* ── Split badge ────────────────────────────────────────── */
+  .hist-split-badge { font-size:0.72rem; background:var(--color-bg-subtle, #eee); border-radius:4px; padding:1px 6px; margin-left:6px; color:var(--color-text-muted, var(--text-secondary)); }
 
   /* ── Toast ──────────────────────────────────────────────── */
   .hist-toast {
@@ -551,6 +574,13 @@
     }
     function $(id) { return document.getElementById(id); }
 
+    // ── Recibo: cargar thumbnail firmado ──────────────────────
+    async function pintarRecibo(containerEl, path) {
+      if (!path || !containerEl || typeof getReciboUrl !== 'function') return;
+      var url = await getReciboUrl(path);
+      if (url) containerEl.innerHTML = '<img src="' + url + '" class="recibo-thumb" alt="Recibo">';
+    }
+
     // ── Estado ────────────────────────────────────────────────
     var ahora = mesActual();
     var estado = {
@@ -605,6 +635,9 @@
 
     // ── Re-query (servidor) ───────────────────────────────────
     async function recargar() {
+      // Flush any pending optimistic deletes before refetching.
+      if (_delTimer) { clearTimeout(_delTimer); await _ejecutarBorrado(); }
+      if (_splitTimer) { clearTimeout(_splitTimer); await _ejecutarBorradoSplit(); }
       var token = ++reqToken;
       var body = $('histBody');
       body.setAttribute('aria-busy', 'true');
@@ -728,22 +761,33 @@
       };
     }
 
+    // Chip de categoría (24×24 tintado del color de la categoría).
+    // Valida el hex antes de interpolarlo en style (categorias.color es escribible vía API).
+    function chipCategoria(t) {
+      if (typeof iconoCategoria !== 'function') return '';
+      var cat = t.categorias || {};
+      var color = /^#[0-9a-fA-F]{3,8}$/.test(cat.color) ? cat.color : '#c9a84c';
+      return '<span class="cat-chip" style="--chip-color:' + color + '">' +
+        iconoCategoria(cat.icono || null) + '</span>';
+    }
+
     // Tarjeta (móvil): fila tappable + acciones expandibles.
     function cardTx(t, mostrarFecha) {
       var d = _datosTx(t);
-      var iconoHtml = (typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null, { clase: 'hist-cat-icono' }) : '';
+      var iconoHtml = chipCategoria(t);
       var aporteBadge = d.aporte ? '<span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var splitBadge = t._split ? '<span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
-      var btnEditar = (d.aporte || d.directo) ? '' :
+      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
       var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
-      var usuarioBadge = '<span class="hist-tx-usuario">👤 ' + esc(d.usuario) + '</span>';
-      return '<div class="hist-tx" data-id="' + esc(t.id) + '">' +
+      var usuarioBadge = '<span class="hist-tx-usuario"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</span>';
+      return '<div class="hist-tx" data-id="' + esc(t.id) + '"' + (t._split ? ' data-split-id="' + esc(t.split_id) + '"' : '') + '>' +
           '<div class="hist-tx-row" role="button" tabindex="0" aria-expanded="false" ' +
                'aria-label="' + esc(d.cat) + ', ' + esc(formatMonto(t.monto)) + '. Toca para ver acciones">' +
             '<div class="hist-tx-main">' +
-              '<span class="hist-tx-cat">' + iconoHtml + ' ' + esc(d.cat) + '</span>' +
+              '<span class="hist-tx-cat">' + iconoHtml + ' ' + esc(d.cat) + splitBadge + '</span>' +
               '<span class="hist-tx-meta">' + fechaMeta + d.badge + aporteBadge + directoBadge + usuarioBadge + nota + '</span>' +
             '</div>' +
             '<span class="hist-tx-monto ' + d.clsM + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</span>' +
@@ -752,6 +796,7 @@
           '<div class="hist-tx-actions" hidden>' + btnEditar +
             '<button type="button" class="btn btn-danger btn-small" data-act="eliminar">Eliminar</button>' +
           '</div>' +
+          (t.recibo_path ? '<div class="recibo-cont" data-recibo="' + esc(t.recibo_path) + '"></div>' : '') +
         '</div>';
     }
 
@@ -759,21 +804,22 @@
     function rowTx(t) {
       var d = _datosTx(t);
       var aporteMark = d.aporte ? ' <span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var splitMark = t._split ? ' <span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
-      var btnEditar = (d.aporte || d.directo) ? '' :
-        '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '">✎</button>';
+      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
+        '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-pencil"></use></svg></button>';
       var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
-      return '<tr data-id="' + esc(t.id) + '">' +
+      return '<tr data-id="' + esc(t.id) + '"' + (t._split ? ' data-split-id="' + esc(t.split_id) + '"' : '') + '>' +
           '<td>' + esc(formatFecha(t.fecha)) + '</td>' +
-          '<td>' + ((typeof iconoCategoria === 'function') ? iconoCategoria(t.categorias ? t.categorias.icono : null) + ' ' : '') + esc(d.cat) + aporteMark + directoMark + '</td>' +
+          '<td>' + chipCategoria(t) + ' ' + esc(d.cat) + aporteMark + directoMark + splitMark + '</td>' +
           '<td class="hist-td-nota">' + nota + '</td>' +
           '<td>' + d.badge + '</td>' +
-          '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);">👤 ' + esc(d.usuario) + '</td>' +
+          '<td class="hist-muted" style="white-space:nowrap;font-size:var(--font-size-xs);"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</td>' +
           '<td class="hist-td-monto ' + d.clsTd + '">' + d.signo + ' ' + esc(formatMonto(t.monto)) + '</td>' +
           '<td class="hist-td-acc">' + btnEditar +
-            '<button type="button" class="hist-iconbtn hist-iconbtn--del" data-act="eliminar" aria-label="Eliminar ' + esc(d.cat) + '">🗑</button>' +
+            '<button type="button" class="hist-iconbtn hist-iconbtn--del" data-act="eliminar" aria-label="Eliminar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-trash"></use></svg></button>' +
           '</td>' +
         '</tr>';
     }
@@ -784,6 +830,22 @@
       var aria = activo ? (estado.orden.dir === 'asc' ? 'ascending' : 'descending') : 'none';
       return '<th class="hist-th' + (extraCls ? ' ' + extraCls : '') + '" aria-sort="' + aria + '">' +
         '<button type="button" class="hist-th-btn" data-sort="' + campo + '">' + label + ind + '</button></th>';
+    }
+
+    // ── Agrupación de splits ──────────────────────────────────
+    function agruparSplits(rows) {
+      var grupos = {}, salida = [];
+      for (var i = 0; i < rows.length; i++) {
+        var t = rows[i];
+        if (!t.split_id) { salida.push(t); continue; }
+        if (!grupos[t.split_id]) {
+          grupos[t.split_id] = Object.assign({}, t, { _split: true, _lineas: [], monto: 0 });
+          salida.push(grupos[t.split_id]);
+        }
+        grupos[t.split_id]._lineas.push(t);
+        grupos[t.split_id].monto += Number(t.monto);
+      }
+      return salida;
     }
 
     // ── Render: lista (tarjetas móvil + tabla desktop) ────────
@@ -799,20 +861,46 @@
           var b = $('histEmptyLimpiar');
           if (b) b.addEventListener('click', limpiarFiltros);
         } else {
-          body.innerHTML = '<div class="hist-empty">Aún no hay movimientos en este periodo.' +
-            '<br><button type="button" class="btn btn-primary btn-small" id="histEmptyNuevo">Registrar uno</button></div>';
+          body.innerHTML = '<div class="empty-state">' +
+            '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-receipt-off"></use></svg>' +
+            '<p class="empty-state-title">Sin movimientos en este periodo</p>' +
+            '<p class="empty-state-desc">Registra tu primer gasto o ingreso para verlo aquí.</p>' +
+            '<button type="button" class="btn btn-primary btn-sm empty-state-cta" id="histEmptyNuevo">Registrar</button></div>';
           var n = $('histEmptyNuevo');
           if (n) n.addEventListener('click', abrirNueva);
         }
         return;
       }
 
-      var datos = ordenarDatos(datosFiltrados);
+      var datos = agruparSplits(ordenarDatos(datosFiltrados));
       var agrupar = estado.orden.campo === 'fecha';
+      var agruparCat = estado.orden.campo === 'categoria';
 
       // ── Tarjetas (móvil) ──
       var cardsHtml;
-      if (agrupar) {
+      if (agruparCat) {
+        // Agrupado por categoría: header con nombre + sparkline de 7 días de gasto.
+        var gruposC = [], mapaC = {};
+        datos.forEach(function (t) {
+          var key = t.categoria_id || 'sin';
+          if (!mapaC[key]) {
+            mapaC[key] = { cat: t.categorias || {}, categoria_id: t.categoria_id, items: [] };
+            gruposC.push(mapaC[key]);
+          }
+          mapaC[key].items.push(t);
+        });
+        cardsHtml = gruposC.map(function (g) {
+          var spark = '';
+          if (typeof agruparGasto7dias === 'function' && typeof sparklineSVG === 'function' && g.categoria_id) {
+            spark = sparklineSVG(agruparGasto7dias(datos, g.categoria_id, new Date()));
+          }
+          var nombre = g.cat && g.cat.nombre ? g.cat.nombre : 'Sin categoría';
+          var header = '<div class="hist-catgrupo"><span class="hist-catgrupo-nombre">' +
+            esc(nombre) + '</span>' + spark + '</div>';
+          var filas = g.items.map(function (t) { return cardTx(t, true); }).join('');
+          return header + filas;
+        }).join('');
+      } else if (agrupar) {
         var grupos = [], mapa = {};
         datos.forEach(function (t) {
           var dia = String(t.fecha).split('T')[0];
@@ -1054,63 +1142,74 @@
     }
 
     // ── Borrado ───────────────────────────────────────────────
-    // Todos los borrados requieren confirmación explícita en modal.
-    // Normal: histDeleteModal. Aporte vinculado (aporte_id): histAporteModal.
+    // Normal / split → undo-toast (optimistic, 5 s).
+    // Aporte vinculado (aporte_id) → modal (irreversible: toca 2 filas + metas).
 
-    function pedirBorrado(id) {
+    var _delTimer = null, _delPend = null;        // borrado normal diferido
+    var _splitTimer = null, _splitPend = null;    // borrado split diferido
+
+    function pedirBorrado(id, splitId) {
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
+      if (!tx && !splitId) return;
+      if (tx && tx.aporte_id) { abrirModalAporte(tx); return; }   // irreversible → modal
+      if (splitId) { borrarSplitConToast(splitId); return; }      // split → undo toast
+      borrarConToast(tx);                                         // normal → undo toast
+    }
+
+    function _ejecutarBorrado() {
+      if (!_delPend) return Promise.resolve();
+      var tx = _delPend; _delPend = null; _delTimer = null;
+      return deleteTransaccion(tx.id).catch(function () { recargar(); });
+    }
+    function borrarConToast(tx) {
       if (!tx) return;
-      if (tx.aporte_id) { abrirModalAporte(tx); return; }
-      abrirModalDelete(tx);
+      if (_delTimer) { clearTimeout(_delTimer); _ejecutarBorrado(); } // confirma pendiente anterior
+      _delPend = tx;
+      rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
+      aplicarLocalYRender();
+      mostrarToast('Movimiento eliminado', 'Deshacer', function () {
+        clearTimeout(_delTimer); _delTimer = null;
+        var restaurar = _delPend; _delPend = null;
+        if (restaurar) { rawData.push(restaurar); aplicarLocalYRender(); }
+      }, 5000);
+      _delTimer = setTimeout(_ejecutarBorrado, 5000);
     }
 
-    // ── Modal borrado normal ──────────────────────────────────
+    function _ejecutarBorradoSplit() {
+      if (!_splitPend) return Promise.resolve();
+      var sid = _splitPend.sid; _splitPend = null; _splitTimer = null;
+      return deleteSplit(sid).catch(function () { recargar(); });
+    }
+    function borrarSplitConToast(splitId) {
+      if (_splitTimer) { clearTimeout(_splitTimer); _ejecutarBorradoSplit(); }
+      var backup = rawData.filter(function (t) { return t.split_id === splitId; });
+      if (!backup.length) return;
+      _splitPend = { sid: splitId, backup: backup };
+      rawData = rawData.filter(function (t) { return t.split_id !== splitId; });
+      aplicarLocalYRender();
+      mostrarToast('Movimiento dividido eliminado', 'Deshacer', function () {
+        clearTimeout(_splitTimer); _splitTimer = null;
+        var p = _splitPend; _splitPend = null;
+        if (p) { rawData = rawData.concat(p.backup); aplicarLocalYRender(); }
+      }, 5000);
+      _splitTimer = setTimeout(_ejecutarBorradoSplit, 5000);
+    }
+
+    // Safety net: flush pending deletes if user navigates away.
+    window.addEventListener('beforeunload', function () { _ejecutarBorrado(); _ejecutarBorradoSplit(); });
+
+    // ── Modal borrado normal (kept in DOM; no longer triggered for normal tx) ─
     var deleteModal = $('histDeleteModal');
-    var deleteTxPendiente = null;
-
-    function abrirModalDelete(tx) {
-      deleteTxPendiente = tx;
-      $('histDeleteBody').textContent =
-        '¿Seguro que quieres eliminar este movimiento de ' + formatMonto(tx.monto) + '? Esta acción no se puede deshacer.';
-      $('histDeleteConfirmText').style.display = 'inline';
-      $('histDeleteSpinner').style.display = 'none';
-      $('histDeleteConfirm').disabled = false;
-      $('histDeleteCancel').disabled = false;
-      deleteModal.classList.add('active');
-      setTimeout(function () { $('histDeleteCancel').focus(); }, 50);
-    }
-
     function cerrarModalDelete() {
       deleteModal.classList.remove('active');
-      deleteTxPendiente = null;
       $('histDeleteSpinner').style.display = 'none';
       $('histDeleteConfirmText').style.display = 'inline';
       $('histDeleteConfirm').disabled = false;
       $('histDeleteCancel').disabled = false;
     }
-
     $('histDeleteCancel').addEventListener('click', cerrarModalDelete);
     deleteModal.addEventListener('click', function (e) { if (e.target === e.currentTarget) cerrarModalDelete(); });
     deleteModal.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrarModalDelete(); });
-
-    $('histDeleteConfirm').addEventListener('click', async function () {
-      if (!deleteTxPendiente) return;
-      var tx = deleteTxPendiente;
-      $('histDeleteConfirm').disabled = true;
-      $('histDeleteCancel').disabled = true;
-      $('histDeleteConfirmText').style.display = 'none';
-      $('histDeleteSpinner').style.display = 'inline-block';
-      try {
-        await deleteTransaccion(tx.id);
-        cerrarModalDelete();
-        rawData = rawData.filter(function (t) { return String(t.id) !== String(tx.id); });
-        aplicarLocalYRender();
-        mostrarToast('Movimiento eliminado', null, null, 3000);
-      } catch (err) {
-        cerrarModalDelete();
-        mostrarToast('No se pudo borrar. Reintenta.', null, null, 4000);
-      }
-    });
 
     // ── Modal de aporte ───────────────────────────────────────
     var aporteModal = $('histAporteModal');
@@ -1171,6 +1270,14 @@
       card.classList.toggle('hist-tx--open', abrir);
       rowEl.setAttribute('aria-expanded', String(abrir));
       if (actions) actions.hidden = !abrir;
+      // Carga thumbnail de recibo la primera vez que se abre la tarjeta.
+      if (abrir) {
+        var reciboEl = card.querySelector('.recibo-cont[data-recibo]');
+        if (reciboEl && !reciboEl.dataset.loaded) {
+          reciboEl.dataset.loaded = '1';
+          pintarRecibo(reciboEl, reciboEl.dataset.recibo);
+        }
+      }
     }
 
     $('histBody').addEventListener('click', function (e) {
@@ -1184,8 +1291,9 @@
         var cont = actBtn.closest('[data-id]');
         if (!cont) return;
         var id = cont.getAttribute('data-id');
+        var splitId = cont.getAttribute('data-split-id') || null;
         if (actBtn.getAttribute('data-act') === 'editar') abrirEdicion(id);
-        else pedirBorrado(id);
+        else pedirBorrado(id, splitId);
         return;
       }
 

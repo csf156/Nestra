@@ -52,6 +52,30 @@ function _requireUserId() {
   return user.id;
 }
 
+// _mirroredRead(store, fetcher) — ejecuta `fetcher()` (query a Supabase).
+// Online OK → espeja el resultado en IndexedDB y lo devuelve.
+// Fallo/offline → devuelve el espejo local de `store`.
+async function _mirroredRead(store, fetcher) {
+  try {
+    if (!navigator.onLine) throw new Error('offline');
+    const rows = await fetcher();
+    if (typeof mirrorReplace === 'function') await mirrorReplace(store, rows);
+    return rows;
+  } catch (err) {
+    console.warn('_mirroredRead(' + store + ') usa espejo local:', err.message || err);
+    if (typeof mirrorGetAll === 'function') return await mirrorGetAll(store);
+    return [];
+  }
+}
+
+
+// _isNetworkError(err) — heurística: ¿el fallo es por falta de red?
+function _isNetworkError(err) {
+  if (!navigator.onLine) return true;
+  const msg = (err && (err.message || err)) + '';
+  return /failed to fetch|networkerror|load failed|fetch/i.test(msg);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════
 // TRANSACCIONES
@@ -62,26 +86,31 @@ function _requireUserId() {
 //                               fecha_desde, fecha_hasta }
 // Returns: array de transacciones (con categoria embebida) o [].
 async function getTransacciones(filtros = {}) {
-  try {
-    let query = supabase
+  // Fetch SIN filtros server-side: así el espejo guarda SIEMPRE el set completo y
+  // una llamada filtrada (p.ej. getGastoCategoria) no lo sobreescribe parcialmente.
+  // Los filtros y el orden se aplican en cliente (online y offline por igual).
+  const rows = await _mirroredRead('transacciones', async () => {
+    const { data, error } = await supabase
       .from('transacciones')
-      .select('*, categorias(nombre, tipo, color, icono)')
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    if (filtros.ambito)       query = query.eq('ambito', filtros.ambito);
-    if (filtros.categoria_id) query = query.eq('categoria_id', filtros.categoria_id);
-    if (filtros.tipo)         query = query.eq('tipo', filtros.tipo);
-    if (filtros.fecha_desde)  query = query.gte('fecha', filtros.fecha_desde);
-    if (filtros.fecha_hasta)  query = query.lte('fecha', filtros.fecha_hasta);
-
-    const { data, error } = await query;
+      .select('*, categorias(nombre, tipo, color, icono)');
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getTransacciones():', err.message || err);
-    return [];
-  }
+  });
+
+  const out = rows.filter((t) =>
+    (!filtros.ambito       || t.ambito === filtros.ambito) &&
+    (!filtros.categoria_id || t.categoria_id === filtros.categoria_id) &&
+    (!filtros.tipo         || t.tipo === filtros.tipo) &&
+    (!filtros.fecha_desde  || t.fecha >= filtros.fecha_desde) &&
+    (!filtros.fecha_hasta  || t.fecha <= filtros.fecha_hasta)
+  );
+  // Orden: fecha desc, luego created_at desc (fechas/ISO comparables como string).
+  out.sort((a, b) => {
+    if (a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+    const ca = a.created_at || '', cb = b.created_at || '';
+    return ca < cb ? 1 : (ca > cb ? -1 : 0);
+  });
+  return out;
 }
 
 // getUltimasTransacciones(limite) — N transacciones más recientes.
@@ -105,49 +134,65 @@ async function getUltimasTransacciones(limite = 5) {
 // insertTransaccion(datos) — crea una transacción.
 // datos: { tipo, ambito, categoria_id, monto, fecha?, nota? }
 // El user_id se fuerza al usuario activo (RLS exige auth.uid()=user_id).
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertTransaccion(datos) {
+  const userId = _requireUserId();
+  const fila = {
+    id:           crypto.randomUUID(),
+    tipo:         datos.tipo,
+    ambito:       datos.ambito,
+    categoria_id: datos.categoria_id,
+    monto:        datos.monto,
+    nota:         datos.nota ?? null,
+    split_id:     datos.split_id ?? null,
+    user_id:      userId,
+    fecha:        datos.fecha || undefined,
+    updated_at:   new Date().toISOString(),
+  };
+  if (!fila.fecha) delete fila.fecha;
+
+  if (!navigator.onLine) {
+    await outboxAdd('transacciones', fila);
+    await mirrorPut('transacciones', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && fila.nota && fila.categoria_id) {
+      await autocatLearnTokens(tokenize(fila.nota), fila.categoria_id);
+    }
+    return { ...fila, _pending: true };
+  }
+
   try {
-    const userId = _requireUserId();
-    const fila = {
-      tipo:         datos.tipo,
-      ambito:       datos.ambito,
-      categoria_id: datos.categoria_id,
-      monto:        datos.monto,
-      nota:         datos.nota ?? null,
-      user_id:      userId,
-    };
-    if (datos.fecha) fila.fecha = datos.fecha;
-
     const { data, error } = await supabase
-      .from('transacciones')
-      .insert(fila)
-      .select()
-      .single();
+      .from('transacciones').insert(fila).select().single();
     if (error) throw error;
-
-    // Si es un gasto en categoría "Ahorro", repartir entre las metas personales
-    // vía RPC atómico. Best-effort: la transacción ya existe (balance correcto);
-    // un fallo del reparto NO debe revertirla ni propagarse.
-    if (data.tipo === 'gasto') {
-      await _distribuirSiAhorro(data);
+    if (data.tipo === 'ahorro') await _distribuirAhorroTx(data);
+    await mirrorPut('transacciones', data);
+    if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && data.nota && data.categoria_id) {
+      await autocatLearnTokens(tokenize(data.nota), data.categoria_id);
     }
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('transacciones', fila);
+      await mirrorPut('transacciones', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && fila.nota && fila.categoria_id) {
+        await autocatLearnTokens(tokenize(fila.nota), fila.categoria_id);
+      }
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertTransaccion():', err.message || err);
     throw err;
   }
 }
 
-// _distribuirSiAhorro(tx) — si la transacción es un gasto en categoría "Ahorro",
-// invoca el RPC distribuir_ahorro. No lanza (best-effort).
-async function _distribuirSiAhorro(tx) {
+// _distribuirAhorroTx(tx) — si la transacción es de tipo 'ahorro', invoca el
+// RPC distribuir_ahorro (reparte entre metas del ámbito + fondo). Los aportes
+// directos ya asignan su monto a mano; nunca se reparten. Best-effort (no lanza).
+async function _distribuirAhorroTx(tx) {
   try {
-    // Los aportes directos ya asignan su monto a mano; nunca se reparten.
-    if (tx && tx.es_aporte_directo) return;
-    const cats = await getCategorias('gasto');
-    const cat = cats.find((c) => c.id === tx.categoria_id);
-    if (!cat || cat.nombre !== 'Ahorro') return;
+    if (!tx || tx.tipo !== 'ahorro') return;
+    if (tx.es_aporte_directo) return;
     const { error } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: tx.id });
     if (error) throw error;
   } catch (err) {
@@ -155,27 +200,18 @@ async function _distribuirSiAhorro(tx) {
   }
 }
 
-// _reDistribuirAhorro(txId, nuevaCatId) — re-reparte aportes_meta tras editar
+// _reDistribuirAhorro(txId, nuevoTipo) — re-reparte aportes_meta tras editar
 // una transacción. Borra los aportes previos del tx y re-invoca distribuir_ahorro
-// si la nueva categoría sigue siendo "Ahorro". Cubre los 4 casos:
-//   Ahorro→Ahorro: borra viejos + redistribuye con nuevo monto.
-//   Ahorro→otro:   borra viejos, sin redistribuir.
-//   otro→Ahorro:   no hay aportes previos, redistribuye directamente.
-//   otro→otro:     noop (no hay aportes, no es Ahorro).
-// Best-effort: no lanza, no revierte la edición ya guardada.
-async function _reDistribuirAhorro(txId, nuevaCatId) {
+// si el nuevo tipo sigue siendo 'ahorro'. Best-effort: no lanza, no revierte.
+async function _reDistribuirAhorro(txId, nuevoTipo) {
   try {
-    const cats = await getCategorias('gasto');
-    const esAhoraAhorro = cats.some((c) => c.id === nuevaCatId && c.nombre === 'Ahorro');
-
-    // Borrar aportes_meta anteriores del tx (RLS ALL permite al usuario borrar los suyos).
     const { error: errDel } = await supabase
       .from('aportes_meta')
       .delete()
       .eq('transaccion_id', txId);
     if (errDel) throw errDel;
 
-    if (esAhoraAhorro) {
+    if (nuevoTipo === 'ahorro') {
       const { error: errRpc } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: txId });
       if (errRpc) throw errRpc;
     }
@@ -203,31 +239,33 @@ async function updateTransaccion(id, datos) {
   }
 }
 
-// deleteTransaccion(id) — borra una transacción.
-// Si tiene aporte_id, borra ambas mitades del aporte de forma conjunta
-// (gasto personal + ingreso hogar). prestamos se borra en cascada (FK).
-// Returns: undefined. Lanza Error en fallo.
+// _serverDeleteTransaccion(id) — borra en el servidor. Si la fila tiene
+// aporte_id, borra ambas mitades. Usado online y en el replay de la outbox.
+async function _serverDeleteTransaccion(id) {
+  const { data: fila, error: errLeer } = await supabase
+    .from('transacciones').select('id, aporte_id').eq('id', id).single();
+  if (errLeer) throw errLeer;
+  let query = supabase.from('transacciones').delete();
+  query = (fila && fila.aporte_id) ? query.eq('aporte_id', fila.aporte_id) : query.eq('id', id);
+  const { error } = await query;
+  if (error) throw error;
+}
+
+// deleteTransaccion(id) — borra una transacción (offline-first).
+// Online: borra en servidor + espejo. Offline / error de red: quita del espejo
+// y encola un op 'delete_transaccion' que se replica al reconectar.
 async function deleteTransaccion(id) {
+  async function _offline() {
+    try { const db = await nestraDB(); await db.delete('transacciones', id); } catch (_) {}
+    await outboxAdd('delete_transaccion', { id });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+  }
+  if (!navigator.onLine) { await _offline(); return; }
   try {
-    // Leer la fila para saber si es parte de un aporte vinculado.
-    const { data: fila, error: errLeer } = await supabase
-      .from('transacciones')
-      .select('id, aporte_id')
-      .eq('id', id)
-      .single();
-    if (errLeer) throw errLeer;
-
-    let query = supabase.from('transacciones').delete();
-    if (fila && fila.aporte_id) {
-      // Borra las dos mitades del aporte de una sola vez.
-      query = query.eq('aporte_id', fila.aporte_id);
-    } else {
-      query = query.eq('id', id);
-    }
-
-    const { error } = await query;
-    if (error) throw error;
+    await _serverDeleteTransaccion(id);
+    try { const db = await nestraDB(); await db.delete('transacciones', id); } catch (_) {}
   } catch (err) {
+    if (_isNetworkError(err)) { await _offline(); return; }
     console.error('Error en deleteTransaccion():', err.message || err);
     throw err;
   }
@@ -247,6 +285,7 @@ async function deleteTransaccion(id) {
 // Returns: array con las dos filas insertadas. Lanza Error en fallo.
 async function insertAporteHogar(monto, categoria_id, nota, fecha) {
   try {
+    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const userId = _requireUserId();
     const aporteId = crypto.randomUUID();
 
@@ -308,7 +347,7 @@ async function getBalanceHogar(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -338,8 +377,8 @@ async function getBalancePersonal(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto, aporte_id')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -370,7 +409,7 @@ async function getSaldoAcumuladoHogar() {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0;
@@ -393,8 +432,8 @@ async function getSaldoAcumuladoPersonal() {
     const { data, error } = await supabase
       .from('transacciones')
       .select('tipo, monto, aporte_id')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .neq('tipo', 'ahorro');
     if (error) throw error;
     let ingresos = 0, gastos = 0, aporte_realizado = 0;
@@ -422,7 +461,7 @@ async function getAhorrosHogar(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('monto')
-      .eq('ambito', 'hogar')
+      .not('hogar_id', 'is', null)
       .eq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -443,8 +482,8 @@ async function getAhorrosPersonal(mes, anio) {
     const { data, error } = await supabase
       .from('transacciones')
       .select('monto')
-      .eq('ambito', 'personal')
       .eq('user_id', userId)
+      .is('hogar_id', null)
       .eq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -463,22 +502,20 @@ async function getAhorrosPersonal(mes, anio) {
 
 // getCategorias(tipo) — categorías activas. tipo opcional: 'gasto'|'ingreso'.
 // Returns: array ordenado por nombre o [].
+// El fetcher trae TODAS las categorías (sin filtrar por estado/tipo) para que
+// el espejo IndexedDB siempre contenga el conjunto completo. El filtrado se
+// aplica en cliente para que offline también funcione correctamente.
 async function getCategorias(tipo = null, incluirArchivadas = false) {
-  try {
-    let query = supabase
-      .from('categorias')
-      .select('*')
-      .order('nombre', { ascending: true });
-    if (!incluirArchivadas) query = query.eq('estado', 'activa');
-    if (tipo) query = query.eq('tipo', tipo);
-
-    const { data, error } = await query;
+  const rows = await _mirroredRead('categorias', async () => {
+    const { data, error } = await supabase
+      .from('categorias').select('*').order('nombre', { ascending: true });
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getCategorias():', err.message || err);
-    return [];
-  }
+  });
+  // Filtrado client-side (aplica también al espejo offline).
+  return rows.filter((c) =>
+    (incluirArchivadas || c.estado === 'activa') && (!tipo || c.tipo === tipo)
+  );
 }
 
 // getCategoriasConFavorito(tipo?) — todas las categorías activas (de `tipo` si se da)
@@ -537,12 +574,13 @@ async function getGastoCategoria(categoria_id, ambito, fecha_desde, fecha_hasta)
   try {
     const txs = await getTransacciones({
       categoria_id: categoria_id,
-      ambito: ambito,
       tipo: 'gasto',
       fecha_desde: fecha_desde,
       fecha_hasta: fecha_hasta,
     });
-    return (txs || []).reduce((acc, t) => acc + Number(t.monto), 0);
+    // Scoping por hogar_id (Fase 6.1): hogar = filas con hogar_id; personal = sin él.
+    const enAmbito = (t) => (ambito === 'hogar' ? t.hogar_id != null : t.hogar_id == null);
+    return (txs || []).filter(enAmbito).reduce((acc, t) => acc + Number(t.monto), 0);
   } catch (err) {
     console.error('Error en getGastoCategoria():', err.message || err);
     return 0;
@@ -667,27 +705,35 @@ async function getProfiles() {
 async function getAportesPorMiembro(mes, anio) {
   try {
     const { desde, hasta } = _rangoMes(mes, anio);
-    const [profiles, txs] = await Promise.all([
-      getProfiles(),
-      supabase
-        .from('transacciones')
-        .select('user_id, monto')
-        .not('aporte_id', 'is', null)
-        .gte('fecha', desde)
-        .lte('fecha', hasta),
-    ]);
-    if (txs.error) throw txs.error;
+    const uid = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.id : null;
+    // Miembros del hogar + su aporte esperado (hogar_miembros, visible entre
+    // miembros vía RLS). Fuente única de "aporte esperado" (Fase 6.1).
+    const { data: miembros, error: errM } = await supabase
+      .from('hogar_miembros').select('user_id, aporte_esperado');
+    if (errM) throw errM;
+    if (!miembros || !miembros.length) return [];
+
+    // Real = todo lo que el miembro puso al hogar en el mes (ingresos + gastos
+    // del hogar que pagó). Consistente con aporteRealPorMiembro de #hogar.
+    const { data: txs, error: errT } = await supabase
+      .from('transacciones')
+      .select('user_id, tipo, monto')
+      .not('hogar_id', 'is', null)
+      .in('tipo', ['ingreso', 'gasto'])
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (errT) throw errT;
 
     const realPorUser = new Map();
-    (txs.data || []).forEach((t) => {
+    (txs || []).forEach((t) => {
       realPorUser.set(t.user_id, (realPorUser.get(t.user_id) || 0) + Number(t.monto));
     });
 
-    return (profiles || []).map((p) => ({
-      user_id: p.user_id,
-      nombre: p.nombre,
-      esperado: Number(p.aporte_mensual_esperado) || 0,
-      real: realPorUser.get(p.user_id) || 0,
+    return miembros.map((m) => ({
+      user_id: m.user_id,
+      nombre: (m.user_id === uid) ? 'Tú' : 'Pareja',
+      esperado: Number(m.aporte_esperado) || 0,
+      real: realPorUser.get(m.user_id) || 0,
     }));
   } catch (err) {
     console.error('Error en getAportesPorMiembro():', err.message || err);
@@ -696,7 +742,7 @@ async function getAportesPorMiembro(mes, anio) {
 }
 
 // updateProfile(datos) — actualiza el perfil del usuario activo.
-// datos: { nombre?, aporte_mensual_esperado? }
+// datos: { nombre? }  (el aporte esperado del hogar vive en hogar_miembros, Fase 6.1)
 // RLS solo permite editar el propio perfil (user_id = auth.uid()).
 // Returns: fila actualizada. Lanza Error en fallo.
 async function updateProfile(datos) {
@@ -726,21 +772,18 @@ async function updateProfile(datos) {
 // Incluye importancia y es_fondo_emergencia. Los fondos (fecha_limite NULL) van al
 // final del orden (nullsFirst: false). ambito opcional: 'personal' | 'hogar'.
 // Returns: array o [].
+// Online: lee la vista metas_con_progreso (cálculos en BD). Mirror almacenado bajo
+// store 'metas'. Offline: devuelve el espejo completo, filtrado por ambito en cliente.
 async function getMetas(ambito = null) {
-  try {
-    let query = supabase
+  const rows = await _mirroredRead('metas', async () => {
+    const { data, error } = await supabase
       .from('metas_con_progreso')
       .select('*')
       .order('fecha_limite', { ascending: true, nullsFirst: false });
-    if (ambito) query = query.eq('ambito', ambito);
-
-    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getMetas():', err.message || err);
-    return [];
-  }
+  });
+  return ambito ? rows.filter((m) => m.ambito === ambito) : rows;
 }
 
 // getAportesDeMeta(meta_id) — aportes recibidos por una meta, con su transacción
@@ -804,20 +847,28 @@ async function getAporteMetaMes(meta_id, mes, anio) {
 // datos: { nombre, tipo, horizonte, ambito, monto_objetivo,
 //          fecha_limite, monto_actual?, fecha_inicio?, nota?, categoria_id? }
 // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertMeta(datos) {
+  const fila = { ...datos, id: crypto.randomUUID(), user_id: _requireUserId(), updated_at: new Date().toISOString() };
+
+  if (!navigator.onLine) {
+    await outboxAdd('metas', fila);
+    await mirrorPut('metas', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
   try {
-    const fila = { ...datos };
-    // Fase 0: every meta is owner-scoped (hogar sharing deferred to Fase 5).
-    fila.user_id = _requireUserId();
-    const { data, error } = await supabase
-      .from('metas')
-      .insert(fila)
-      .select()
-      .single();
+    const { data, error } = await supabase.from('metas').insert(fila).select().single();
     if (error) throw error;
+    await mirrorPut('metas', data);
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('metas', fila);
+      await mirrorPut('metas', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertMeta():', err.message || err);
     throw err;
   }
@@ -864,6 +915,7 @@ async function deleteMeta(id) {
 // Returns: id (uuid) de la transacción creada. Lanza Error en fallo.
 async function insertAporteDirecto(meta_id, monto, fecha, nota) {
   try {
+    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
     const { data, error } = await supabase.rpc('aporte_directo_meta', {
       p_meta_id: meta_id,
       p_monto: monto,
@@ -880,6 +932,122 @@ async function insertAporteDirecto(meta_id, monto, fecha, nota) {
 
 
 // ═══════════════════════════════════════════════════════════════════
+// PRESUPUESTOS
+// ═══════════════════════════════════════════════════════════════════
+
+// getGastosPorCategoriaMes(mes, anio) — gasto del usuario activo por
+// categoría en el mes dado. Solo tipo='gasto' y user_id = usuario activo
+// (cualquier ámbito). Usa getTransacciones (espejado) para que funcione
+// offline; filtra el autor en cliente.
+// Returns: objeto { [categoria_id]: total }. {} en error.
+async function getGastosPorCategoriaMes(mes, anio) {
+  try {
+    const userId = _requireUserId();
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const txs = await getTransacciones({
+      tipo: 'gasto',
+      fecha_desde: desde,
+      fecha_hasta: hasta,
+    });
+    const mapa = {};
+    (txs || []).forEach((t) => {
+      if (t.user_id !== userId) return; // solo gastos propios
+      mapa[t.categoria_id] = (mapa[t.categoria_id] || 0) + Number(t.monto);
+    });
+    return mapa;
+  } catch (err) {
+    console.error('Error en getGastosPorCategoriaMes():', err.message || err);
+    return {};
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// RECURRENTES (Fase 4)
+// ═══════════════════════════════════════════════════════════════════
+
+// getRecurrentes() — recurrentes del usuario activo (espejado, offline-safe).
+// Returns: array ordenado por created_at, o [] en error.
+async function getRecurrentes() {
+  const rows = await _mirroredRead('recurrentes', async () => {
+    const { data, error } = await supabase
+      .from('recurrentes')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  });
+  return rows || [];
+}
+
+// upsertRecurrente(fila) — alta o edición. Si `fila.id` falta, genera uno.
+// Online: upsert + mirror. Offline: outbox + mirror optimista.
+// Returns: fila persistida (o optimista con _pending:true). Lanza Error en fallo real.
+async function upsertRecurrente(fila) {
+  const row = {
+    id: fila.id || crypto.randomUUID(),
+    user_id: _requireUserId(),
+    descripcion: fila.descripcion,
+    monto: Number(fila.monto),
+    tipo: fila.tipo === 'ingreso' ? 'ingreso' : 'gasto',
+    categoria_id: fila.categoria_id || null,
+    frecuencia: fila.frecuencia || 'mensual',
+    dia_cargo: fila.dia_cargo != null ? Number(fila.dia_cargo) : null,
+    proximo_cargo: fila.proximo_cargo || null,
+    activo: fila.activo !== false,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!navigator.onLine) {
+    await outboxAdd('recurrentes', row);
+    await mirrorPut('recurrentes', { ...row, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...row, _pending: true };
+  }
+  try {
+    const { data, error } = await supabase
+      .from('recurrentes').upsert(row, { onConflict: 'id' }).select().single();
+    if (error) throw error;
+    await mirrorPut('recurrentes', data);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('recurrentes', row);
+      await mirrorPut('recurrentes', { ...row, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...row, _pending: true };
+    }
+    console.error('Error en upsertRecurrente():', err.message || err);
+    throw err;
+  }
+}
+
+// deleteRecurrente(id) — borra. Online: server + espejo. Offline: outbox.
+async function deleteRecurrente(id) {
+  if (!navigator.onLine) {
+    await outboxAdd('delete_recurrente', { id });
+    try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return;
+  }
+  try {
+    const { error } = await supabase.from('recurrentes').delete().eq('id', id);
+    if (error) throw error;
+    try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('delete_recurrente', { id });
+      try { const db = await nestraDB(); await db.delete('recurrentes', id); } catch (_) {}
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return;
+    }
+    console.error('Error en deleteRecurrente():', err.message || err);
+    throw err;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
 // PRÉSTAMOS
 // ═══════════════════════════════════════════════════════════════════
 
@@ -887,35 +1055,41 @@ async function insertAporteDirecto(meta_id, monto, fecha, nota) {
 // estado opcional: 'pendiente' | 'devuelto'.
 // Returns: array o [].
 async function getPrestamos(estado = null) {
-  try {
-    let query = supabase
+  const rows = await _mirroredRead('prestamos', async () => {
+    const { data, error } = await supabase
       .from('prestamos')
       .select('*, transacciones(fecha, monto, ambito, nota, user_id, tipo)');
-    if (estado) query = query.eq('estado', estado);
-
-    const { data, error } = await query;
     if (error) throw error;
     return data || [];
-  } catch (err) {
-    console.error('Error en getPrestamos():', err.message || err);
-    return [];
-  }
+  });
+  return estado ? rows.filter((p) => p.estado === estado) : rows;
 }
 
 // insertPrestamo(transaccion_id, deudor, estado?) — registra un préstamo nuevo.
 // estado: 'pendiente' (default) | 'devuelto' (para registrar préstamos ya saldados).
 // Llamar DESPUÉS de insertar la transacción de gasto asociada.
-// Returns: fila insertada. Lanza Error en fallo.
+// Returns: fila insertada (o fila optimista con _pending:true si offline). Lanza Error en fallo.
 async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
+  const fila = { id: crypto.randomUUID(), transaccion_id, deudor, estado, user_id: _requireUserId(), updated_at: new Date().toISOString() };
+
+  if (!navigator.onLine) {
+    await outboxAdd('prestamos', fila);
+    await mirrorPut('prestamos', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
   try {
-    const { data, error } = await supabase
-      .from('prestamos')
-      .insert({ transaccion_id, deudor, estado, user_id: _requireUserId() })
-      .select()
-      .single();
+    const { data, error } = await supabase.from('prestamos').insert(fila).select().single();
     if (error) throw error;
+    await mirrorPut('prestamos', data);
     return data;
   } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('prestamos', fila);
+      await mirrorPut('prestamos', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
     console.error('Error en insertPrestamo():', err.message || err);
     throw err;
   }
@@ -1136,4 +1310,277 @@ async function resetearDatosUsuario() {
     console.error('Error en resetearDatosUsuario():', err.message || err);
     throw err;
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// PLANTILLAS (Fase 3)
+// ═══════════════════════════════════════════════════════════════════
+async function getPlantillas() {
+  return await _mirroredRead('plantillas', async () => {
+    const { data, error } = await supabase.from('plantillas').select('*').order('orden');
+    if (error) throw error;
+    return data || [];
+  });
+}
+async function insertPlantilla(datos) {
+  const userId = _requireUserId();
+  const fila = {
+    id: crypto.randomUUID(), user_id: userId,
+    nombre: datos.nombre, monto: datos.monto,
+    categoria_id: datos.categoria_id ?? null,
+    tipo: datos.tipo || 'gasto', ambito: datos.ambito || 'personal',
+    orden: datos.orden ?? 0, updated_at: new Date().toISOString(),
+  };
+  if (!navigator.onLine) {
+    await outboxAdd('plantillas', fila);
+    await mirrorPut('plantillas', { ...fila, _pending: true });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { ...fila, _pending: true };
+  }
+  try {
+    const { data, error } = await supabase.from('plantillas').insert(fila).select().single();
+    if (error) throw error;
+    await mirrorPut('plantillas', data);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('plantillas', fila);
+      await mirrorPut('plantillas', { ...fila, _pending: true });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { ...fila, _pending: true };
+    }
+    console.error('Error en insertPlantilla():', err.message || err); throw err;
+  }
+}
+async function deletePlantilla(id) {
+  try {
+    const { error } = await supabase.from('plantillas').delete().eq('id', id);
+    if (error) throw error;
+    const db = await nestraDB(); await db.delete('plantillas', id);
+  } catch (err) { console.error('Error en deletePlantilla():', err.message || err); throw err; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPLIT (Fase 3) — N transacciones con el mismo split_id
+// ═══════════════════════════════════════════════════════════════════
+// lineas: [{ categoria_id, monto }]. Comparten tipo/ambito/fecha/nota.
+async function insertSplit(comun, lineas) {
+  const splitId = crypto.randomUUID();
+  const creadas = [];
+  for (const ln of lineas) {
+    const row = await insertTransaccion({
+      tipo: comun.tipo, ambito: comun.ambito,
+      categoria_id: ln.categoria_id, monto: ln.monto,
+      fecha: comun.fecha, nota: comun.nota,
+      split_id: splitId,
+    });
+    creadas.push(row);
+  }
+  return { split_id: splitId, transacciones: creadas };
+}
+async function deleteSplit(splitId) {
+  const todas = await getTransacciones();
+  const ids = todas.filter((t) => t.split_id === splitId).map((t) => t.id);
+  for (const id of ids) await deleteTransaccion(id);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RECIBO (Fase 3) — Storage privado, path = {user_id}/{tx_id}.webp
+// ═══════════════════════════════════════════════════════════════════
+async function subirRecibo(transaccionId, blob) {
+  const userId = _requireUserId();
+  const path = `${userId}/${transaccionId}.webp`;
+  if (!navigator.onLine) {
+    await reciboQueueAdd(transaccionId, blob, userId);
+    await outboxAdd('recibo', { id: transaccionId, transaccion_id: transaccionId, path });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return { path, _pending: true };
+  }
+  try {
+    const { error } = await supabase.storage.from('recibos')
+      .upload(path, blob, { contentType: 'image/webp', upsert: true });
+    if (error) throw error;
+    await updateTransaccion(transaccionId, { recibo_path: path });
+    return { path };
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await reciboQueueAdd(transaccionId, blob, userId);
+      await outboxAdd('recibo', { id: transaccionId, transaccion_id: transaccionId, path });
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return { path, _pending: true };
+    }
+    console.error('Error en subirRecibo():', err.message || err); throw err;
+  }
+}
+async function getReciboUrl(path) {
+  if (!path) return null;
+  try {
+    const { data, error } = await supabase.storage.from('recibos').createSignedUrl(path, 3600);
+    if (error) throw error;
+    return data.signedUrl;
+  } catch (err) { console.error('getReciboUrl falló:', err.message || err); return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HOGAR COMPARTIDO (Fase 6)
+// ═══════════════════════════════════════════════════════════════════
+
+// getEstadoHogar() — estado del hogar del usuario actual.
+// Returns: { hogar, miembros[], codigo, rol } o null si no pertenece a ningún hogar.
+async function getEstadoHogar() {
+  const { data: miembro, error } = await supabase
+    .from('hogar_miembros').select('hogar_id, rol').limit(1).maybeSingle();
+  if (error || !miembro) return null;
+  // Las 3 lecturas son independientes → en paralelo (se re-ejecuta en cada
+  // evento realtime, así que evitamos 3 round-trips serializados).
+  const [hogarRes, miembrosRes, codigoRes] = await Promise.all([
+    supabase.from('hogares').select('*').eq('id', miembro.hogar_id).maybeSingle(),
+    supabase.from('hogar_miembros').select('user_id, rol, joined_at, aporte_esperado').eq('hogar_id', miembro.hogar_id),
+    supabase.from('hogar_codigos').select('codigo, expira_at')
+      .eq('hogar_id', miembro.hogar_id).eq('usado', false)
+      .gt('expira_at', new Date().toISOString()).order('created_at', { ascending: false })
+      .limit(1).maybeSingle(),
+  ]);
+  const estado = {
+    hogar: hogarRes.data,
+    miembros: miembrosRes.data || [],
+    codigo: codigoRes.data || null,
+    rol: miembro.rol,
+  };
+  if (typeof window !== 'undefined') window.hogarState = estado;
+  return estado;
+}
+
+// tieneHogar() — true si el usuario pertenece a un hogar (estado cacheado).
+function tieneHogar() {
+  return !!(typeof window !== 'undefined' && window.hogarState && window.hogarState.hogar);
+}
+
+// _refrescarHogarState() — re-cachea window.hogarState vía getEstadoHogar y
+// emite el evento 'hogar:changed' para que el UI gated se re-renderice.
+async function _refrescarHogarState() {
+  try { await getEstadoHogar(); }      // getEstadoHogar ya cachea en window.hogarState
+  catch (e) { if (typeof window !== 'undefined') window.hogarState = null; }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('hogar:changed'));
+  }
+}
+
+// crearHogar(nombre) — crea un hogar y agrega al usuario como creador.
+// Returns: { hogar_id, codigo } (RPC crear_hogar). Lanza Error en fallo.
+async function crearHogar(nombre) {
+  const { data, error } = await supabase.rpc('crear_hogar', { p_nombre: nombre });
+  if (error) throw error;
+  await _refrescarHogarState();
+  return data;
+}
+
+// generarCodigoHogar() — genera un código de invitación de 6 dígitos.
+// Returns: código (char(6)) (RPC generar_codigo). Lanza Error en fallo.
+async function generarCodigoHogar() {
+  const { data, error } = await supabase.rpc('generar_codigo');
+  if (error) throw error;
+  return data;
+}
+
+// unirseHogar(codigo) — une al usuario a un hogar mediante código.
+// Returns: { hogar_id } (RPC unirse_hogar). Lanza Error en fallo.
+async function unirseHogar(codigo) {
+  const { data, error } = await supabase.rpc('unirse_hogar', { p_codigo: codigo });
+  if (error) throw error;
+  await _refrescarHogarState();
+  return data;
+}
+
+// saldarHogar(deUser, aUser, monto, nota) — registra una liquidación entre miembros.
+// Returns: id (uuid) de la liquidación (RPC saldar_hogar). Lanza Error en fallo.
+async function saldarHogar(deUser, aUser, monto, nota) {
+  const { data, error } = await supabase.rpc('saldar_hogar', {
+    p_de: deUser, p_a: aUser, p_monto: monto, p_nota: nota || null });
+  if (error) throw error;
+  return data;
+}
+
+// disolverHogar() — disuelve el hogar: reparte ahorro, reasigna metas al creador
+// y registra liquidación final. Returns: { pct_creador, ahorro, recibe_creador,
+// recibe_otro } (RPC disolver_hogar). Lanza Error en fallo.
+async function disolverHogar() {
+  const { data, error } = await supabase.rpc('disolver_hogar');
+  if (error) throw error;
+  await _refrescarHogarState();
+  return data;
+}
+
+// setAporteEsperado(miembroUserId, monto) — fija el aporte esperado mensual de un
+// miembro del hogar (RPC set_aporte_esperado). Refresca el estado. Lanza en fallo.
+async function setAporteEsperado(miembroUserId, monto) {
+  const { error } = await supabase.rpc('set_aporte_esperado', { p_miembro: miembroUserId, p_monto: monto });
+  if (error) throw error;
+  await _refrescarHogarState();
+}
+
+// renombrarHogar(nombre) — renombra el hogar del usuario (RPC renombrar_hogar).
+// Refresca el estado. Lanza en fallo.
+async function renombrarHogar(nombre) {
+  const { error } = await supabase.rpc('renombrar_hogar', { p_nombre: nombre });
+  if (error) throw error;
+  await _refrescarHogarState();
+}
+
+// setRepartoHogar(modo) — fija el modo de reparto del hogar ('50_50'|'proporcional').
+// Refresca el estado y emite hogar:changed. Lanza en fallo.
+async function setRepartoHogar(modo) {
+  const { error } = await supabase.rpc('set_reparto_hogar', { p_modo: modo });
+  if (error) throw error;
+  await _refrescarHogarState();
+}
+
+// getGastoHogarPorCategoria(mes, anio) — mapa { categoria_id: gasto_hogar } del mes.
+// Solo transacciones del hogar (hogar_id != null), tipo gasto. {} en error.
+async function getGastoHogarPorCategoria(mes, anio) {
+  try {
+    const { desde, hasta } = _rangoMes(mes, anio);
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('categoria_id, monto')
+      .not('hogar_id', 'is', null)
+      .eq('tipo', 'gasto')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+    if (error) throw error;
+    const mapa = {};
+    (data || []).forEach((t) => {
+      mapa[t.categoria_id] = (mapa[t.categoria_id] || 0) + Number(t.monto);
+    });
+    return mapa;
+  } catch (err) {
+    console.error('Error en getGastoHogarPorCategoria():', err.message || err);
+    return {};
+  }
+}
+
+// getLiquidacionesHogar() — liquidaciones del hogar (para el cálculo del balance en cliente).
+// Returns: array de { de_user, a_user, monto, fecha } o [].
+async function getLiquidacionesHogar() {
+  const { data, error } = await supabase
+    .from('hogar_liquidaciones').select('de_user, a_user, monto, fecha');
+  if (error) return [];
+  return data || [];
+}
+
+// subscribeHogar(hogarId, onChange) — suscripción realtime a cambios de
+// transacciones/metas del hogar. onChange se llama en cada INSERT/UPDATE/DELETE.
+// Returns: el channel para luego hacer supabase.removeChannel(channel), o null.
+function subscribeHogar(hogarId, onChange) {
+  if (!hogarId) return null;
+  const ch = supabase.channel('hogar-' + hogarId)
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'transacciones', filter: 'hogar_id=eq.' + hogarId },
+        onChange)
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'metas', filter: 'hogar_id=eq.' + hogarId },
+        onChange)
+    .subscribe();
+  return ch;
 }

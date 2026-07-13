@@ -12,8 +12,8 @@
       </div>
     </header>
     <div class="graf-toggle" role="group" aria-label="Ámbito">
-      <button type="button" class="graf-seg graf-seg--active" data-ambito="hogar" aria-pressed="true">Hogar</button>
-      <button type="button" class="graf-seg" data-ambito="personal" aria-pressed="false">Personal</button>
+      <button type="button" class="graf-seg" data-ambito="hogar" aria-pressed="false">Hogar</button>
+      <button type="button" class="graf-seg graf-seg--active" data-ambito="personal" aria-pressed="true">Personal</button>
     </div>
   </div>
 
@@ -54,7 +54,7 @@
     </section>
     <section class="graf-card" id="card6">
       <h2 class="graf-card-title">Flujo de caja</h2>
-      <p class="graf-card-desc">De ingresos a balance, restando cada categoría.</p>
+      <p class="graf-card-desc">Ingresos, gastos y balance del mes (hogar + personal).</p>
       <div class="graf-state" data-card="6"></div>
       <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
     </section>
@@ -70,6 +70,12 @@
       <div class="graf-state" data-card="8"></div>
       <div class="graf-canvas-wrap"><canvas id="chart8" aria-label="Proyección de metas"></canvas></div>
     </section>
+    <section class="graf-card" id="card9">
+      <h2 class="graf-card-title">Proyección de saldo</h2>
+      <p class="graf-card-desc">Saldo proyectado del mes según recurrentes y aportes. ¿Llegas a fin de mes?</p>
+      <div class="graf-state" data-card="9"></div>
+      <div class="graf-canvas-wrap"><canvas id="chart9" aria-label="Proyección de saldo del mes"></canvas></div>
+    </section>
   </div>
 </div>
 
@@ -80,7 +86,7 @@
 
   .graf-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); margin-top: var(--space-md); }
   .graf-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); cursor: pointer; transition: background 0.15s, color 0.15s; }
-  .graf-seg--active { background: var(--color-primary); color: #ffffff; }
+  .graf-seg--active { background: var(--color-primary); color: var(--bg-light); }
 
   .graf-grid { transition: opacity 0.15s ease; }
   .graf-grid.is-loading { opacity: 0.5; }
@@ -112,6 +118,9 @@
   .graf-card[data-estado="cargando"] .graf-state,
   .graf-card[data-estado="vacio"] .graf-state,
   .graf-card[data-estado="error"] .graf-state { display: flex; }
+  .graf-card[data-estado="vacio"] .graf-state { flex-direction: column; gap: var(--space-sm); }
+  .graf-state .empty-state-icon { width: 40px; height: 40px; opacity: 0.45; }
+  .graf-state .empty-state-title { color: var(--text-dark); font-weight: var(--font-weight-semibold); }
   .graf-card[data-estado="cargando"] .graf-canvas-wrap,
   .graf-card[data-estado="vacio"] .graf-canvas-wrap,
   .graf-card[data-estado="error"] .graf-canvas-wrap,
@@ -158,13 +167,22 @@
     function $(id) { return document.getElementById(id); }
 
     var hoy = mesActual();
-    var estado = { mes: hoy.mes, anio: hoy.anio, ambito: 'hogar' };
+    var estado = { mes: hoy.mes, anio: hoy.anio, ambito: 'personal' };
     var charts = {};
     var cargaToken = 0;
 
     function cssVar(nombre) {
       return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
     }
+    // Paleta multi-serie leída de tokens en tiempo de render (cicla por índice).
+    var PALETA = [
+      cssVar('--color-primary'),
+      cssVar('--color-info'),
+      cssVar('--color-success'),
+      cssVar('--color-warning'),
+      cssVar('--color-danger'),
+      cssVar('--text-secondary'),
+    ];
     // _mob() — true cuando el viewport es de mobile (<720px)
     function _mob() { return window.innerWidth < 720; }
     // Opciones de ticks para ejes en mobile: fuente pequeña, menos densidad
@@ -181,10 +199,14 @@
       card.setAttribute('data-estado', est);
       var box = card.querySelector('.graf-state');
       if (box) {
-        box.textContent = est === 'cargando' ? 'Cargando…'
-          : est === 'vacio' ? 'Sin movimientos este mes'
-          : est === 'error' ? 'No se pudo cargar'
-          : '';
+        if (est === 'vacio') {
+          box.innerHTML = '<svg class="empty-state-icon" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-chart-dots"></use></svg>' +
+            '<span class="empty-state-title">Sin movimientos este mes</span>';
+        } else if (est === 'cargando') {
+          box.innerHTML = '<div class="skeleton skeleton-card" style="width:100%;height:200px"></div>';
+        } else {
+          box.textContent = est === 'error' ? 'No se pudo cargar' : '';
+        }
       }
     }
     function destruir(id) {
@@ -223,18 +245,21 @@
       for (var i = 0; i < 6; i++) { meses6.unshift(cur); cur = mesAnterior(cur.mes, cur.anio); }
 
       var categoriasGasto = await getCategorias('gasto');
+      var recurrentes = await getRecurrentes();
 
       if (ambito === 'personal') {
+        // Scoping Fase 6.1: personal = filas sin hogar_id (incluye legacy hogar sin hogar).
+        var soloPersonal = function (a) { return (a || []).filter(function (x) { return x.hogar_id == null; }); };
         var resPers = await Promise.all([
-          getTransacciones({ ambito: 'personal', fecha_desde: r.desde, fecha_hasta: r.hasta }),
-          getTransacciones({ ambito: 'personal', fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }),
+          getTransacciones({ fecha_desde: r.desde, fecha_hasta: r.hasta }).then(soloPersonal),
+          getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }).then(soloPersonal),
           Promise.all(meses6.map(function (x) { return getBalancePersonal(x.mes, x.anio); })),
           getMetas(),
         ]);
         var txMesP = resPers[0] || [];
         var balP = await getBalancePersonal(m, a);
         var metasP = (resPers[3] || []).filter(function (x) {
-          return x.ambito === 'personal' && Number(x.monto_actual) < Number(x.monto_objetivo);
+          return x.hogar_id == null && Number(x.monto_actual) < Number(x.monto_objetivo);
         });
         var aportesP = await Promise.all(metasP.map(function (mt) { return getAportesDeMeta(mt.id); }));
         return {
@@ -247,12 +272,14 @@
             return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resPers[2][i] || {}).balance || 0 };
           }),
           metas: metasP.map(function (mt, i) { return { meta: mt, aportes: aportesP[i] || [] }; }),
+          recurrentes: recurrentes || [],
           rango: r,
         };
       }
 
       var resHog = await Promise.all([
-        getTransacciones({ ambito: 'hogar', fecha_desde: r.desde, fecha_hasta: r.hasta }),
+        getTransacciones({ fecha_desde: r.desde, fecha_hasta: r.hasta })
+          .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
         getAportesPorMiembro(m, a),
@@ -260,7 +287,7 @@
         getMetas(),
       ]);
       var metasH = (resHog[5] || []).filter(function (x) {
-        return x.ambito === 'hogar' && Number(x.monto_actual) < Number(x.monto_objetivo);
+        return x.hogar_id != null && Number(x.monto_actual) < Number(x.monto_objetivo);
       });
       var aportesH = await Promise.all(metasH.map(function (mt) { return getAportesDeMeta(mt.id); }));
       return {
@@ -273,6 +300,7 @@
           return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resHog[4][i] || {}).balance || 0 };
         }),
         metas: metasH.map(function (mt, i) { return { meta: mt, aportes: aportesH[i] || [] }; }),
+        recurrentes: recurrentes || [],
         rango: r,
       };
     }
@@ -320,7 +348,7 @@
         limitePorNombre[c.nombre] = c.limite_mensual != null ? Number(c.limite_mensual) : null;
         colorPorNombre[c.nombre] = c.color || null; // sin color → paleta por índice
       });
-      var paleta = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var paleta = PALETA;
       var labels = [], valores = [], colores = [];
       cats.forEach(function (c, i) {
         labels.push(c.nombre);
@@ -347,9 +375,14 @@
         var sem = '', semTxt = '';
         if (lim != null && lim > 0) {
           var pctLim = (c.total / lim) * 100;
-          if (pctLim > 100) { sem = '🔴'; semTxt = Math.round(pctLim) + '% límite'; }
-          else if (pctLim >= 80) { sem = '🟡'; semTxt = Math.round(pctLim) + '% límite'; }
-          else { sem = '🟢'; semTxt = Math.round(pctLim) + '% límite'; }
+          // Íconos Tabler (sprite) coloreados por umbral — la app no usa emojis.
+          var _semSvg = function (nombre, varColor) {
+            return '<span style="color:var(' + varColor + ')"><svg class="cat-icono" aria-hidden="true">' +
+              '<use href="assets/tabler-sprite.svg#tabler-' + nombre + '"></use></svg></span>';
+          };
+          if (pctLim > 100) { sem = _semSvg('alert-octagon', '--color-danger'); semTxt = Math.round(pctLim) + '% límite'; }
+          else if (pctLim >= 80) { sem = _semSvg('alert-triangle', '--color-warning'); semTxt = Math.round(pctLim) + '% límite'; }
+          else { sem = _semSvg('circle-check', '--color-success'); semTxt = Math.round(pctLim) + '% límite'; }
         }
         var li = document.createElement('li');
         li.innerHTML = '<span class="dot" style="background:' + colores[i] + '"></span>' +
@@ -371,7 +404,7 @@
         data: {
           labels: labels,
           datasets: [
-            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--text-secondary') },
             { label: 'Real', data: real, backgroundColor: cssVar('--color-primary') },
           ],
         },
@@ -400,7 +433,7 @@
           datasets: [{
             label: 'Ahorro acumulado', data: acum,
             borderColor: cssVar('--color-primary'),
-            backgroundColor: 'rgba(5,150,105,0.12)', fill: true, tension: 0.3,
+            backgroundColor: 'color-mix(in srgb, ' + cssVar('--color-primary') + ' 12%, transparent)', fill: true, tension: 0.3,
           }],
         },
         options: {
@@ -425,11 +458,12 @@
       if (!conGasto.length) { setEstado(5, 'vacio'); return; }
       var media = conGasto.reduce(function (a, b) { return a + b; }, 0) / conGasto.length;
 
+      function _tinte(token) { return 'color-mix(in srgb, ' + cssVar(token) + ' 85%, transparent)'; }
       function colorDia(v) {
         if (v <= 0) return 'transparent';
-        if (v <= media) return 'rgba(16,185,129,0.85)';
-        if (v <= media * 2) return 'rgba(245,158,11,0.85)';
-        return 'rgba(239,68,68,0.85)';
+        if (v <= media) return _tinte('--color-success');
+        if (v <= media * 2) return _tinte('--color-warning');
+        return _tinte('--color-danger');
       }
 
       var primerDow = new Date(estado.anio, estado.mes - 1, 1).getDay();
@@ -454,35 +488,28 @@
       var leg = $('heatmapLegend5');
       leg.innerHTML =
         '<span><i class="sw" style="background:' + cssVar('--bg-light-secondary') + '"></i>Sin gasto</span>' +
-        '<span><i class="sw" style="background:rgba(16,185,129,0.85)"></i>≤ promedio</span>' +
-        '<span><i class="sw" style="background:rgba(245,158,11,0.85)"></i>&gt; promedio</span>' +
-        '<span><i class="sw" style="background:rgba(239,68,68,0.85)"></i>&gt; 2× promedio</span>';
+        '<span><i class="sw" style="background:' + _tinte('--color-success') + '"></i>≤ promedio</span>' +
+        '<span><i class="sw" style="background:' + _tinte('--color-warning') + '"></i>&gt; promedio</span>' +
+        '<span><i class="sw" style="background:' + _tinte('--color-danger') + '"></i>&gt; 2× promedio</span>';
 
       setEstado(5, 'ok');
     }
     function render6(datos) {
       var resumen = datos.resumen;
-      var ingresos = resumen.hogar.ingresos || 0;
-      var cats = (resumen.porCategoria || []).slice(0, 6);
-      if (ingresos <= 0 && !cats.length) { setEstado(6, 'vacio'); return; }
+      // Alcance consistente: ingresos y gastos del mes visibles (hogar + personal).
+      var ingresos = (resumen.hogar.ingresos || 0) + (resumen.personal.ingresos || 0);
+      var gastos   = (resumen.hogar.gastos   || 0) + (resumen.personal.gastos   || 0);
+      var balance  = ingresos - gastos;
+      if (ingresos <= 0 && gastos <= 0) { setEstado(6, 'vacio'); return; }
 
-      var labels = ['Ingresos'];
-      var floatData = [[0, ingresos]];
-      var colores = [cssVar('--color-success')];
-
-      var corriente = ingresos;
-      cats.forEach(function (c) {
-        labels.push(c.nombre);
-        var monto = Number(c.total);
-        var antes = corriente;
-        corriente -= monto;
-        floatData.push([corriente, antes]);
-        colores.push(cssVar('--color-danger'));
-      });
-
-      labels.push('Balance');
-      floatData.push([0, corriente]);
-      colores.push(corriente >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'));
+      // Barras ancladas en 0 (sin columnas flotantes): Ingresos, Gastos, Balance.
+      var labels = ['Ingresos', 'Gastos', 'Balance'];
+      var valores = [ingresos, gastos, balance];
+      var colores = [
+        cssVar('--color-success'),
+        cssVar('--color-danger'),
+        balance >= 0 ? cssVar('--color-primary') : cssVar('--color-danger'),
+      ];
 
       setEstado(6, 'ok');
       charts.chart6 = new Chart($('chart6'), {
@@ -491,7 +518,7 @@
           labels: labels,
           datasets: [{
             label: 'Flujo',
-            data: floatData,
+            data: valores,
             backgroundColor: colores,
           }],
         },
@@ -502,9 +529,7 @@
             tooltip: {
               callbacks: {
                 label: function (item) {
-                  var d = item.raw;
-                  var val = Array.isArray(d) ? Math.abs(d[1] - d[0]) : Math.abs(d);
-                  return ' S/ ' + val.toFixed(2);
+                  return ' ' + formatMonto(Math.abs(Number(item.raw)));
                 },
               },
             },
@@ -544,7 +569,7 @@
         data: {
           labels: top,
           datasets: [
-            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--color-secondary') || '#6b7280' },
+            { label: 'Mes anterior', data: dAnterior, backgroundColor: cssVar('--text-secondary') },
             { label: 'Mes actual', data: dActual, backgroundColor: cssVar('--color-primary') },
           ],
         },
@@ -571,7 +596,7 @@
       var metas = datos.metas || [];
       if (!metas.length) { setEstado(8, 'vacio'); return; }
 
-      var paleta = ['#059669', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+      var paleta = PALETA;
       var datasets = [];
       var labelsSet = [];
 
@@ -670,10 +695,75 @@
       });
     }
 
-    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8];
+    function render9(datos) {
+      var hoy = new Date();
+      var mesVista = estado.mes, anioVista = estado.anio;
+      // Solo proyecta el mes en curso (proyección hacia adelante).
+      if (mesVista !== hoy.getMonth() + 1 || anioVista !== hoy.getFullYear()) {
+        setEstado(9, 'vacio'); return;
+      }
+
+      // Saldo inicial = neto del mes hasta hoy (ingresos − gastos de txMes).
+      var neto = (datos.txMes || []).reduce(function (s, t) {
+        return s + (t.tipo === 'ingreso' ? Number(t.monto) : -Number(t.monto));
+      }, 0);
+
+      var recs = (datos.recurrentes || []).filter(function (r) { return r.activo !== false; });
+
+      // Aportes a metas: cuota de ahorro pendiente del mes (reusa la fórmula de
+      // safe-to-spend), descontada al último día del mes.
+      var ultimoDia = new Date(anioVista, mesVista, 0).getDate();
+      var diasRestantes = ultimoDia - hoy.getDate() + 1;
+      var metasObjs = (datos.metas || []).map(function (mw) { return mw.meta; });
+      var aportesMeta = [];
+      var aporteTotal = (typeof calcularAporteMetas === 'function')
+        ? calcularAporteMetas(metasObjs, hoy, diasRestantes, ultimoDia) : 0;
+      if (aporteTotal > 0) aportesMeta.push({ dia: ultimoDia, monto: aporteTotal });
+
+      if (!recs.length && neto === 0) { setEstado(9, 'vacio'); return; }
+
+      var proy = proyectarFlujo({ saldoInicial: neto, hoy: hoy, recurrentes: recs, aportesMeta: aportesMeta });
+      if (!proy.dias.length) { setEstado(9, 'vacio'); return; }
+
+      setEstado(9, 'ok');
+      var labels = proy.dias.map(function (d) { return Number(d.fecha.slice(8, 10)); });
+      var valores = proy.dias.map(function (d) { return d.saldo; });
+      var negIdx = proy.primerDiaNegativo
+        ? proy.dias.findIndex(function (d) { return d.fecha === proy.primerDiaNegativo; })
+        : -1;
+
+      charts.chart9 = new Chart($('chart9'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Saldo proyectado',
+            data: valores,
+            borderColor: cssVar('--color-primary'),
+            backgroundColor: 'transparent',
+            pointRadius: valores.map(function (_, i) { return i === negIdx ? 5 : 0; }),
+            pointBackgroundColor: cssVar('--color-danger'),
+            tension: 0.2,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (it) { return ' ' + formatMonto(Number(it.raw)); } } },
+          },
+          scales: {
+            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },
+            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') } },
+          },
+        },
+      });
+    }
+
+    var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8, render9];
 
     function visiblesPara(ambito) {
-      return ambito === 'personal' ? [1, 2, 4, 5, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8];
+      return ambito === 'personal' ? [1, 2, 4, 5, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
     }
 
     async function recargarTodo() {
@@ -727,8 +817,20 @@
       b.addEventListener('click', function () { setAmbito(b.getAttribute('data-ambito')); });
     });
 
+    // Gating Fase 6.1: sin hogar, solo vista personal; ocultar el selector de ámbito.
+    (function gateAmbitoGraf() {
+      var toggle = document.querySelector('.graf-toggle');
+      function aplicar() {
+        var hay = (typeof tieneHogar === 'function') && tieneHogar();
+        if (toggle) toggle.style.display = hay ? '' : 'none';
+        if (!hay && estado.ambito !== 'personal') setAmbito('personal');
+      }
+      aplicar();
+      window.addEventListener('hogar:changed', aplicar);
+    })();
+
     if (typeof Chart === 'undefined') {
-      for (var n = 1; n <= 8; n++) setEstado(n, 'error');
+      for (var n = 1; n <= 9; n++) setEstado(n, 'error');
       console.error('Chart.js no cargó');
       return;
     }
