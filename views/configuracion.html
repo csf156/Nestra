@@ -1831,7 +1831,6 @@
         var hogar = st.hogar || {};
         var miembros = st.miembros || [];
         var uid = (window.currentUser && window.currentUser.id) || null;
-        var modo = hogar.reparto || '50_50';
         var body = $('cfgHogarBody');
         var catsHogar = (await getCategorias('gasto')).filter(function (c) { return c.user_id == null; });
         body.innerHTML =
@@ -1851,14 +1850,6 @@
               '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-aporte-save">Guardar</button>' +
             '</div>';
           }).join('') +
-          '<div class="cfg-datos-separador"></div>' +
-          '<p class="cfg-label">Reparto de gastos del hogar</p>' +
-          '<div class="cfg-input-group">' +
-            '<select id="cfgHogarReparto" class="cfg-select">' +
-              '<option value="50_50"' + (modo === '50_50' ? ' selected' : '') + '>Mitad y mitad (50/50)</option>' +
-              '<option value="proporcional"' + (modo === 'proporcional' ? ' selected' : '') + '>Proporcional al ingreso</option>' +
-            '</select>' +
-          '</div>' +
           '<div class="cfg-datos-separador"></div>' +
           '<p class="cfg-label">Presupuesto del hogar por categoría (S/)</p>' +
           catsHogar.map(function (c) {
@@ -1882,10 +1873,7 @@
             catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
           });
         });
-        $('cfgHogarReparto').addEventListener('change', async function () {
-          try { await setRepartoHogar(this.value); mostrarToast('Reparto actualizado', 3000); }
-          catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
-        });
+        // El selector de reparto vuelve con la Fase 6.3, que redefine su semántica.
         Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-limite-save'), function (btn) {
           btn.addEventListener('click', async function () {
             var grp = btn.closest('[data-catid]');
