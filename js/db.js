@@ -1587,3 +1587,67 @@ function subscribeHogar(hogarId, onChange) {
     .subscribe();
   return ch;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// INGESTA DE CORREOS BANCARIOS — cola de revisión (ingest_pendientes)
+// El Worker encola propuestas parseadas de los correos del banco; el usuario
+// las confirma/corrige/descarta aquí. Filas 'revisar-manual' llegan sin
+// tipo/monto/fecha (formato no reconocido): el usuario las completa.
+// Online-only a propósito: la cola vive en el servidor y revisar exige ver
+// el estado real; sin red la vista muestra error, no un espejo rancio.
+// ═══════════════════════════════════════════════════════════════
+
+// getIngestPendientes() — pendientes de revisión (incluye revisar-manual),
+// más recientes primero. Lanza en fallo (la vista muestra el error).
+async function getIngestPendientes() {
+  const { data, error } = await supabase
+    .from('ingest_pendientes')
+    .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, raw_subject, created_at')
+    .in('estado', ['pendiente', 'revisar-manual'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// contarIngestPendientes() — conteo para el badge del nav. 0 en error (el
+// badge es informativo; no debe romper la navegación).
+async function contarIngestPendientes() {
+  try {
+    const { count, error } = await supabase
+      .from('ingest_pendientes')
+      .select('id', { count: 'exact', head: true })
+      .in('estado', ['pendiente', 'revisar-manual']);
+    if (error) throw error;
+    return count || 0;
+  } catch (err) {
+    console.error('Error en contarIngestPendientes():', err.message || err);
+    return 0;
+  }
+}
+
+// confirmarIngestPendiente(id, transaccionId, datos) — marca la propuesta como
+// confirmada y la enlaza a la transacción creada. `datos` {tipo, monto, fecha}
+// escribe de vuelta lo que el usuario editó: deja la cola como auditoría de lo
+// realmente confirmado y satisface el check propuesta_completa cuando la fila
+// venía de 'revisar-manual' (campos NULL). Lanza en fallo.
+async function confirmarIngestPendiente(id, transaccionId, datos = {}) {
+  const fila = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
+  if (datos.tipo != null) fila.tipo = datos.tipo;
+  if (datos.monto != null) fila.monto = datos.monto;
+  if (datos.fecha != null) fila.fecha = datos.fecha;
+  const { error } = await supabase
+    .from('ingest_pendientes')
+    .update(fila)
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
+// Lanza en fallo.
+async function descartarIngestPendiente(id) {
+  const { error } = await supabase
+    .from('ingest_pendientes')
+    .update({ estado: 'descartado', resolved_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}

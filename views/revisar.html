@@ -1,0 +1,269 @@
+<style>
+  .rev { max-width: 640px; margin: 0 auto; }
+  .rev-header { margin-bottom: var(--space-lg); }
+  .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
+  .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
+  .rev-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
+  .rev-card { padding: var(--space-md); }
+  .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+  .rev-banco { text-transform: uppercase; }
+  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
+  .rev-comercio { font-weight: var(--font-weight-semibold); margin-bottom: 2px; overflow-wrap: anywhere; }
+  .rev-original { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); }
+  .rev-original.rev-original-warn { color: var(--color-warning); }
+  .rev-raw { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); overflow-wrap: anywhere; }
+  .rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+  .rev-grid .rev-field-full { grid-column: 1 / -1; }
+  .rev-field label { display: block; font-size: var(--font-size-xs); color: var(--text-secondary); margin-bottom: 2px; }
+  .rev-field input, .rev-field select { width: 100%; }
+  .rev-acciones { display: flex; gap: var(--space-sm); }
+  .rev-acciones .btn { flex: 1; }
+  .rev-error { color: var(--color-danger); font-size: var(--font-size-sm); margin-top: var(--space-sm); display: none; }
+  .rev-loading { display: flex; flex-direction: column; gap: var(--space-md); }
+</style>
+
+<div class="rev">
+  <header class="rev-header">
+    <h1 class="rev-title">Revisar movimientos</h1>
+    <p class="rev-sub">Detectados en tus correos del banco. Confirma, corrige o descarta — nada se registra sin tu OK.</p>
+  </header>
+
+  <div id="revLoading" class="rev-loading" role="status" aria-label="Cargando">
+    <div class="skeleton skeleton-card" style="height:180px"></div>
+    <div class="skeleton skeleton-card" style="height:180px"></div>
+  </div>
+
+  <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
+  <div id="revVacio" style="display:none;"></div>
+  <p class="rev-error" id="revErrorGlobal"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Guard de versión: si el SW sirve JS viejo sin estos globales mientras la
+  // vista es nueva, avisar en vez de morir en silencio (patrón de transaccion.html).
+  var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
+                'insertTransaccion', 'getCategorias'].filter(function (f) {
+    return typeof window[f] !== 'function';
+  });
+
+  var loadingEl = document.getElementById('revLoading');
+  var listaEl = document.getElementById('revLista');
+  var vacioEl = document.getElementById('revVacio');
+  var errGlobal = document.getElementById('revErrorGlobal');
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function fmt(n) {
+    return (typeof formatMonto === 'function') ? formatMonto(Number(n)) : 'S/ ' + Number(n).toFixed(2);
+  }
+
+  if (faltan.length) {
+    loadingEl.style.display = 'none';
+    errGlobal.textContent = 'Hay una versión nueva de la app. Ciérrala por completo y vuelve a abrirla.';
+    errGlobal.style.display = 'block';
+    return;
+  }
+
+  var BANCO_LABEL = { bbva: 'BBVA', bcp: 'BCP', yape: 'Yape' };
+  var _cats = { gasto: null, ingreso: null };   // cache de categorías por tipo
+  var _learned = {};
+
+  async function catsPara(tipo) {
+    var t = (tipo === 'ingreso') ? 'ingreso' : 'gasto'; // ahorro no lleva categoría
+    if (!_cats[t]) {
+      var cats = await getCategorias(t);
+      _cats[t] = (cats || []).map(function (c) { return { id: c.id, nombre: c.nombre }; });
+    }
+    return _cats[t];
+  }
+
+  // Sugerencia de categoría: mismo motor que el quick-add (autocat.js).
+  // El Worker no la infiere a propósito — el mapa aprendido vive en IndexedDB.
+  async function sugerirCategoria(texto, tipo) {
+    if (!texto || typeof matchCategoria !== 'function' || typeof tokenize !== 'function') return null;
+    var cats = await catsPara(tipo);
+    var ctx = { learned: _learned, categorias: cats, seed: window.NESTRA_SEED || {} };
+    return matchCategoria(tokenize(texto), ctx);
+  }
+
+  function opcionesCategoria(cats, seleccionada) {
+    var html = '<option value="">Sin categoría</option>';
+    cats.forEach(function (c) {
+      html += '<option value="' + esc(c.id) + '"' + (c.id === seleccionada ? ' selected' : '') + '>' + esc(c.nombre) + '</option>';
+    });
+    return html;
+  }
+
+  function renderVacio() {
+    listaEl.style.display = 'none';
+    vacioEl.style.display = 'block';
+    vacioEl.innerHTML = (typeof renderEmptyState === 'function')
+      ? renderEmptyState({
+          icon: 'inbox',
+          title: 'Nada por revisar',
+          desc: 'Cuando llegue un correo de tu banco con un consumo o transferencia, aparecerá aquí para que lo confirmes.',
+        })
+      : '<p>Nada por revisar.</p>';
+  }
+
+  async function cardHTML(p, i) {
+    var manual = p.estado === 'revisar-manual';
+    var tipo = p.tipo || 'gasto';
+    var texto = p.comercio || p.contraparte || '';
+    var sugerida = manual ? null : await sugerirCategoria(texto, tipo);
+    var cats = await catsPara(tipo);
+
+    var original = '';
+    if (p.moneda_original) {
+      original = p.tasa_cambio
+        ? '<p class="rev-original">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' @ ' + esc(p.tasa_cambio) + ' — conversión aproximada, corrige si difiere del cargo real</p>'
+        : '<p class="rev-original rev-original-warn">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' — la conversión falló: el monto está en ' + esc(p.moneda_original) + ', corrígelo a tu moneda</p>';
+    }
+
+    return '<li class="card rev-card" id="revCard' + i + '">' +
+      '<div class="rev-top">' +
+        '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+        (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
+        (p.ultimos4 ? '<span class="badge badge-neutral">•••• ' + esc(p.ultimos4) + '</span>' : '') +
+        '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+      '</div>' +
+      (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
+      (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
+      original +
+      '<div class="rev-grid">' +
+        '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
+          '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
+        '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
+          '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
+        '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
+          '<select id="revTipo' + i + '">' +
+            '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
+            '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
+            '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
+          '</select></div>' +
+        '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
+          '<select id="revAmbito' + i + '">' +
+            '<option value="personal" selected>Personal</option>' +
+            '<option value="hogar">Hogar</option>' +
+          '</select></div>' +
+        '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
+          '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
+      '</div>' +
+      '<div class="rev-acciones">' +
+        '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
+        '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
+      '</div>' +
+      '<p class="rev-error" id="revErr' + i + '"></p>' +
+    '</li>';
+  }
+
+  var _filas = [];
+
+  function mostrarError(i, msg) {
+    var el = document.getElementById('revErr' + i);
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+  }
+
+  async function onTipoChange(i) {
+    var tipo = document.getElementById('revTipo' + i).value;
+    var wrap = document.getElementById('revCatWrap' + i);
+    if (tipo === 'ahorro') { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    var p = _filas[i];
+    var texto = p.comercio || p.contraparte || '';
+    var sugerida = await sugerirCategoria(texto, tipo);
+    document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
+  }
+
+  async function confirmar(i, btn) {
+    var errEl = document.getElementById('revErr' + i);
+    if (errEl) errEl.style.display = 'none';
+    var p = _filas[i];
+    var monto = parseFloat(document.getElementById('revMonto' + i).value);
+    var fecha = document.getElementById('revFecha' + i).value;
+    var tipo = document.getElementById('revTipo' + i).value;
+    var ambito = document.getElementById('revAmbito' + i).value;
+    var catId = document.getElementById('revCat' + i).value || null;
+
+    if (!(monto > 0)) { mostrarError(i, 'Ingresa un monto mayor a 0.'); return; }
+    if (!fecha) { mostrarError(i, 'Ingresa la fecha.'); return; }
+    if (tipo !== 'ahorro' && !catId) { mostrarError(i, 'Elige una categoría.'); return; }
+
+    btn.disabled = true;
+    try {
+      // insertTransaccion ya aprende comercio→categoría (autocatLearnTokens
+      // sobre la nota) — la próxima sugerencia mejora sola.
+      var tx = await insertTransaccion({
+        tipo: tipo, ambito: ambito,
+        categoria_id: tipo === 'ahorro' ? null : catId,
+        monto: monto, fecha: fecha,
+        nota: p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco),
+      });
+      await confirmarIngestPendiente(p.id, tx && tx.id, { tipo: tipo, monto: monto, fecha: fecha });
+      quitarCard(i);
+    } catch (e) {
+      console.error('confirmar pendiente falló:', e);
+      btn.disabled = false;
+      mostrarError(i, 'No se pudo guardar. Reintenta.');
+    }
+  }
+
+  async function descartar(i, btn) {
+    btn.disabled = true;
+    try {
+      await descartarIngestPendiente(_filas[i].id);
+      quitarCard(i);
+    } catch (e) {
+      console.error('descartar pendiente falló:', e);
+      btn.disabled = false;
+      mostrarError(i, 'No se pudo descartar. Reintenta.');
+    }
+  }
+
+  function quitarCard(i) {
+    var card = document.getElementById('revCard' + i);
+    if (card) card.remove();
+    _filas[i] = null;
+    if (!_filas.some(Boolean)) renderVacio();
+    if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+  }
+
+  async function init() {
+    try {
+      if (typeof autocatLearned === 'function') _learned = await autocatLearned();
+      _filas = await getIngestPendientes();
+      loadingEl.style.display = 'none';
+      if (!_filas.length) { renderVacio(); return; }
+
+      var html = '';
+      for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
+      listaEl.innerHTML = html;
+      listaEl.style.display = '';
+
+      listaEl.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-rev-confirmar]');
+        if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
+        var d = ev.target.closest('[data-rev-descartar]');
+        if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
+      });
+      listaEl.addEventListener('change', function (ev) {
+        var m = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
+        if (m) onTipoChange(Number(m[1]));
+      });
+    } catch (e) {
+      console.error('revisar init falló:', e);
+      loadingEl.style.display = 'none';
+      errGlobal.textContent = 'No se pudieron cargar los pendientes. Revisa tu conexión y reintenta.';
+      errGlobal.style.display = 'block';
+    }
+  }
+
+  init();
+})();
+</script>

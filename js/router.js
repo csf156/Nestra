@@ -145,6 +145,7 @@ const ROUTES = {
   'reset-password': { view: 'reset-password', public: true },
   dashboard: { view: 'dashboard' },
   historial: { view: 'historial' },
+  revisar: { view: 'revisar' },
   transaccion: { view: 'transaccion' },
   graficos: { view: 'graficos' },
   metas: { view: 'metas' },
@@ -234,6 +235,11 @@ async function handleRouteChange() {
     // Actualizar chip de usuario en vistas protegidas (sesión activa)
     if (!isPublic && typeof updateUserChip === 'function') {
       updateUserChip();
+    }
+
+    // Badge de movimientos por revisar (ingesta de correos). Best-effort.
+    if (!isPublic && typeof actualizarIngestBadge === 'function') {
+      actualizarIngestBadge();
     }
   } catch (err) {
     // loadView already rendered an inline error card; don't overwrite it with

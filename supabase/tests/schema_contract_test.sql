@@ -33,7 +33,8 @@ declare
     'profiles','transacciones','aportes_meta','categorias',
     'categorias_favoritas','hogar_miembros','metas_con_progreso','metas',
     'recurrentes','prestamos','desafios','plantillas','hogares',
-    'hogar_codigos','hogar_liquidaciones','push_subscriptions'
+    'hogar_codigos','hogar_liquidaciones','push_subscriptions',
+    'ingest_pendientes'  -- cola de revisión de ingesta (db.js getIngestPendientes/confirmar/descartar, 2026-07-15)
   ];
   v_tabla text;
   v_faltan text[] := array[]::text[];

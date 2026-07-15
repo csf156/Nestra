@@ -4,6 +4,8 @@ KEYS.txt
 *.key
 .env
 .env.*
+tokens_gmail.txt
+**/tokens_gmail.txt
 
 # Tooling artefacts
 .agents/
@@ -11,3 +13,7 @@ KEYS.txt
 .security/
 .worktrees/
 .superpowers/
+
+# Artefactos locales de CLI
+supabase/.temp/
+**/.wrangler/
