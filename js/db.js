@@ -288,36 +288,54 @@ async function insertAporteHogar(monto, categoria_id, nota, fecha) {
 // BALANCES
 // ═══════════════════════════════════════════════════════════════════
 
-// getBalanceHogar(mes, anio) — totales del hogar para el mes dado.
-// Returns: { ingresos, gastos, balance }. Ceros en error.
-async function getBalanceHogar(mes, anio) {
+// getGastosHogar(mes, anio) — total de GASTOS compartidos del hogar en el mes
+// (todas las filas ambito='hogar' tipo='gasto', de cualquier miembro).
+// Returns: número (0 en error).
+async function getGastosHogar(mes, anio) {
   try {
     const { desde, hasta } = _rangoMes(mes, anio);
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto')
+      .select('monto')
       .not('hogar_id', 'is', null)
-      .neq('tipo', 'ahorro')
+      .eq('ambito', 'hogar')
+      .eq('tipo', 'gasto')
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (error) throw error;
-
-    let ingresos = 0, gastos = 0;
-    (data || []).forEach((t) => {
-      if (t.tipo === 'ingreso') ingresos += Number(t.monto);
-      else if (t.tipo === 'gasto') gastos += Number(t.monto);
-    });
-    return { ingresos, gastos, balance: ingresos - gastos };
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
   } catch (err) {
-    console.error('Error en getBalanceHogar():', err.message || err);
-    return { ingresos: 0, gastos: 0, balance: 0 };
+    console.error('Error en getGastosHogar():', err.message || err);
+    return 0;
+  }
+}
+
+// getAhorroHogarAcumulado() — ahorro total aportado al hogar, todos los
+// tiempos, de cualquier miembro. Es el número de cabecera: "Ahorro del
+// hogar". Reemplaza el viejo "Balance del hogar" (ingresos-gastos), que
+// dependía de la ficción de ingresos-hogar (retirada en Fase 6.3).
+// Returns: número (0 en error).
+async function getAhorroHogarAcumulado() {
+  try {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('monto')
+      .not('hogar_id', 'is', null)
+      .eq('ambito', 'hogar')
+      .eq('tipo', 'ahorro');
+    if (error) throw error;
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
+  } catch (err) {
+    console.error('Error en getAhorroHogarAcumulado():', err.message || err);
+    return 0;
   }
 }
 
 // getBalancePersonal(mes, anio) — totales personales del usuario activo.
-// El aporte al hogar ya es un gasto personal (con aporte_id); por eso
-// `gastos` lo incluye y `aporte_realizado` lo reporta por separado como
-// subconjunto informativo (no se resta dos veces).
+// SIN filtro de hogar_id: el dinero vive en el miembro sea cual sea el
+// ámbito de la fila (Fase 6.3 — el hogar ya no tiene bolsillo propio).
+// `aporte_realizado` reporta, como subconjunto informativo, cuánto de
+// `gastos` fue hacia el hogar (no se resta dos veces).
 // Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
 async function getBalancePersonal(mes, anio) {
   try {
@@ -325,9 +343,8 @@ async function getBalancePersonal(mes, anio) {
     const { desde, hasta } = _rangoMes(mes, anio);
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto, aporte_id')
+      .select('tipo, monto, ambito')
       .eq('user_id', userId)
-      .is('hogar_id', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -340,7 +357,7 @@ async function getBalancePersonal(mes, anio) {
         ingresos += monto;
       } else if (t.tipo === 'gasto') {
         gastos += monto;
-        if (t.aporte_id) aporte_realizado += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
       }
     });
     return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos };
@@ -351,40 +368,17 @@ async function getBalancePersonal(mes, anio) {
 }
 
 
-// getSaldoAcumuladoHogar() — saldo disponible del hogar (todos los tiempos).
-// balance = ingresos − gastos − ahorros (el ahorro es dinero apartado, no disponible).
-// Returns: { ingresos, gastos, balance }. Ceros en error.
-async function getSaldoAcumuladoHogar() {
-  try {
-    const { data, error } = await supabase
-      .from('transacciones')
-      .select('tipo, monto')
-      .not('hogar_id', 'is', null);
-    if (error) throw error;
-    let ingresos = 0, gastos = 0, ahorros = 0;
-    (data || []).forEach((t) => {
-      if (t.tipo === 'ingreso') ingresos += Number(t.monto);
-      else if (t.tipo === 'gasto') gastos += Number(t.monto);
-      else if (t.tipo === 'ahorro') ahorros += Number(t.monto);
-    });
-    return { ingresos, gastos, balance: ingresos - gastos - ahorros };
-  } catch (err) {
-    console.error('Error en getSaldoAcumuladoHogar():', err.message || err);
-    return { ingresos: 0, gastos: 0, balance: 0 };
-  }
-}
-
 // getSaldoAcumuladoPersonal() — saldo disponible personal (todos los tiempos).
-// balance = ingresos − gastos − ahorros (el ahorro es dinero apartado, no disponible).
+// SIN filtro de hogar_id (Fase 6.3): un gasto o ahorro hacia el hogar sale
+// igual del bolsillo del miembro. balance = ingresos − gastos − ahorros.
 // Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
 async function getSaldoAcumuladoPersonal() {
   try {
     const userId = _requireUserId();
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto, aporte_id')
-      .eq('user_id', userId)
-      .is('hogar_id', null);
+      .select('tipo, monto, ambito')
+      .eq('user_id', userId);
     if (error) throw error;
     let ingresos = 0, gastos = 0, ahorros = 0, aporte_realizado = 0;
     (data || []).forEach((t) => {
@@ -393,9 +387,10 @@ async function getSaldoAcumuladoPersonal() {
         ingresos += monto;
       } else if (t.tipo === 'gasto') {
         gastos += monto;
-        if (t.aporte_id) aporte_realizado += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
       } else if (t.tipo === 'ahorro') {
         ahorros += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
       }
     });
     return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos - ahorros };
