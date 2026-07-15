@@ -161,10 +161,14 @@ declare
 begin
   if v_hogar is null then raise exception 'No perteneces a un hogar'; end if;
 
-  -- Idempotencia: si el grupo ya existe (replay de la outbox), devolverlo
-  -- sin re-insertar.
-  if exists (select 1 from public.transacciones where grupo_id = p_grupo_id) then
-    return query select * from public.transacciones where grupo_id = p_grupo_id;
+  -- Idempotencia: si el grupo ya existe EN EL HOGAR ACTUAL del llamante
+  -- (replay de la outbox), devolverlo sin re-insertar. Se filtra por
+  -- hogar_id = v_hogar, no solo por grupo_id: la función es security
+  -- definer y por tanto ve la tabla sin RLS, así que sin este filtro un
+  -- replay tardío tras salir/entrar a otro hogar devolvería datos de un
+  -- grupo que ya no pertenece al hogar actual del llamante.
+  if exists (select 1 from public.transacciones where grupo_id = p_grupo_id and hogar_id = v_hogar) then
+    return query select * from public.transacciones where grupo_id = p_grupo_id and hogar_id = v_hogar;
     return;
   end if;
 
