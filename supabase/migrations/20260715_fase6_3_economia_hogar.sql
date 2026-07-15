@@ -19,9 +19,18 @@ commit;
 -- válido, el reparto a metas ya hecho no se toca.
 begin;
 
+-- El trigger trg_sync_hogar_id_tx exige auth.uid() no-null en cada UPDATE de
+-- una fila ambito='hogar' (re-estampa hogar_id); en el contexto de migración
+-- (sin sesión JWT) auth.uid() es null y el trigger abortaría. Estas filas ya
+-- tienen ambito='hogar' y no lo cambian, así que se desactiva el trigger
+-- solo para este UPDATE puntual (no toca la semántica de hogar_id).
+alter table public.transacciones disable trigger trg_sync_hogar_id_tx;
+
 update public.transacciones
    set tipo = 'ahorro', categoria_id = null, aporte_id = null
  where aporte_id is not null and ambito = 'hogar' and tipo = 'ingreso';
+
+alter table public.transacciones enable trigger trg_sync_hogar_id_tx;
 
 delete from public.transacciones
  where aporte_id is not null and ambito = 'personal' and tipo = 'gasto';
@@ -31,9 +40,13 @@ commit;
 -- ── 2. Fila huérfana (S/200, 22-jun-2026): aporte real → ahorro + reparto ──
 begin;
 
+alter table public.transacciones disable trigger trg_sync_hogar_id_tx;
+
 update public.transacciones
    set tipo = 'ahorro', categoria_id = null
  where id = 'a6fe851a-ac7e-4d2f-bd02-8e6ad0ee046d';
+
+alter table public.transacciones enable trigger trg_sync_hogar_id_tx;
 
 commit;
 
