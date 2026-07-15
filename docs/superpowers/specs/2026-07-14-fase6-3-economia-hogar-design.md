@@ -38,26 +38,36 @@ Lecturas que esto obliga:
   una meta). El usuario lo registró a mano como "2do aporte" porque el modelo se lo
   permitía. Es la falla conceptual materializada en datos reales.
 
-### Deriva de esquema detectada (bug en vivo, independiente)
+### Deriva de esquema detectada (bug en vivo, independiente) — RESUELTA
 
-La **Fase 6.2 está desplegada en código** (SHELL_VERSION v21) pero **su migración
-nunca se aplicó**. En producción no existen `hogares.reparto`,
-`categorias.limite_mensual_hogar` ni el RPC `set_reparto_hogar`. Consecuencias hoy:
+La **Fase 6.2 estaba desplegada en código** (SHELL_VERSION v21) pero **su migración
+nunca se aplicó**: en producción no existían `hogares.reparto`,
+`categorias.limite_mensual_hogar` ni el RPC `set_reparto_hogar`. Consecuencias
+mientras duró:
 
-- El toggle de reparto en Configuración se ve; al usarlo, error.
+- El toggle de reparto en Configuración se veía; al usarlo, error.
 - El presupuesto del hogar por categoría, sus barras en dashboard y su alerta in-app:
   muertos.
-- `dashboard.html:958` y `hogar.html:425` degradan en silencio vía `|| '50_50'`.
+- `dashboard.html:958` y `hogar.html:425` degradaban en silencio vía `|| '50_50'`.
 
-Por tanto `hogares.reparto` **nunca existió**: esta fase lo crea, no lo hereda.
+**Cerrada el 2026-07-14 por la tarea paralela (commit c9bddb8).** La migración de 6.2
+se recortó a solo `categorias.limite_mensual_hogar` —aplicada y verificada en
+producción (columna → grant de tabla → caché de PostgREST → policy
+`categorias_update`)— y el selector de reparto se retiró de Configuración hasta esta
+fase. Estado que hereda 6.3:
+
+- `categorias.limite_mensual_hogar` **existe** en producción. Fuera de alcance aquí.
+- `hogares.reparto` y `set_reparto_hogar` **siguen sin existir**, y ya **nadie más los
+  crea**: la 6.2 recortada no los toca. Esta fase es su única dueña, sin carrera con
+  ninguna otra migración. Los crea, no los hereda.
+- Sobreviven, sin uso, el wrapper `setRepartoHogar` (`js/db.js`) y el parámetro `modo`
+  de `calcularBalanceHogar`, conservados para que 6.3 los reutilice. `hogar-balance.js`
+  se borra igualmente (ver Arquitectura); el wrapper de `db.js` se re-apunta.
 
 `supabase_migrations.schema_migrations` **no es fiable** en este proyecto (las Fases 6
 y 6.1 no figuran pero sí están aplicadas; el fix `20260702` tampoco figura y está
-vivo). El esquema introspeccionado es la única verdad.
-
-Coordinación: hay una tarea paralela para aplicar la migración huérfana de 6.2. Ambas
-crean `hogares.reparto`. Las dos migraciones usan `add column if not exists`: el que
-llegue primero gana, el otro es no-op.
+vivo). El esquema introspeccionado es la única verdad. Regla ya documentada en
+`CLAUDE.md`.
 
 ## Modelo objetivo
 
@@ -257,7 +267,10 @@ alter table transacciones rename column aporte_id to grupo_id;
 alter table transacciones add constraint tx_hogar_sin_ingreso
   check (not (ambito = 'hogar' and tipo = 'ingreso'));
 
--- 5. Columna reparto (no existe en prod: la 6.2 nunca se aplicó)
+-- 5. Columna reparto (no existe en prod: la 6.2 se recortó y ya no la crea;
+--    esta fase es su única dueña). Falta aquí el SQL de set_reparto_hogar,
+--    de registrar_gasto_hogar / borrar_gasto_hogar y del drop de
+--    distribuir_aporte_hogar: los define el plan de implementación.
 alter table hogares add column if not exists reparto text not null default '50_50'
   check (reparto in ('50_50','proporcional'));
 ```
@@ -294,7 +307,7 @@ Verificado en local contra una copia de los datos **antes** de tocar producción
 | `resumen.html` | KPI "Aporte al hogar" = mis gastos hogar + mi ahorro hogar. |
 | `brujula.html` | Ámbito hogar evalúa contra el bolsillo personal del que pregunta. El ámbito sigue filtrando el historial de la categoría y las metas del colchón. |
 | `transaccion.html` | Muere el checkbox "aporte al hogar". Nace el editor de partes (siempre visible, prefill 100% registrante). El aporte de ahorro al hogar pasa a ser `tipo='ahorro'` + `ambito='hogar'`. |
-| `configuracion.html` | Crear `hogares.reparto` + `set_reparto_hogar`. Texto nuevo: el toggle ya no infiere deuda, define **qué significa igualar**. |
+| `configuracion.html` | Crear `hogares.reparto` + `set_reparto_hogar`. **Reponer el selector de reparto**, que la tarea paralela retiró el 2026-07-14 (commit c9bddb8) por apuntar a un RPC inexistente. Texto nuevo: el toggle ya no infiere deuda, define **qué significa igualar**. |
 | `disolver_hogar` | Reparte por ahorro real; informa el desequilibrio aparte; deja de insertar la liquidación fantasma que nadie podía leer. |
 | `js/db.js` | Borrar `insertAporteHogar`. Re-definir `getBalanceHogar`. Quitar `.is('hogar_id', null)` de los saldos personales. `_serverDeleteTransaccion` pasa a `grupo_id` + RPC. |
 | SQL | Borrar `distribuir_aporte_hogar`. Nuevos `registrar_gasto_hogar`, `borrar_gasto_hogar`. Nuevo CHECK. |
@@ -349,7 +362,8 @@ decimales.
 ## Fuera de alcance
 
 - La parte de **presupuestos** de la Fase 6.2 (`categorias.limite_mensual_hogar`):
-  ortogonal a la economía del hogar, cubierta por la tarea paralela.
+  ortogonal a la economía del hogar. **Ya cerrada** por la tarea paralela el
+  2026-07-14 (commit c9bddb8): columna aplicada y verificada en producción.
 - Hogares de más de 2 miembros. El cap de 2 lo garantiza `trg_hogar_cap`. El modelo de
   filas hermanas y `p_partes jsonb` ya son N-miembros por construcción, pero no se
   diseña ni se prueba para N > 2 aquí.
