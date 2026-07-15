@@ -2,10 +2,27 @@
 -- Fase 6.3 (correctiva) — el hogar deja de tener ingresos propios.
 -- SOLO v2. Afecta 5 filas de producción (verificadas 2026-07-14). Reversible
 -- vía las tablas _backup_fase63_*. NO aplicar sin revisión manual del SQL.
+--
+-- ⚠ SECUENCIA DE DEPLOY: esta migración y el rewrite de js/db.js + las vistas
+-- (Fase 6.3, tareas posteriores del plan) deben llegar a producción en la
+-- MISMA ventana. Tras aplicar esta migración, insertAporteHogar() (js/db.js,
+-- versión vieja) queda rota: inserta ambito='hogar' tipo='ingreso' (bloqueado
+-- por el CHECK tx_hogar_sin_ingreso de abajo), usa la columna aporte_id
+-- (renombrada a grupo_id) y llama a distribuir_aporte_hogar (borrada en el
+-- paso 8). Si el frontend desplegado sigue siendo el viejo cuando esto se
+-- aplica, "aportar al hogar" falla para cualquier usuario real hasta que el
+-- frontend nuevo se despliegue. Aplicar cuando se pueda seguir de inmediato
+-- con el resto de tareas hasta el push a v2, sin demora entre medio.
 
 begin;
 
 -- ── 0. Respaldo para rollback ─────────────────────────────────────────
+-- Cubre las FILAS de datos tocadas (transacciones + aportes_meta relacionados).
+-- NO cubre definiciones de esquema: el rename aporte_id→grupo_id (paso 3) y
+-- la función distribuir_aporte_hogar borrada (paso 8) no tienen snapshot acá
+-- — para revertir esas dos cosas, la definición de distribuir_aporte_hogar
+-- vive en supabase/migrations/20260608_aportes_directos.sql (git history),
+-- y el rename se revierte con un ALTER TABLE ... RENAME COLUMN inverso.
 create table if not exists public._backup_fase63_transacciones as
   select * from public.transacciones where ambito = 'hogar' or aporte_id is not null;
 create table if not exists public._backup_fase63_aportes_meta as
@@ -53,14 +70,28 @@ commit;
 -- distribuir_ahorro hace sus propios inserts; fuera de la transacción anterior
 -- por si la RPC abre su propio manejo de errores (idéntico a como se invoca
 -- desde db.js: best-effort, no debe abortar la migración si falla).
+-- Guardia de idempotencia: distribuir_ahorro no tiene protección propia
+-- contra re-ejecución (inserta aportes_meta sin marca de "ya repartido"), y
+-- este proyecto tiene migraciones re-aplicadas a mano por el SQL Editor
+-- documentado como riesgo real (ver CLAUDE.md). Sin este guard, correr este
+-- archivo dos veces duplicaría el aporte de S/200 a las metas del hogar.
 do $$
 begin
-  perform public.distribuir_ahorro('a6fe851a-ac7e-4d2f-bd02-8e6ad0ee046d'::uuid);
+  if not exists (
+    select 1 from public.aportes_meta where transaccion_id = 'a6fe851a-ac7e-4d2f-bd02-8e6ad0ee046d'::uuid
+  ) then
+    perform public.distribuir_ahorro('a6fe851a-ac7e-4d2f-bd02-8e6ad0ee046d'::uuid);
+  end if;
 exception when others then
   raise notice 'distribuir_ahorro sobre la fila huérfana falló: %', sqlerrm;
 end $$;
 
 -- ── 3. aporte_id → grupo_id (0 filas lo usan tras el paso 1) ──────────
+-- No idempotente a propósito (RENAME COLUMN falla en un re-run, a diferencia
+-- del guard if-not-exists del paso 5): aplicar SIEMPRE con apply_migration
+-- (queda registrada en el ledger, CLAUDE.md), nunca por el SQL Editor a
+-- mano — así el ledger sí es confiable para ESTA migración puntual y un
+-- re-run accidental no debería ocurrir.
 begin;
 
 alter table public.transacciones rename column aporte_id to grupo_id;
@@ -105,7 +136,8 @@ begin
   update public.hogares set reparto = p_modo where id = v_hogar;
 end; $$;
 
-grant execute on function public.set_reparto_hogar(text) to authenticated;
+grant  execute on function public.set_reparto_hogar(text) to authenticated;
+revoke execute on function public.set_reparto_hogar(text) from anon, public;
 
 commit;
 
@@ -199,7 +231,11 @@ revoke execute on function public.borrar_gasto_hogar(uuid) from anon, public;
 
 commit;
 
--- ── 8. distribuir_aporte_hogar sobra — el ahorro hogar ya usa distribuir_ahorro ──
+-- ── 8. Borrar distribuir_aporte_hogar (RPC de la ficción, ya sin uso) ──
+-- Repartía la pata-ingreso-hogar del viejo par aporte_id (paso 1). Con la
+-- ficción eliminada, "ahorro al hogar" es una fila tipo='ahorro' normal y
+-- ya usa distribuir_ahorro (misma función que el ahorro personal) — no
+-- necesita una copia especializada.
 begin;
 
 drop function if exists public.distribuir_aporte_hogar(uuid);
@@ -241,6 +277,9 @@ begin
   select coalesce(sum(monto),0) into v_pago_creador from public.transacciones
     where hogar_id = v_hogar and ambito='hogar' and tipo='gasto' and user_id = v_creador;
 
+  -- v_otro null (hogar de 1 solo miembro): el bloque de desequilibrio se
+  -- salta entero; v_brecha/v_debe_mas/v_ya_mas quedan en sus defaults
+  -- (0/null/null) y se reportan así, sin dividir por cero ni fallar.
   if v_otro is not null then
     select coalesce(sum(monto),0) into v_ahorro_otro from public.transacciones
       where hogar_id = v_hogar and ambito='hogar' and tipo='ahorro' and user_id = v_otro;
