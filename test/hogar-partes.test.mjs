@@ -43,3 +43,18 @@ test('tolerancia de redondeo de hasta 1 centavo → válido', () => {
   const r = validarPartesGastoHogar(100, [{ user_id: 'A', monto: 33.34 }, { user_id: 'B', monto: 66.67 }]);
   assert.strictEqual(r.ok, true); // suma 100.01, dentro de tolerancia
 });
+
+test('un monto negativo → inválido', () => {
+  const r = validarPartesGastoHogar(100, [{ user_id: 'A', monto: 110 }, { user_id: 'B', monto: -10 }]);
+  assert.strictEqual(r.ok, false);
+});
+
+test('total negativo → inválido', () => {
+  const r = validarPartesGastoHogar(-50, [{ user_id: 'A', monto: -50 }]);
+  assert.strictEqual(r.ok, false);
+});
+
+test('parte sin user_id → inválido', () => {
+  const r = validarPartesGastoHogar(100, [{ monto: 100 }]);
+  assert.strictEqual(r.ok, false);
+});
