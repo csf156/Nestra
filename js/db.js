@@ -646,7 +646,7 @@ async function getProfiles() {
 
 // getAportesPorMiembro(mes, anio) — aporte real al hogar por cada miembro en el
 // mes dado, junto al esperado de su perfil. Para el gráfico "aporte real vs. esperado".
-// Real = SUMA de transacciones con aporte_id != null en el mes, agrupado por user_id.
+// Real = SUMA de gasto hogar + ahorro hogar del miembro en el mes.
 // Returns: [{ user_id, nombre, esperado, real }] (un elemento por perfil) o [].
 // RLS: perfiles del hogar y transacciones de aporte visibles entre miembros.
 async function getAportesPorMiembro(mes, anio) {
@@ -660,13 +660,14 @@ async function getAportesPorMiembro(mes, anio) {
     if (errM) throw errM;
     if (!miembros || !miembros.length) return [];
 
-    // Real = todo lo que el miembro puso al hogar en el mes (ingresos + gastos
-    // del hogar que pagó). Consistente con aporteRealPorMiembro de #hogar.
+    // Real = gasto hogar (su parte de gastos compartidos) + ahorro hogar
+    // (lo que apartó) del miembro en el mes. Consistente con
+    // aporteRealPorMiembro (js/hogar-aporte.js).
     const { data: txs, error: errT } = await supabase
       .from('transacciones')
       .select('user_id, tipo, monto')
       .not('hogar_id', 'is', null)
-      .in('tipo', ['ingreso', 'gasto'])
+      .in('tipo', ['gasto', 'ahorro'])
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (errT) throw errT;
@@ -1169,20 +1170,24 @@ async function updateDesafio(id, datos) {
 // RESUMEN
 // ═══════════════════════════════════════════════════════════════════
 
-// getResumenMensual(mes, anio) — cierre del mes: balances + desglose.
-// Combina balance del hogar, balance personal del usuario activo, y el
-// desglose de gastos por categoría (hogar + personales propios) del mes.
-// Returns: { hogar, personal, porCategoria } — porCategoria es array de
-//          { categoria_id, nombre, total }. Estructura vacía en error.
+// getResumenMensual(mes, anio) — cierre del mes: gastos/ahorro del hogar +
+// balance personal del usuario activo + desglose de gastos por categoría
+// (hogar + personales propios) del mes. El hogar ya no tiene "balance"
+// (Fase 6.3: sin ingresos propios) — solo gastos compartidos y ahorro.
+// Returns: { hogar, personal, porCategoria } — hogar es { gastos, ahorro };
+// porCategoria es array de { categoria_id, nombre, total }. Estructura
+// vacía en error.
 async function getResumenMensual(mes, anio) {
   try {
     const userId = _requireUserId();
     const { desde, hasta } = _rangoMes(mes, anio);
 
-    const [hogar, personal] = await Promise.all([
-      getBalanceHogar(mes, anio),
+    const [gastosHogar, ahorroHogar, personal] = await Promise.all([
+      getGastosHogar(mes, anio),
+      getAhorrosHogar(mes, anio),
       getBalancePersonal(mes, anio),
     ]);
+    const hogar = { gastos: gastosHogar, ahorro: ahorroHogar };
 
     // Gastos del mes visibles (hogar + personales propios) por categoría.
     const { data, error } = await supabase
@@ -1210,7 +1215,7 @@ async function getResumenMensual(mes, anio) {
   } catch (err) {
     console.error('Error en getResumenMensual():', err.message || err);
     return {
-      hogar: { ingresos: 0, gastos: 0, balance: 0 },
+      hogar: { gastos: 0, ahorro: 0 },
       personal: { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 },
       porCategoria: [],
     };
