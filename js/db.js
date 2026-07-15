@@ -272,66 +272,15 @@ async function deleteTransaccion(id) {
 }
 
 // insertAporteHogar(monto, categoria_id, nota, fecha) — aporte al hogar.
-// Crea atómicamente dos transacciones vinculadas por un mismo aporte_id:
-//   1. Gasto PERSONAL del usuario activo (sale de su balance personal),
-//      usando la categoría de gasto que se pasa en `categoria_id`.
-//   2. Ingreso del HOGAR (entra al balance compartido), usando una
-//      categoría de TIPO ingreso resuelta automáticamente (preferencia:
-//      "Aporte al hogar" → "Otros ingresos" → primera categoría ingreso).
-//      Así el ingreso no contamina una categoría de gasto en los gráficos.
-// PostgREST inserta ambas filas en una sola sentencia (.insert([a, b])):
-// es atómico server-side — si una falla, no se crea ninguna. deleteTransaccion
-// limpia ambas mitades por aporte_id.
-// Returns: array con las dos filas insertadas. Lanza Error en fallo.
+// PUENTE TEMPORAL (Fase 6.3): "aportar al hogar" es ahorro al hogar, sin
+// excepción — inserta una única transacción tipo='ahorro' ambito='hogar',
+// que insertTransaccion ya reparte automáticamente entre metas del hogar +
+// fondo de emergencia (distribuir_ahorro). Reemplaza el viejo par
+// gasto-personal + ingreso-hogar (ficción retirada en Fase 6.3).
+// `categoria_id` se ignora: los ahorros no llevan categoría.
+// Returns: fila insertada. Lanza Error en fallo.
 async function insertAporteHogar(monto, categoria_id, nota, fecha) {
-  try {
-    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
-    const userId = _requireUserId();
-    const aporteId = crypto.randomUUID();
-
-    // Resolver categoría de tipo ingreso para la mitad del hogar.
-    const catsIngreso = await getCategorias('ingreso');
-    if (!catsIngreso.length) {
-      throw new Error('No hay categorías de ingreso para el aporte al hogar');
-    }
-    const catIngreso =
-      catsIngreso.find((c) => c.nombre === 'Aporte al hogar') ||
-      catsIngreso.find((c) => c.nombre === 'Otros ingresos') ||
-      catsIngreso[0];
-
-    const base = {
-      monto,
-      nota: nota ?? null,
-      user_id: userId,
-      aporte_id: aporteId,
-    };
-    if (fecha) base.fecha = fecha;
-
-    const filas = [
-      { ...base, tipo: 'gasto',   ambito: 'personal', categoria_id },
-      { ...base, tipo: 'ingreso', ambito: 'hogar',    categoria_id: catIngreso.id },
-    ];
-
-    const { data, error } = await supabase
-      .from('transacciones')
-      .insert(filas)
-      .select();
-    if (error) throw error;
-
-    // Repartir el aporte entre las metas del hogar vía RPC atómico. Best-effort:
-    // el aporte y su aporte_id ya existen (balances correctos); un fallo del
-    // reparto NO debe revertir las transacciones ni propagarse.
-    try {
-      const { error: errRpc } = await supabase.rpc('distribuir_aporte_hogar', { p_aporte_id: aporteId });
-      if (errRpc) throw errRpc;
-    } catch (errRpc) {
-      console.error('Aviso: no se pudo repartir el aporte entre metas del hogar:', errRpc.message || errRpc);
-    }
-    return data;
-  } catch (err) {
-    console.error('Error en insertAporteHogar():', err.message || err);
-    throw err;
-  }
+  return insertTransaccion({ tipo: 'ahorro', ambito: 'hogar', categoria_id: null, monto, fecha, nota });
 }
 
 
