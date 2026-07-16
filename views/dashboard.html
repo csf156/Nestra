@@ -130,12 +130,16 @@
   .dash-s2s-card {
     padding: var(--space-lg);
     border-radius: var(--radius-md);
-    background: linear-gradient(135deg, var(--color-primary), var(--color-success));
+    background: linear-gradient(135deg, var(--s2s-from), var(--s2s-to));
     color: #fff;
     box-shadow: var(--shadow-md);
   }
+  /* base.css define `p { color: var(--text-secondary) }`, y esa regla le gana
+     por especificidad al color heredado de la card: sin esto los tres <p> del
+     hero salen plomo sobre el gradiente (1.11:1, ilegible). */
+  .dash-s2s-card p { color: inherit; }
   .dash-s2s-card--excedido {
-    background: linear-gradient(135deg, var(--color-danger), #8a1c1c);
+    background: linear-gradient(135deg, var(--s2s-exc-from), var(--s2s-exc-to));
   }
   .dash-s2s-label {
     margin: 0;

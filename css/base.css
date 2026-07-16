@@ -24,6 +24,17 @@
   --color-warning: #e8b94a;
   --color-info:    #6ea8e8;
 
+  /* ── Hero safe-to-spend ──────────────────────────────────────
+     Fijos en AMBOS temas a propósito. La paleta se invierte entre temas
+     (en oscuro --color-primary es #c9a84c, un oro claro), así que un hero
+     que consuma los tokens de marca queda ilegible en oscuro: blanco sobre
+     #c9a84c da 2.29:1 y AA pide 4.5:1. Estos valores dan 4.89:1 y 6.51:1.
+     Verificado por test/contraste-s2s.test.mjs — no cambiar sin correrlo. */
+  --s2s-from: #8a6d22;
+  --s2s-to: #1a6b43;
+  --s2s-exc-from: #b3261e;
+  --s2s-exc-to: #8a1c1c;
+
   --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --font-size-xs: 0.75rem;  --font-size-sm: 0.875rem; --font-size-base: 1rem;
