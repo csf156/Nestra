@@ -828,12 +828,24 @@
       else cargarCategorias();
       _mostrarPartes();
     }
+    // El hogar solo registra gasto y ahorro: un ingreso es siempre personal
+    // (entra a tu bolsillo, no al hogar). La regla se aplica también en
+    // historial y con un CHECK en la base.
+    function _gateTipoPorAmbito(ambito) {
+      var esHogar = (ambito === 'hogar');
+      btnTipoIngreso.style.display = esHogar ? 'none' : '';
+      // El ámbito gana: el usuario acaba de decir "esto es del hogar", así que
+      // se respeta y se corrige el tipo. Al volver a personal NO se revierte.
+      if (esHogar && tipoEl.value === 'ingreso') _setTipo('gasto');
+    }
+
     function _setAmbito(val) {
       ambitoEl.value = val;
       btnAmbitoPersonal.classList.toggle('tx-active', val === 'personal');
       btnAmbitoPersonal.setAttribute('aria-pressed', String(val === 'personal'));
       btnAmbitoHogar.classList.toggle('tx-active', val === 'hogar');
       btnAmbitoHogar.setAttribute('aria-pressed', String(val === 'hogar'));
+      _gateTipoPorAmbito(val);
       _mostrarPartes();
     }
 
@@ -1292,11 +1304,7 @@
       btnTipoAhorro.setAttribute('aria-pressed', String(editTx.tipo === 'ahorro'));
       document.getElementById('categoriaGroup').style.display = (editTx.tipo === 'ahorro') ? 'none' : '';
 
-      ambitoEl.value = editTx.ambito;
-      btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
-      btnAmbitoPersonal.setAttribute('aria-pressed', String(editTx.ambito === 'personal'));
-      btnAmbitoHogar.classList.toggle('tx-active', editTx.ambito === 'hogar');
-      btnAmbitoHogar.setAttribute('aria-pressed', String(editTx.ambito === 'hogar'));
+      _setAmbito(editTx.ambito);
 
       montoEl.value = editTx.monto;
       fechaEl.value = String(editTx.fecha).split('T')[0];
