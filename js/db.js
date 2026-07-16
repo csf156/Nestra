@@ -1621,7 +1621,24 @@ async function getLiquidacionesHogar() {
 // Returns: el channel para luego hacer supabase.removeChannel(channel), o null.
 function subscribeHogar(hogarId, onChange) {
   if (!hogarId) return null;
-  const ch = supabase.channel('hogar-' + hogarId)
+  const topic = 'hogar-' + hogarId;
+  // supabase.channel(topic) NO crea una instancia nueva si el topic ya existe:
+  // devuelve la que está registrada. La vista de hogar se re-monta en cada
+  // visita (el router re-ejecuta su script) y su variable `channel` vive en el
+  // closure del IIFE, así que la limpieza de la visita anterior nunca corre y
+  // el canal sigue registrado. Al volver, esta función recibía esa instancia
+  // —ya suscrita— y encadenar .on() sobre ella lanza:
+  //
+  //   cannot add `postgres_changes` callbacks for realtime:hogar-<id>
+  //   after `subscribe()`
+  //
+  // El throw subía hasta el catch de render() y la vista mostraba "No se pudo
+  // cargar el hogar. Revisa tu conexión", que no tenía nada que ver.
+  // Quitando la instancia previa, channel() sí devuelve una limpia.
+  supabase.getChannels()
+    .filter((c) => c.topic === 'realtime:' + topic || c.topic === topic)
+    .forEach((c) => supabase.removeChannel(c));
+  const ch = supabase.channel(topic)
     .on('postgres_changes',
         { event: '*', schema: 'public', table: 'transacciones', filter: 'hogar_id=eq.' + hogarId },
         onChange)
