@@ -240,14 +240,20 @@ async function updateTransaccion(id, datos) {
 }
 
 // _serverDeleteTransaccion(id) — borra en el servidor. Si la fila tiene
-// aporte_id, borra ambas mitades. Usado online y en el replay de la outbox.
+// grupo_id (gasto compartido con partes de otro miembro), borra el grupo
+// completo vía RPC (la policy DELETE es owner-scoped: no se puede borrar
+// la fila del otro miembro directamente). Usado online y en el replay
+// de la outbox.
 async function _serverDeleteTransaccion(id) {
   const { data: fila, error: errLeer } = await supabase
-    .from('transacciones').select('id, aporte_id').eq('id', id).single();
+    .from('transacciones').select('id, grupo_id').eq('id', id).single();
   if (errLeer) throw errLeer;
-  let query = supabase.from('transacciones').delete();
-  query = (fila && fila.aporte_id) ? query.eq('aporte_id', fila.aporte_id) : query.eq('id', id);
-  const { error } = await query;
+  if (fila && fila.grupo_id) {
+    const { error } = await supabase.rpc('borrar_gasto_hogar', { p_grupo_id: fila.grupo_id });
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('transacciones').delete().eq('id', id);
   if (error) throw error;
 }
 
@@ -1335,6 +1341,56 @@ async function deleteSplit(splitId) {
   const todas = await getTransacciones();
   const ids = todas.filter((t) => t.split_id === splitId).map((t) => t.id);
   for (const id of ids) await deleteTransaccion(id);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GASTO COMPARTIDO (Fase 6.3) — split de un gasto de hogar entre miembros
+// ═══════════════════════════════════════════════════════════════════
+// registrarGastoHogar(fecha, categoria_id, nota, partes) — partes:
+// [{ user_id, monto }]. Un solo elemento con user_id = usuario activo NO
+// pasa por aquí (usar insertTransaccion normal: es el camino rápido de un
+// solo pagador, editable y offline como cualquier gasto).
+// Online: RPC registrar_gasto_hogar (security definer, valida en servidor).
+// Offline: encola en la outbox (entity 'gasto_hogar'); el replay reintenta
+// el mismo RPC con el mismo grupo_id (idempotente).
+// Returns: array de filas creadas (u optimista con _pending:true si offline).
+// Lanza Error en fallo online real.
+async function registrarGastoHogar(fecha, categoria_id, nota, partes) {
+  const grupoId = crypto.randomUUID();
+  const payload = { grupo_id: grupoId, fecha: fecha || null, categoria_id, nota: nota ?? null, partes };
+
+  if (!navigator.onLine) {
+    await outboxAdd('gasto_hogar', payload);
+    const filasOptimistas = partes.map((p) => ({
+      id: crypto.randomUUID(), grupo_id: grupoId, tipo: 'gasto', ambito: 'hogar',
+      user_id: p.user_id, categoria_id, monto: p.monto, nota: nota ?? null,
+      fecha: fecha || new Date().toISOString().slice(0, 10), _pending: true,
+    }));
+    for (const fila of filasOptimistas) await mirrorPut('transacciones', fila);
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return filasOptimistas;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('registrar_gasto_hogar', {
+      p_grupo_id: grupoId,
+      p_fecha: fecha || null,
+      p_categoria_id: categoria_id,
+      p_nota: nota ?? null,
+      p_partes: partes,
+    });
+    if (error) throw error;
+    for (const fila of data || []) await mirrorPut('transacciones', fila);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('gasto_hogar', payload);
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return partes.map((p) => ({ ...p, grupo_id: grupoId, _pending: true }));
+    }
+    console.error('Error en registrarGastoHogar():', err.message || err);
+    throw err;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
