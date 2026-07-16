@@ -368,39 +368,29 @@
       }
     }
 
-    /* ── Preview del reparto de disolución (cliente) ──────── */
-    function previewDisolucionHtml(txs, creadorId, otroId, uidActual, bal) {
-      function sumIng(uid) {
+    /* ── Preview de disolución (cliente) ──────────────────── */
+    function previewDisolucionHtml(txs, uidActual, otroId, deseq) {
+      function sumAhorro(uid) {
         return (txs || []).reduce(function (s, t) {
-          return (t.ambito === 'hogar' && t.tipo === 'ingreso' && t.user_id === uid)
+          return (t.ambito === 'hogar' && t.tipo === 'ahorro' && t.user_id === uid)
             ? s + (Number(t.monto) || 0) : s;
         }, 0);
       }
-      var ahorro = (txs || []).reduce(function (s, t) {
-        if (t.ambito !== 'hogar') return s;
-        return s + (t.tipo === 'ingreso' ? (Number(t.monto) || 0) : -(Number(t.monto) || 0));
-      }, 0);
-      if (ahorro < 0) ahorro = 0;
-      var rep = (typeof repartoDisolucion === 'function')
-        ? repartoDisolucion(sumIng(creadorId), otroId ? sumIng(otroId) : 0, ahorro)
-        : { recibeA: ahorro / 2, recibeB: ahorro / 2 };
-      var yoCreador = uidActual === creadorId;
-      var miParte   = yoCreador ? rep.recibeA : rep.recibeB;
-      var otraParte = yoCreador ? rep.recibeB : rep.recibeA;
+      var miAhorro = sumAhorro(uidActual);
+      var otroAhorro = otroId ? sumAhorro(otroId) : 0;
       var html =
         '<p class="hogar-modal-body" style="margin:0 0 var(--space-sm)">' +
-          'Ahorro del hogar: <strong>' + escHtml(fmt(ahorro)) + '</strong>. ' +
-          'Tú recibes <strong>' + escHtml(fmt(miParte)) + '</strong>' +
-          (otroId ? ' · tu pareja recibe <strong>' + escHtml(fmt(otraParte)) + '</strong>' : '') +
+          'Cada quien recupera lo que ahorró al hogar: tú <strong>' + escHtml(fmt(miAhorro)) + '</strong>' +
+          (otroId ? ' · tu pareja <strong>' + escHtml(fmt(otroAhorro)) + '</strong>' : '') +
           '.' +
         '</p>';
-      if (bal && bal.neto) {
-        var meDeben = bal.acreedor === uidActual;
+      if (deseq && deseq.brecha > 0) {
+        var yoDebo = deseq.debeAportarMas === uidActual;
         html +=
           '<p class="hogar-modal-body" style="color:var(--color-danger);margin:0">' +
-            '⚠ Hay un saldo de gastos pendiente (' +
-            (meDeben ? 'te deben ' : 'le debes ') + escHtml(fmt(bal.neto)) +
-            '). La disolución NO lo salda; sáldalo antes si quieres registrarlo.' +
+            '⚠ Queda un desequilibrio de gastos compartidos de ' + escHtml(fmt(deseq.brecha)) +
+            (yoDebo ? ' a tu favor de la pareja' : ' a favor tuyo') +
+            '. La disolución no lo cobra; queda como referencia si quieren zanjarlo aparte.' +
           '</p>';
       }
       return html;
@@ -419,11 +409,17 @@
       try { txs = await window.getTransacciones({}); liqs = await window.getLiquidacionesHogar(); }
       catch (e) { /* sin datos: balance y preview quedan en 0 */ }
 
-      // Balance "quién debe qué" (solo con un segundo miembro).
-      var bal = { neto: 0, acreedor: null, deudor: null };
-      if (otro && typeof window.calcularBalanceHogar === 'function') {
-        var modo = (estado.hogar && estado.hogar.reparto) || '50_50';
-        bal = window.calcularBalanceHogar(txs, liqs, uidActual, otro, modo);
+      // Desequilibrio de aportes (solo con un segundo miembro). Prospectivo,
+      // histórico completo, solo gastos compartidos (Fase 6.3).
+      var deseq = { brecha: 0, debeAportarMas: null, yaAportoDeMas: null };
+      var objetivo = { modo: (estado.hogar && estado.hogar.reparto) || '50_50' };
+      if (objetivo.modo === 'proporcional') {
+        var mA = miembros.find(function (m) { return m.user_id === creadorId; }) || {};
+        var mB = miembros.find(function (m) { return m.user_id === otro; }) || {};
+        objetivo.esperadoA = mA.aporte_esperado; objetivo.esperadoB = mB.aporte_esperado;
+      }
+      if (otro && typeof window.calcularDesequilibrioHogar === 'function') {
+        deseq = window.calcularDesequilibrioHogar(txs, liqs, creadorId, otro, objetivo);
       }
 
       // ── Bloque código ──
@@ -443,31 +439,32 @@
           '<button type="button" class="btn btn-secondary btn-sm" id="hogarBtnRegen">Generar código de invitación</button>';
       }
 
-      // ── Bloque balance ──
+      // ── Bloque desequilibrio de aportes ──
       var balCard;
       if (!otro) {
         balCard =
           '<div class="hogar-card">' +
-            '<h2 class="hogar-card-title">Balance</h2>' +
-            '<p class="hogar-card-sub">Comparte el código para que tu pareja se una y empiecen a balancear gastos.</p>' +
+            '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
+            '<p class="hogar-card-sub">Comparte el código para que tu pareja se una y empiecen a registrar gastos compartidos.</p>' +
           '</div>';
-      } else if (bal.neto === 0) {
+      } else if (deseq.brecha === 0) {
         balCard =
           '<div class="hogar-card">' +
-            '<h2 class="hogar-card-title">Balance</h2>' +
-            '<p class="hogar-balance-num hogar-balance-num--mano">Están a mano</p>' +
-            '<p class="hogar-balance-sub">Nadie le debe nada al otro.</p>' +
+            '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
+            '<p class="hogar-balance-num hogar-balance-num--mano">Van igual</p>' +
+            '<p class="hogar-balance-sub">Ambos aportan su parte justa a los gastos compartidos.</p>' +
           '</div>';
       } else {
-        var meDeben = bal.acreedor === uidActual;
+        var yoDeboMas = deseq.debeAportarMas === uidActual;
         balCard =
           '<div class="hogar-card">' +
-            '<h2 class="hogar-card-title">Balance</h2>' +
-            '<p class="hogar-balance-num ' + (meDeben ? 'hogar-balance-num--cobra' : 'hogar-balance-num--debe') + '">' +
-              (meDeben ? 'Te deben ' : 'Le debes ') + escHtml(fmt(bal.neto)) +
+            '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
+            '<p class="hogar-balance-num ' + (yoDeboMas ? 'hogar-balance-num--debe' : 'hogar-balance-num--cobra') + '">' +
+              (yoDeboMas ? 'Deberías aportar ' : 'Tu pareja debería aportar ') + escHtml(fmt(deseq.brecha)) + ' más' +
             '</p>' +
-            '<p class="hogar-balance-sub">Reparto 50/50 de los gastos del hogar, menos lo ya saldado.</p>' +
-            '<button type="button" class="btn btn-primary btn-sm" id="hogarBtnSaldar">Saldar ' + escHtml(fmt(bal.neto)) + '</button>' +
+            '<p class="hogar-balance-sub">En los próximos gastos compartidos, para igualar el reparto. No es una deuda: se corrige gastando.' +
+              ' <a href="#" id="hogarLinkPagoEfectivo" style="font-size:var(--font-size-sm)">Registrar pago en efectivo</a>' +
+            '</p>' +
           '</div>';
       }
 
@@ -545,23 +542,24 @@
         });
       }
 
-      var btnSaldar = $('hogarBtnSaldar');
-      if (btnSaldar) {
-        btnSaldar.addEventListener('click', async function () {
-          btnSaldar.disabled = true;
+      var linkPago = $('hogarLinkPagoEfectivo');
+      if (linkPago) {
+        linkPago.addEventListener('click', async function (e) {
+          e.preventDefault();
+          if (!confirm('¿Registrar que ' + (deseq.debeAportarMas === uidActual ? 'ya pagaste' : 'tu pareja ya pagó') +
+            ' ' + fmt(deseq.brecha) + ' en efectivo para cerrar el desequilibrio?')) return;
           try {
-            await window.saldarHogar(bal.deudor, bal.acreedor, bal.neto, null);
-            toast('Saldado', 3000);
+            await window.saldarHogar(deseq.debeAportarMas, deseq.yaAportoDeMas, deseq.brecha, 'Pago en efectivo');
+            toast('Registrado', 3000);
             await render();
-          } catch (e) {
-            toast((e && e.message) || 'No se pudo saldar', 5000);
-            btnSaldar.disabled = false;
+          } catch (e2) {
+            toast((e2 && e2.message) || 'No se pudo registrar', 5000);
           }
         });
       }
 
       $('hogarBtnDisolver').addEventListener('click', function () {
-        $('hogarDisolverPreview').innerHTML = previewDisolucionHtml(txs, creadorId, otro, uidActual, bal);
+        $('hogarDisolverPreview').innerHTML = previewDisolucionHtml(txs, uidActual, otro, deseq);
         abrirModal('hogarDisolverModal');
         setTimeout(function () { $('hogarDisolverCancelar').focus(); }, 50);
       });
@@ -585,13 +583,8 @@
       try {
         var r = await window.disolverHogar();
         cerrarModal('hogarDisolverModal');
-        var creador = (r && r.recibe_creador != null) ? fmt(r.recibe_creador) : null;
-        var otro    = (r && r.recibe_otro != null) ? fmt(r.recibe_otro) : null;
-        if (creador != null && otro != null) {
-          toast('Hogar disuelto. Reparto: creador ' + creador + ', pareja ' + otro, 6000);
-        } else {
-          toast('Hogar disuelto', 4000);
-        }
+        var miAhorroFinal = (r && r.ahorro_creador != null) ? fmt(r.ahorro_creador) : null;
+        toast(miAhorroFinal != null ? ('Hogar disuelto. Ahorro recuperado: ' + miAhorroFinal) : 'Hogar disuelto', 5000);
         // El canal realtime ya no aplica
         if (channel && typeof supabase !== 'undefined') { supabase.removeChannel(channel); channel = null; }
         await render();
