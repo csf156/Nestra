@@ -581,9 +581,13 @@
       var btn = $('hogarDisolverConfirm');
       btn.disabled = true;
       try {
+        var uidActualDisolver = (window.currentUser && window.currentUser.id) || null;
+        var creadorIdDisolver = (window.hogarState && window.hogarState.hogar && window.hogarState.hogar.creado_por) || null;
         var r = await window.disolverHogar();
         cerrarModal('hogarDisolverModal');
-        var miAhorroFinal = (r && r.ahorro_creador != null) ? fmt(r.ahorro_creador) : null;
+        var yoSoyCreador = (uidActualDisolver === creadorIdDisolver);
+        var miValor = r ? (yoSoyCreador ? r.ahorro_creador : r.ahorro_otro) : null;
+        var miAhorroFinal = miValor != null ? fmt(miValor) : null;
         toast(miAhorroFinal != null ? ('Hogar disuelto. Ahorro recuperado: ' + miAhorroFinal) : 'Hogar disuelto', 5000);
         // El canal realtime ya no aplica
         if (channel && typeof supabase !== 'undefined') { supabase.removeChannel(channel); channel = null; }
