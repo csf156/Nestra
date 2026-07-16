@@ -1,26 +1,41 @@
 // ─────────────────────────────────────────────────────────────────
-// Nestra — hogar-desequilibrio.js (Fase 6.3)
-// Desequilibrio de aportes: cuánto puso cada miembro en gastos COMPARTIDOS
-// del hogar (histórico completo, sin reset) contra un objetivo de reparto.
-// Es prospectivo ("B debería aportar más en los próximos gastos"), no una
-// deuda. El ahorro al hogar NO cuenta aquí (decisión de diseño: se acredita
-// aparte, en la disolución, por ahorro real aportado).
+// Nestra — hogar-desequilibrio.js (Fase 6.3 · Tanda 2)
+// Desequilibrio de aportes: cuánto puso cada miembro al hogar contra un
+// objetivo de reparto, histórico completo y sin reset. Es prospectivo
+// ("B debería aportar más de acá en adelante"), no una deuda.
+//
+// Hay DOS métricas, deliberadamente separadas y nunca sumadas:
+//
+//   gasto  — gastos compartidos. El dinero se gastó y no vuelve: si pusiste
+//            de más, estás abajo de verdad. Un pago en efectivo entre los dos
+//            (hogar_liquidaciones) lo zanja.
+//   ahorro — ahorro al hogar. El dinero está aparcado y VUELVE a quien lo
+//            puso al disolver (disolver_hogar reparte el bote por ahorro real:
+//            pot × ahorroA/(ahorroA+ahorroB) = ahorroA). Nadie está abajo, así
+//            que un pago en efectivo NO lo zanja — solo se cierra ahorrando.
+//
+// Por eso desequilibrioAhorroHogar NO recibe `ajustes`: hace inexpresable
+// restar un pago en efectivo de una brecha que el pago no mueve.
+//
+// NO SUMAR LAS DOS BRECHAS. Con los datos reales del hogar apuntan a miembros
+// distintos y el total invierte la conclusión, apoyándose en dinero que vuelve.
+// Ver docs/superpowers/specs/2026-07-16-tanda2-desequilibrio-gasto-ahorro-design.md
+// y el test 'datos reales: gasto y ahorro apuntan a miembros distintos'.
+//
 // Determinista, sin red. Dual-export como safe-to-spend.js / insights.js.
 // ─────────────────────────────────────────────────────────────────
 'use strict';
 
-// calcularDesequilibrioHogar(transacciones, ajustes, uidA, uidB, objetivo)
-//   transacciones: filas con { tipo, ambito, user_id, monto }. Solo cuentan
-//     tipo='gasto' && ambito='hogar'.
-//   ajustes: pagos en efectivo ya registrados: [{ de_user, a_user, monto }].
+// _brecha(transacciones, tipo, ajustes, uidA, uidB, objetivo)
+//   Núcleo compartido. `ajustes` puede ser null (el caso del ahorro).
 //   objetivo: { modo: '50_50'|'proporcional', esperadoA?, esperadoB? }.
 //     'proporcional' cae a 50/50 si esperadoA+esperadoB es 0.
 // Returns: { brecha, debeAportarMas, yaAportoDeMas, pagoA, pagoB }.
 //   brecha=0 ⇒ debeAportarMas y yaAportoDeMas son null (van igual).
-function calcularDesequilibrioHogar(transacciones, ajustes, uidA, uidB, objetivo) {
+function _brecha(transacciones, tipo, ajustes, uidA, uidB, objetivo) {
   var pagoA = 0, pagoB = 0;
   (transacciones || []).forEach(function (t) {
-    if (t.ambito !== 'hogar' || t.tipo !== 'gasto') return;
+    if (t.ambito !== 'hogar' || t.tipo !== tipo) return;
     if (t.user_id === uidA) pagoA += Number(t.monto) || 0;
     else if (t.user_id === uidB) pagoB += Number(t.monto) || 0;
   });
@@ -31,7 +46,7 @@ function calcularDesequilibrioHogar(transacciones, ajustes, uidA, uidB, objetivo
     if (eA + eB > 0) objetivoA = eA / (eA + eB);
   }
 
-  // >0 ⇒ A puso de más ⇒ B debería aportar más en los próximos gastos.
+  // >0 ⇒ A puso de más ⇒ B debería aportar más de acá en adelante.
   var neto = pagoA - objetivoA * (pagoA + pagoB);
 
   (ajustes || []).forEach(function (a) {
@@ -50,8 +65,27 @@ function calcularDesequilibrioHogar(transacciones, ajustes, uidA, uidB, objetivo
   };
 }
 
-if (typeof window !== 'undefined') {
-  window.calcularDesequilibrioHogar = calcularDesequilibrioHogar;
+// desequilibrioGastoHogar(transacciones, ajustes, uidA, uidB, objetivo)
+//   Solo cuenta tipo='gasto' && ambito='hogar'.
+//   ajustes: pagos en efectivo ya registrados: [{ de_user, a_user, monto }].
+//   pagoA/pagoB = lo que gastó cada uno en el hogar.
+function desequilibrioGastoHogar(transacciones, ajustes, uidA, uidB, objetivo) {
+  return _brecha(transacciones, 'gasto', ajustes, uidA, uidB, objetivo);
 }
 
-export { calcularDesequilibrioHogar };
+// desequilibrioAhorroHogar(transacciones, uidA, uidB, objetivo)
+//   Solo cuenta tipo='ahorro' && ambito='hogar'.
+//   SIN `ajustes` a propósito: un pago en efectivo no mueve el bote, así que no
+//   puede zanjar esta brecha. La firma lo hace inexpresable.
+//   pagoA/pagoB = lo que ahorró cada uno al hogar (el nombre se conserva del
+//   núcleo compartido; acá significan "ahorró", no "pagó").
+function desequilibrioAhorroHogar(transacciones, uidA, uidB, objetivo) {
+  return _brecha(transacciones, 'ahorro', null, uidA, uidB, objetivo);
+}
+
+if (typeof window !== 'undefined') {
+  window.desequilibrioGastoHogar = desequilibrioGastoHogar;
+  window.desequilibrioAhorroHogar = desequilibrioAhorroHogar;
+}
+
+export { desequilibrioGastoHogar, desequilibrioAhorroHogar };
