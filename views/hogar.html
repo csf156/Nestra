@@ -149,6 +149,23 @@
   .hogar .hogar-balance-num--mano { color: var(--text-dark); }
   .hogar .hogar-balance-sub { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-md); }
 
+  .hogar-deseq-bloque { padding: var(--space-sm) 0; }
+  .hogar-deseq-bloque + .hogar-deseq-bloque { border-top: 1px solid var(--border-light); }
+  .hogar-deseq-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: var(--space-sm); flex-wrap: wrap;
+  }
+  .hogar-deseq-titulo {
+    margin: 0; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
+    text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary);
+  }
+  .hogar-deseq-montos { font-size: var(--font-size-sm); color: var(--text-secondary); }
+  .hogar-deseq-nota {
+    margin: var(--space-sm) 0 0; padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-light);
+    font-size: var(--font-size-xs); color: var(--text-secondary);
+  }
+
   /* ── Zona de peligro ───────────────────────────────────── */
   .hogar .hogar-peligro {
     margin-top: var(--space-lg);
@@ -410,16 +427,20 @@
       catch (e) { /* sin datos: balance y preview quedan en 0 */ }
 
       // Desequilibrio de aportes (solo con un segundo miembro). Prospectivo,
-      // histórico completo, solo gastos compartidos (Fase 6.3).
-      var deseq = { brecha: 0, debeAportarMas: null, yaAportoDeMas: null };
+      // histórico completo. DOS métricas separadas, nunca sumadas: el gasto se
+      // fue, el ahorro vuelve a quien lo puso al disolver (Tanda 2).
+      var vacio = { brecha: 0, debeAportarMas: null, yaAportoDeMas: null, pagoA: 0, pagoB: 0 };
+      var deseqGasto = vacio, deseqAhorro = vacio;
       var objetivo = { modo: (estado.hogar && estado.hogar.reparto) || '50_50' };
       if (objetivo.modo === 'proporcional') {
         var mA = miembros.find(function (m) { return m.user_id === creadorId; }) || {};
         var mB = miembros.find(function (m) { return m.user_id === otro; }) || {};
         objetivo.esperadoA = mA.aporte_esperado; objetivo.esperadoB = mB.aporte_esperado;
       }
-      if (otro && typeof window.calcularDesequilibrioHogar === 'function') {
-        deseq = window.calcularDesequilibrioHogar(txs, liqs, creadorId, otro, objetivo);
+      if (otro && typeof window.desequilibrioGastoHogar === 'function') {
+        deseqGasto = window.desequilibrioGastoHogar(txs, liqs, creadorId, otro, objetivo);
+        // Sin liqs: un pago en efectivo no mueve el bote, así que no zanja ahorro.
+        deseqAhorro = window.desequilibrioAhorroHogar(txs, creadorId, otro, objetivo);
       }
 
       // ── Bloque código ──
@@ -439,7 +460,36 @@
           '<button type="button" class="btn btn-secondary btn-sm" id="hogarBtnRegen">Generar código de invitación</button>';
       }
 
-      // ── Bloque desequilibrio de aportes ──
+      // ── Bloque desequilibrio de aportes (Tanda 2: gasto y ahorro aparte) ──
+      // Los montos crudos por miembro hacen legible la brecha: antes solo se
+      // veía "S/37.77 más" sin saber de dónde salía.
+      function _montosHtml(d) {
+        var mio = (uidActual === creadorId) ? d.pagoA : d.pagoB;
+        var suyo = (uidActual === creadorId) ? d.pagoB : d.pagoA;
+        return '<span class="hogar-deseq-montos">Tú ' + escHtml(fmt(mio)) +
+               ' · Pareja ' + escHtml(fmt(suyo)) + '</span>';
+      }
+
+      function _bloqueHtml(d, titulo, verboDebe, sub, extraHtml) {
+        var cuerpo;
+        if (d.brecha === 0) {
+          cuerpo = '<p class="hogar-balance-num hogar-balance-num--mano">Van igual</p>';
+        } else {
+          var yoDeboMas = d.debeAportarMas === uidActual;
+          cuerpo =
+            '<p class="hogar-balance-num ' + (yoDeboMas ? 'hogar-balance-num--debe' : 'hogar-balance-num--cobra') + '">' +
+              (yoDeboMas ? 'Deberías ' + verboDebe + ' ' : 'Tu pareja debería ' + verboDebe + ' ') +
+              escHtml(fmt(d.brecha)) + ' más' +
+            '</p>' +
+            '<p class="hogar-balance-sub">' + sub + (extraHtml || '') + '</p>';
+        }
+        return '<div class="hogar-deseq-bloque">' +
+                 '<div class="hogar-deseq-head">' +
+                   '<h3 class="hogar-deseq-titulo">' + titulo + '</h3>' + _montosHtml(d) +
+                 '</div>' + cuerpo +
+               '</div>';
+      }
+
       var balCard;
       if (!otro) {
         balCard =
@@ -447,24 +497,16 @@
             '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
             '<p class="hogar-card-sub">Comparte el código para que tu pareja se una y empiecen a registrar gastos compartidos.</p>' +
           '</div>';
-      } else if (deseq.brecha === 0) {
-        balCard =
-          '<div class="hogar-card">' +
-            '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
-            '<p class="hogar-balance-num hogar-balance-num--mano">Van igual</p>' +
-            '<p class="hogar-balance-sub">Ambos aportan su parte justa a los gastos compartidos.</p>' +
-          '</div>';
       } else {
-        var yoDeboMas = deseq.debeAportarMas === uidActual;
         balCard =
           '<div class="hogar-card">' +
             '<h2 class="hogar-card-title">Desequilibrio de aportes</h2>' +
-            '<p class="hogar-balance-num ' + (yoDeboMas ? 'hogar-balance-num--debe' : 'hogar-balance-num--cobra') + '">' +
-              (yoDeboMas ? 'Deberías aportar ' : 'Tu pareja debería aportar ') + escHtml(fmt(deseq.brecha)) + ' más' +
-            '</p>' +
-            '<p class="hogar-balance-sub">En los próximos gastos compartidos, para igualar el reparto. No es una deuda: se corrige gastando.' +
-              ' <a href="#" id="hogarLinkPagoEfectivo" style="font-size:var(--font-size-sm)">Registrar pago en efectivo</a>' +
-            '</p>' +
+            _bloqueHtml(deseqGasto, 'Gastos compartidos', 'aportar',
+              'En los próximos gastos compartidos, para igualar el reparto. No es una deuda: se corrige gastando.',
+              ' <a href="#" id="hogarLinkPagoEfectivo" style="font-size:var(--font-size-sm)">Registrar pago en efectivo</a>') +
+            _bloqueHtml(deseqAhorro, 'Ahorro al hogar', 'ahorrar',
+              'Para igualar el aporte al bote común. Se corrige ahorrando: un pago en efectivo no lo mueve.') +
+            '<p class="hogar-deseq-nota">No se suman: el ahorro vuelve a quien lo puso al disolver, el gasto no.</p>' +
           '</div>';
       }
 
@@ -477,14 +519,20 @@
       var aporteCard = '<div class="hogar-card"><h2 class="hogar-card-title">Aporte del mes</h2>' +
         miembros.map(function (m) {
           var real = (typeof window.aporteRealPorMiembro === 'function')
-            ? window.aporteRealPorMiembro(txs, m.user_id, rangoMes) : 0;
+            ? window.aporteRealPorMiembro(txs, m.user_id, rangoMes)
+            : { gasto: 0, ahorro: 0, total: 0 };
           var esp = Number(m.aporte_esperado) || 0;
           var quien = (m.user_id === uidActual) ? 'Tú' : 'Tu pareja';
+          // El total sí se suma acá: se compara contra la meta propia del
+          // miembro, no contra el otro. El desglose evita que dos totales lado
+          // a lado se lean como una carrera (quien ahorra recupera lo suyo).
           var detalle = esp > 0
-            ? escHtml(fmt(real)) + ' de ' + escHtml(fmt(esp)) + ' (' + Math.min(100, Math.round(real / esp * 100)) + '%)'
-            : escHtml(fmt(real)) + ' (sin meta de aporte)';
+            ? escHtml(fmt(real.total)) + ' de ' + escHtml(fmt(esp)) + ' (' + Math.min(100, Math.round(real.total / esp * 100)) + '%)'
+            : escHtml(fmt(real.total)) + ' (sin meta de aporte)';
+          var desglose = escHtml(fmt(real.gasto)) + ' en gastos · ' + escHtml(fmt(real.ahorro)) + ' en ahorro';
           return '<p class="hogar-card-sub" style="margin:0 0 2px"><strong>' + escHtml(quien) + '</strong></p>' +
-                 '<p class="hogar-balance-sub" style="margin:0 0 8px">' + detalle + '</p>';
+                 '<p class="hogar-balance-sub" style="margin:0">' + detalle + '</p>' +
+                 '<p class="hogar-deseq-montos" style="margin:0 0 8px">' + desglose + '</p>';
         }).join('') +
         '</div>';
 
@@ -546,10 +594,10 @@
       if (linkPago) {
         linkPago.addEventListener('click', async function (e) {
           e.preventDefault();
-          if (!confirm('¿Registrar que ' + (deseq.debeAportarMas === uidActual ? 'ya pagaste' : 'tu pareja ya pagó') +
-            ' ' + fmt(deseq.brecha) + ' en efectivo para cerrar el desequilibrio?')) return;
+          if (!confirm('¿Registrar que ' + (deseqGasto.debeAportarMas === uidActual ? 'ya pagaste' : 'tu pareja ya pagó') +
+            ' ' + fmt(deseqGasto.brecha) + ' en efectivo para cerrar el desequilibrio?')) return;
           try {
-            await window.saldarHogar(deseq.debeAportarMas, deseq.yaAportoDeMas, deseq.brecha, 'Pago en efectivo');
+            await window.saldarHogar(deseqGasto.debeAportarMas, deseqGasto.yaAportoDeMas, deseqGasto.brecha, 'Pago en efectivo');
             toast('Registrado', 3000);
             await render();
           } catch (e2) {
@@ -559,7 +607,7 @@
       }
 
       $('hogarBtnDisolver').addEventListener('click', function () {
-        $('hogarDisolverPreview').innerHTML = previewDisolucionHtml(txs, uidActual, otro, deseq);
+        $('hogarDisolverPreview').innerHTML = previewDisolucionHtml(txs, uidActual, otro, deseqGasto);
         abrirModal('hogarDisolverModal');
         setTimeout(function () { $('hogarDisolverCancelar').focus(); }, 50);
       });
