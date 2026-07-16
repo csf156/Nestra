@@ -20,6 +20,10 @@
   .rev-acciones .btn { flex: 1; }
   .rev-error { color: var(--color-danger); font-size: var(--font-size-sm); margin-top: var(--space-sm); display: none; }
   .rev-loading { display: flex; flex-direction: column; gap: var(--space-md); }
+  .rev-partes { border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
+  .rev-partes-fila { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 6px; }
+  .rev-partes-fila label { flex: 1 1 auto; font-size: var(--font-size-sm); }
+  .rev-partes-fila input { width: 110px; }
 </style>
 
 <div class="rev">
@@ -45,7 +49,8 @@
   // Guard de versión: si el SW sirve JS viejo sin estos globales mientras la
   // vista es nueva, avisar en vez de morir en silencio (patrón de transaccion.html).
   var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
-                'insertTransaccion', 'getCategorias'].filter(function (f) {
+                'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
+                'validarPartesGastoHogar'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -112,6 +117,8 @@
       : '<p>Nada por revisar.</p>';
   }
 
+  var hayHogar = (typeof tieneHogar === 'function') && tieneHogar();
+
   async function cardHTML(p, i) {
     var manual = p.estado === 'revisar-manual';
     var tipo = p.tipo || 'gasto';
@@ -150,11 +157,17 @@
         '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
           '<select id="revAmbito' + i + '">' +
             '<option value="personal" selected>Personal</option>' +
-            '<option value="hogar">Hogar</option>' +
+            (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
           '</select></div>' +
         '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
           '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
       '</div>' +
+      (hayHogar ? (
+      '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
+        '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
+        '<div id="revPartesFilas' + i + '"></div>' +
+        '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
+      '</div>') : '') +
       '<div class="rev-acciones">' +
         '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
         '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
@@ -173,17 +186,68 @@
   async function onTipoChange(i) {
     var tipo = document.getElementById('revTipo' + i).value;
     var wrap = document.getElementById('revCatWrap' + i);
-    if (tipo === 'ahorro') { wrap.style.display = 'none'; return; }
+    if (tipo === 'ahorro') { wrap.style.display = 'none'; onAmbitoChange(i); return; }
     wrap.style.display = '';
     var p = _filas[i];
     var texto = p.comercio || p.contraparte || '';
     var sugerida = await sugerirCategoria(texto, tipo);
     document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
+    onAmbitoChange(i);
+  }
+
+  // ── Partes del gasto compartido al aprobar (mismo patrón que #transaccion) ──
+  function miembrosHogar() {
+    var st = window.hogarState || {};
+    return (st.miembros || []).map(function (m) {
+      return {
+        user_id: m.user_id,
+        nombre: (window.currentUser && m.user_id === window.currentUser.id) ? 'Tú' : 'Pareja',
+      };
+    });
+  }
+  function renderPartesFilas(i) {
+    var miembros = miembrosHogar();
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (!filasEl || miembros.length < 2) { if (filasEl) filasEl.innerHTML = ''; return; }
+    var total = parseFloat(document.getElementById('revMonto' + i).value) || 0;
+    var uid = window.currentUser && window.currentUser.id;
+    filasEl.innerHTML = miembros.map(function (m) {
+      var prefill = m.user_id === uid ? total : 0;
+      return '<div class="rev-partes-fila" data-uid="' + esc(m.user_id) + '">' +
+        '<label>' + esc(m.nombre) + '</label>' +
+        '<input type="number" min="0" step="0.01" class="rev-partes-monto" value="' + prefill + '">' +
+        '</div>';
+    }).join('');
+  }
+  function leerPartes(i) {
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (!filasEl) return [];
+    return Array.prototype.map.call(filasEl.querySelectorAll('.rev-partes-fila'), function (row) {
+      return {
+        user_id: row.getAttribute('data-uid'),
+        monto: parseFloat(row.querySelector('.rev-partes-monto').value) || 0,
+      };
+    });
+  }
+  function onAmbitoChange(i) {
+    var tipo = document.getElementById('revTipo' + i).value;
+    var ambito = document.getElementById('revAmbito' + i).value;
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (!grupo) return;
+    var mostrar = tipo === 'gasto' && ambito === 'hogar' && miembrosHogar().length >= 2;
+    grupo.style.display = mostrar ? 'block' : 'none';
+    // Solo prefillea en el primer render: si el usuario ya tecleó un split a
+    // mano, un cambio de monto/tipo no debe pisarlo (mismo bug que se corrigió
+    // en #transaccion — ver Task 11 de la Fase 6.3).
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (mostrar && filasEl && !filasEl.children.length) renderPartesFilas(i);
   }
 
   async function confirmar(i, btn) {
     var errEl = document.getElementById('revErr' + i);
     if (errEl) errEl.style.display = 'none';
+    var partesErrEl = document.getElementById('revPartesErr' + i);
+    if (partesErrEl) { partesErrEl.style.display = 'none'; partesErrEl.textContent = ''; }
     var p = _filas[i];
     var monto = parseFloat(document.getElementById('revMonto' + i).value);
     var fecha = document.getElementById('revFecha' + i).value;
@@ -195,17 +259,44 @@
     if (!fecha) { mostrarError(i, 'Ingresa la fecha.'); return; }
     if (tipo !== 'ahorro' && !catId) { mostrarError(i, 'Elige una categoría.'); return; }
 
+    // Gasto compartido con partes: si el bloque de partes está visible
+    // (ambito=hogar, tipo=gasto, hay 2 miembros), valida y decide la vía.
+    var grupo = document.getElementById('revPartesGroup' + i);
+    var conPartes = tipo === 'gasto' && ambito === 'hogar' && grupo && grupo.style.display !== 'none';
+    var partes = null;
+    if (conPartes) {
+      partes = leerPartes(i).filter(function (x) { return x.monto > 0; });
+      var check = validarPartesGastoHogar(monto, partes);
+      if (!check.ok) {
+        if (partesErrEl) { partesErrEl.textContent = check.error; partesErrEl.style.display = 'block'; }
+        return;
+      }
+    }
+
+    var nota = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
     btn.disabled = true;
     try {
-      // insertTransaccion ya aprende comercio→categoría (autocatLearnTokens
-      // sobre la nota) — la próxima sugerencia mejora sola.
-      var tx = await insertTransaccion({
-        tipo: tipo, ambito: ambito,
-        categoria_id: tipo === 'ahorro' ? null : catId,
-        monto: monto, fecha: fecha,
-        nota: p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco),
-      });
-      await confirmarIngestPendiente(p.id, tx && tx.id, { tipo: tipo, monto: monto, fecha: fecha });
+      var txId;
+      if (conPartes && partes.length > 1) {
+        // 2+ pagadores → registrar_gasto_hogar (RPC); la fila propia sirve
+        // de referencia de auditoría en ingest_pendientes.
+        var filas = await registrarGastoHogar(fecha, catId, nota, partes);
+        var uid = window.currentUser && window.currentUser.id;
+        var propia = (filas || []).filter(Boolean).find(function (f) { return f.user_id === uid; });
+        txId = propia && propia.id;
+      } else {
+        // Un solo pagador (o ambito personal/ahorro) → transacción normal,
+        // igual que antes. insertTransaccion ya aprende comercio→categoría
+        // (autocatLearnTokens sobre la nota) — la próxima sugerencia mejora sola.
+        var tx = await insertTransaccion({
+          tipo: tipo, ambito: ambito,
+          categoria_id: tipo === 'ahorro' ? null : catId,
+          monto: monto, fecha: fecha,
+          nota: nota,
+        });
+        txId = tx && tx.id;
+      }
+      await confirmarIngestPendiente(p.id, txId, { tipo: tipo, monto: monto, fecha: fecha });
       quitarCard(i);
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
@@ -253,8 +344,14 @@
         if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
       });
       listaEl.addEventListener('change', function (ev) {
-        var m = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
-        if (m) onTipoChange(Number(m[1]));
+        var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
+        if (mTipo) { onTipoChange(Number(mTipo[1])); return; }
+        var mAmbito = ev.target.id && ev.target.id.match(/^revAmbito(\d+)$/);
+        if (mAmbito) onAmbitoChange(Number(mAmbito[1]));
+      });
+      listaEl.addEventListener('input', function (ev) {
+        var mMonto = ev.target.id && ev.target.id.match(/^revMonto(\d+)$/);
+        if (mMonto) onAmbitoChange(Number(mMonto[1]));
       });
     } catch (e) {
       console.error('revisar init falló:', e);
