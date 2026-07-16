@@ -1355,17 +1355,26 @@ async function deleteSplit(splitId) {
 // el mismo RPC con el mismo grupo_id (idempotente).
 // Returns: array de filas creadas (u optimista con _pending:true si offline).
 // Lanza Error en fallo online real.
+
+// _filasOptimistasGastoHogar(...) — arma las filas optimistas (mismo shape
+// que devuelve el servidor) para mirrorear localmente mientras la op está
+// en la outbox. Usado tanto por la rama offline como por el fallback de
+// error de red en el catch, para que ambas devuelvan/mirroreen igual.
+function _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes) {
+  return partes.map((p) => ({
+    id: crypto.randomUUID(), grupo_id: grupoId, tipo: 'gasto', ambito: 'hogar',
+    user_id: p.user_id, categoria_id, monto: p.monto, nota: nota ?? null,
+    fecha: fecha || new Date().toISOString().slice(0, 10), _pending: true,
+  }));
+}
+
 async function registrarGastoHogar(fecha, categoria_id, nota, partes) {
   const grupoId = crypto.randomUUID();
   const payload = { grupo_id: grupoId, fecha: fecha || null, categoria_id, nota: nota ?? null, partes };
 
   if (!navigator.onLine) {
     await outboxAdd('gasto_hogar', payload);
-    const filasOptimistas = partes.map((p) => ({
-      id: crypto.randomUUID(), grupo_id: grupoId, tipo: 'gasto', ambito: 'hogar',
-      user_id: p.user_id, categoria_id, monto: p.monto, nota: nota ?? null,
-      fecha: fecha || new Date().toISOString().slice(0, 10), _pending: true,
-    }));
+    const filasOptimistas = _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes);
     for (const fila of filasOptimistas) await mirrorPut('transacciones', fila);
     if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
     return filasOptimistas;
@@ -1385,8 +1394,10 @@ async function registrarGastoHogar(fecha, categoria_id, nota, partes) {
   } catch (err) {
     if (_isNetworkError(err)) {
       await outboxAdd('gasto_hogar', payload);
+      const filasOptimistas = _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes);
+      for (const fila of filasOptimistas) await mirrorPut('transacciones', fila);
       if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
-      return partes.map((p) => ({ ...p, grupo_id: grupoId, _pending: true }));
+      return filasOptimistas;
     }
     console.error('Error en registrarGastoHogar():', err.message || err);
     throw err;
