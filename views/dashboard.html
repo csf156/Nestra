@@ -64,7 +64,21 @@
 
   <!-- ── SECCIÓN 4.5 — Presupuestos del mes ───────────────────────── -->
   <section class="card dash-presup-card" id="dashPresupCard" aria-labelledby="presupTitle" style="display:none">
-    <h2 class="dash-card-title" id="presupTitle">Presupuestos del mes</h2>
+    <div class="dash-presup-head-row">
+      <h2 class="dash-card-title" id="presupTitle">Presupuestos del mes</h2>
+      <!-- Mismo patrón que hist-sort (historial.html:68). A diferencia de allá,
+           acá se muestra también en desktop: la card no tiene encabezados de
+           columna que puedan ordenar. -->
+      <div class="dash-presup-sort" role="group" aria-label="Ordenar presupuestos">
+        <label for="presupSortCampo">Ordenar</label>
+        <select id="presupSortCampo">
+          <option value="limite">Cerca del límite</option>
+          <option value="gasto">Más gasto</option>
+        </select>
+        <button type="button" class="dash-presup-sort-dir" id="presupSortDir"
+                aria-label="Cambiar dirección">▼</button>
+      </div>
+    </div>
     <div id="dashPresupBody" aria-live="polite"></div>
   </section>
 
@@ -432,6 +446,27 @@
   }
 
   /* ── Presupuestos ───────────────────────────────────────── */
+  .dash-presup-head-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-sm); flex-wrap: wrap;
+  }
+  .dash-presup-sort { display: flex; align-items: center; gap: var(--space-xs); }
+  .dash-presup-sort label {
+    font-size: var(--font-size-xs); color: var(--text-secondary);
+  }
+  .dash-presup-sort select {
+    min-height: 44px; background: var(--bg-light-secondary); color: var(--text-dark);
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm); padding: 0 var(--space-xs);
+  }
+  .dash-presup-sort-dir {
+    min-width: 44px; min-height: 44px; background: transparent;
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    color: var(--text-secondary); cursor: pointer;
+  }
+  .dash-presup-sort-dir:focus-visible, .dash-presup-sort select:focus-visible {
+    outline: 2px solid var(--color-primary); outline-offset: 2px;
+  }
   .dash-presup {
     display: flex;
     align-items: center;
@@ -703,6 +738,7 @@
     // Cada presupuesto: chip tintado con el color de la categoría, nombre,
     // gastado/límite, barra 2px coloreada por umbral y badge si está superado.
     function renderPresupuestos(categorias, gastoPorCat, gastoHogarPorCat) {
+      _presupUltimo = [categorias, gastoPorCat, gastoHogarPorCat];
       const card = $('dashPresupCard');
       const body = $('dashPresupBody');
       if (!card || !body) return;
@@ -738,14 +774,53 @@
         </div>`;
       }
 
-      const rowsPersonal = lista.map((cat) =>
-        fila(cat, Number(cat.limite_mensual) || 0, Number((gastoPorCat || {})[cat.id] || 0), false)).join('');
-      const rowsHogar = listaHogar.map((cat) =>
-        fila(cat, Number(cat.limite_mensual_hogar) || 0, Number((gastoHogarPorCat || {})[cat.id] || 0), true)).join('');
+      // Se normaliza a una sola lista para que el orden elegido mande sobre el
+      // agrupado personal-primero. La fila de hogar ya se distingue por su badge.
+      const todas = [
+        ...lista.map((cat) => ({
+          cat, limite: Number(cat.limite_mensual) || 0,
+          gastado: Number((gastoPorCat || {})[cat.id] || 0), esHogar: false,
+        })),
+        ...listaHogar.map((cat) => ({
+          cat, limite: Number(cat.limite_mensual_hogar) || 0,
+          gastado: Number((gastoHogarPorCat || {})[cat.id] || 0), esHogar: true,
+        })),
+      ];
+      const ordenadas = (typeof ordenarPresupuestos === 'function')
+        ? ordenarPresupuestos(todas, _presupOrden.criterio, _presupOrden.direccion)
+        : todas;
 
-      body.innerHTML = rowsPersonal + rowsHogar;
+      body.innerHTML = ordenadas
+        .map((f) => fila(f.cat, f.limite, f.gastado, f.esHogar)).join('');
       card.style.display = 'block';
     }
+
+    // Estado del orden de la card. No se persiste entre sesiones a propósito
+    // (YAGNI): es un dashboard que se mira de pasada, no una tabla de trabajo.
+    var _presupOrden = { criterio: 'limite', direccion: 'desc' };
+    var _presupUltimo = null; // últimos args de renderPresupuestos, para re-render
+
+    (function initPresupOrden() {
+      var sel = document.getElementById('presupSortCampo');
+      var dir = document.getElementById('presupSortDir');
+      if (!sel || !dir) return;
+      function rerender() {
+        if (!_presupUltimo) return;
+        renderPresupuestos.apply(null, _presupUltimo);
+      }
+      sel.addEventListener('change', function () {
+        _presupOrden.criterio = sel.value;
+        rerender();
+      });
+      dir.addEventListener('click', function () {
+        _presupOrden.direccion = (_presupOrden.direccion === 'desc') ? 'asc' : 'desc';
+        dir.textContent = (_presupOrden.direccion === 'desc') ? '▼' : '▲';
+        dir.setAttribute('aria-label',
+          _presupOrden.direccion === 'desc' ? 'Orden descendente, cambiar a ascendente'
+                                            : 'Orden ascendente, cambiar a descendente');
+        rerender();
+      });
+    })();
 
     // ── Render: últimas transacciones ─────────────────────────
     function renderTransacciones(txs) {
