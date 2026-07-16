@@ -188,7 +188,7 @@
       <div id="partesGroup" class="form-group partes-group" style="display:none;" aria-live="polite">
         <p class="form-hint" style="margin:0 0 8px">¿Quién puso cuánto?</p>
         <div id="partesFilas"></div>
-        <p id="partesError" class="field-error" style="display:none"></p>
+        <p id="partesError" class="field-error" role="alert" style="display:none"></p>
       </div>
 
       <!-- Nota -->
@@ -882,11 +882,11 @@
     }
     function _mostrarPartes() {
       if (editTx) { partesGroup.style.display = 'none'; return; }
-      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto';
+      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' && _miembrosHogar().length >= 2;
       partesGroup.style.display = esHogarGasto ? 'block' : 'none';
-      if (esHogarGasto) _renderPartesFilas();
+      if (esHogarGasto && !partesFilas.children.length) _renderPartesFilas();
     }
-    montoEl.addEventListener('input', () => { if (partesGroup.style.display !== 'none') _renderPartesFilas(); });
+    montoEl.addEventListener('input', () => { _mostrarPartes(); });
 
     // ── Préstamo ──────────────────────────────────────────────
     function _esPrestamo() {
@@ -1205,7 +1205,7 @@
           await mostrarExito(savedCatId);
           return;
         }
-        const esHogarGastoConPartes = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' && !editTx;
+        const esHogarGastoConPartes = partesGroup.style.display !== 'none';
         if (esHogarGastoConPartes) {
           const partes = _leerPartes().filter((p) => p.monto > 0);
           const check = validarPartesGastoHogar(monto, partes);
