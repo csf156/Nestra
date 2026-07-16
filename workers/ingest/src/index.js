@@ -19,6 +19,7 @@
  */
 
 import { parseCorreo, FormatoNoReconocidoError, esAnteriorAlCorte } from '../parsers/index.js';
+import { sendWebPush } from '../webpush.js';
 
 /** SHA-256 de un string → hex en minúsculas (mismo formato que la tabla). */
 async function sha256Hex(str) {
@@ -135,6 +136,56 @@ async function insertarPendiente(env, fila, userId, messageId) {
     comercio: fila.comercio, fecha: fila.fecha,
   }));
   return json({ ok: true, tipo: fila.tipo, monto: fila.monto });
+}
+
+/**
+ * Push "¿Confirmar gasto?" a las suscripciones del usuario tras encolar un
+ * pendiente parseado. Fire-and-forget vía ctx.waitUntil: un fallo de push
+ * NUNCA debe tumbar la respuesta al Apps Script (el correo ya quedó encolado).
+ */
+function avisarPendiente(env, ctx, userId, fila) {
+  ctx.waitUntil(
+    enviarPushConfirmacion(env, userId, fila).catch((e) =>
+      console.error('push confirmación falló: ' + (e && e.stack || e)))
+  );
+}
+
+async function enviarPushConfirmacion(env, userId, fila) {
+  if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) {
+    console.error('push: faltan secrets VAPID_*');
+    return;
+  }
+  const resp = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${userId}&select=endpoint,p256dh,auth`,
+    { headers: headersSupabase(env) }
+  );
+  if (!resp.ok) { console.error('push: lookup subscriptions falló HTTP ' + resp.status); return; }
+  const subs = await resp.json();
+  if (!subs.length) return;
+
+  const vapid = { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT };
+  const payload = {
+    title: '¿Confirmar gasto?',
+    body: `S/${fila.monto} en ${fila.comercio || fila.contraparte || 'movimiento'}`,
+    url: './#revisar',
+  };
+
+  for (const sub of subs) {
+    try {
+      const r = await sendWebPush(sub, payload, vapid);
+      if (r.status === 410 || r.status === 404) {
+        // Suscripción caducada: borrarla, no reintentar.
+        await fetch(
+          `${env.SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`,
+          { method: 'DELETE', headers: headersSupabase(env) }
+        );
+      } else if (!r.ok) {
+        console.error('push: envío falló HTTP ' + r.status + ' ' + (await r.text()));
+      }
+    } catch (e) {
+      console.error('push: excepción al enviar: ' + (e && e.stack || e));
+    }
+  }
 }
 
 export default {
@@ -264,6 +315,8 @@ export default {
       raw_body: String(body).slice(0, 20000),
     };
 
-    return insertarPendiente(env, fila, usuario.user_id, messageId);
+    const insertResp = await insertarPendiente(env, fila, usuario.user_id, messageId);
+    if (insertResp.status === 200) avisarPendiente(env, ctx, usuario.user_id, fila);
+    return insertResp;
   },
 };

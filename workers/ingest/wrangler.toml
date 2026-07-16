@@ -22,3 +22,7 @@ enabled = true
 # registran — el usuario decidió no importar backlog. Cinturón adicional a la
 # etiqueta nestra-procesado de Gmail.
 INGEST_DESDE = "2026-07-15T00:00:00Z"
+
+# Clave pública VAPID — no es secreta (coincide con VAPID_PUBLIC_KEY en
+# js/config.js). La privada (secreta) va como Worker secret: VAPID_PRIVATE_KEY.
+VAPID_PUBLIC_KEY = "BEy0lcrgND9vnAirt9FyytTvFeAcVE3pcZVEQRMk2eRP84fhLgGaEYx3tnRT5xQrFzh-o8ocDfjsgGccg3uP4PA"
