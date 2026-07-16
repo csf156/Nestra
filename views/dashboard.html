@@ -50,7 +50,7 @@
   <!-- ── Fase 6 — Quién debe qué (solo si hay hogar compartido) ── -->
   <section class="card dash-balance-card" id="dashDeudaCard" aria-labelledby="deudaTitle" style="display:none">
     <h2 class="dash-card-title" id="deudaTitle">
-      <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-users"></use></svg> Quién debe qué
+      <svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-users"></use></svg> Desequilibrio de aportes
       <a href="#hogar" class="dash-card-periodo" style="text-decoration:none">Ver hogar →</a>
     </h2>
     <div id="dashDeudaBody" class="dash-balance-body"></div>
@@ -590,29 +590,24 @@
     $('hogarPeriodo').textContent = periodo;
     $('personalPeriodo').textContent = periodo;
 
-    // ── Render: balance del hogar ─────────────────────────────
-    function renderHogar(b, acum, ahorros) {
+    // ── Render: ahorro del hogar (gastosMes, ahorroMes, ahorroAcumulado) ──
+    function renderHogar(gastosMes, ahorroMes, ahorroAcumulado) {
       const body = $('hogarBody');
       body.setAttribute('aria-busy', 'false');
       body.innerHTML = `
         <div class="dash-line">
-          <span class="dash-line-label">Ingresos</span>
-          <span class="dash-line-value dash-line-value--ingreso">${esc(formatMonto(b.ingresos))}</span>
+          <span class="dash-line-label">Gastos compartidos</span>
+          <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(gastosMes))}</span>
         </div>
         <div class="dash-line">
-          <span class="dash-line-label">Gastos</span>
-          <span class="dash-line-value dash-line-value--gasto">${esc(formatMonto(b.gastos))}</span>
-        </div>
-        <div class="dash-line">
-          <span class="dash-line-label">Ahorros</span>
-          <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorros))}</span>
+          <span class="dash-line-label">Ahorro aportado</span>
+          <span class="dash-line-value dash-line-value--ahorro">${esc(formatMonto(ahorroMes))}</span>
         </div>
         <div class="dash-neto">
           <div>
-            <span class="dash-neto-label">Balance acumulado</span>
-            <span class="dash-neto-sublabel">${deltaMesHtml(b.balance - ahorros)}</span>
+            <span class="dash-neto-label">Ahorro del hogar</span>
           </div>
-          <span class="dash-neto-value ${netoClass(acum.balance)}">${esc(formatMonto(acum.balance))}</span>
+          <span class="dash-neto-value ${netoClass(ahorroAcumulado)}">${esc(formatMonto(ahorroAcumulado))}</span>
         </div>`;
     }
 
@@ -888,13 +883,13 @@
 
     // ── Carga en paralelo (Promise.allSettled: una falla no tumba el resto) ──
     (async function cargar() {
-      const [hogar, personal, alertas, txs, metas, acumHogar, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend, gastosCatHogar] = await Promise.allSettled([
-        getBalanceHogar(mes, anio),
+      const [gastosHogar, personal, alertas, txs, metas, ahorroHogarAcum, acumPersonal, ahorrosHogar, ahorrosPersonal, insights, categoriasGasto, gastosCat, safeToSpend, gastosCatHogar] = await Promise.allSettled([
+        getGastosHogar(mes, anio),
         getBalancePersonal(mes, anio),
         evaluarAlertas(mes, anio),
         getUltimasTransacciones(5),
         getMetas(),
-        getSaldoAcumuladoHogar(),
+        getAhorroHogarAcumulado(),
         getSaldoAcumuladoPersonal(),
         getAhorrosHogar(mes, anio),
         getAhorrosPersonal(mes, anio),
@@ -905,12 +900,12 @@
         getGastoHogarPorCategoria(mes, anio),
       ]);
 
-      const acumH = acumHogar.status === 'fulfilled' ? acumHogar.value : (hogar.status === 'fulfilled' ? hogar.value : { balance: 0 });
       const acumP = acumPersonal.status === 'fulfilled' ? acumPersonal.value : (personal.status === 'fulfilled' ? personal.value : { balance: 0 });
+      const ahorHAcum = ahorroHogarAcum.status === 'fulfilled' ? ahorroHogarAcum.value : 0;
       const ahorH = ahorrosHogar.status === 'fulfilled' ? ahorrosHogar.value : 0;
       const ahorP = ahorrosPersonal.status === 'fulfilled' ? ahorrosPersonal.value : 0;
 
-      if (hogar.status === 'fulfilled')    renderHogar(hogar.value, acumH, ahorH);
+      if (gastosHogar.status === 'fulfilled') renderHogar(gastosHogar.value, ahorH, ahorHAcum);
       if (personal.status === 'fulfilled') renderPersonal(personal.value, acumP, ahorP);
       if (alertas.status === 'fulfilled')  renderAlertas(alertas.value);
       if (insights.status === 'fulfilled') renderInsights(insights.value);
@@ -927,7 +922,7 @@
       }
 
       // Si TODO falló, es problema de conexión: avisar.
-      const todoFallo = [hogar, personal, alertas, txs, metas]
+      const todoFallo = [gastosHogar, personal, alertas, txs, metas]
         .every((r) => r.status === 'rejected');
       if (todoFallo) $('dashConnError').style.display = 'flex';
     })();
@@ -943,36 +938,44 @@
       window.addEventListener('hogar:changed', aplicar);
     })();
 
-    // ── Fase 6 — "Quién debe qué" (card solo si hay hogar compartido) ──
+    // ── Fase 6.3 — Desequilibrio de aportes (card solo si hay hogar) ──
     // Carga aparte: es opcional y no debe tumbar el resto del dashboard.
-    (async function cargarDeudaHogar() {
+    (async function cargarDesequilibrioHogar() {
       try {
-        if (typeof tieneHogar === 'function' && !tieneHogar()) return; // gating Fase 6.1
+        if (typeof tieneHogar === 'function' && !tieneHogar()) return;
         if (typeof getEstadoHogar !== 'function') return;
         const estado = await getEstadoHogar();
         if (!estado || !estado.hogar) return;
         const uid  = (window.currentUser && window.currentUser.id) || null;
-        const otro = ((estado.miembros || []).find((m) => m.user_id !== uid) || {}).user_id || null;
-        if (!otro || typeof calcularBalanceHogar !== 'function') return; // hace falta un 2º miembro
+        const miembros = estado.miembros || [];
+        const creadorId = (miembros.find((m) => m.rol === 'creador') || {}).user_id || uid;
+        const otro = (miembros.find((m) => m.user_id !== creadorId) || {}).user_id || null;
+        if (!otro || typeof calcularDesequilibrioHogar !== 'function') return;
         const [txs, liqs] = await Promise.all([getTransacciones({}), getLiquidacionesHogar()]);
         const modo = (estado.hogar && estado.hogar.reparto) || '50_50';
-        const bal  = calcularBalanceHogar(txs, liqs, uid, otro, modo);
+        const objetivo = { modo };
+        if (modo === 'proporcional') {
+          const mA = miembros.find((m) => m.user_id === creadorId) || {};
+          const mB = miembros.find((m) => m.user_id === otro) || {};
+          objetivo.esperadoA = mA.aporte_esperado; objetivo.esperadoB = mB.aporte_esperado;
+        }
+        const deseq = calcularDesequilibrioHogar(txs, liqs, creadorId, otro, objetivo);
         const card = $('dashDeudaCard');
         const body = $('dashDeudaBody');
         if (!card || !body) return;
-        if (bal.neto === 0) {
-          body.innerHTML = '<p class="dash-neto-label">Están a mano</p>';
+        if (deseq.brecha === 0) {
+          body.innerHTML = '<p class="dash-neto-label">Van igual</p>';
         } else {
-          const meDeben = bal.acreedor === uid;
+          const yoDeboMas = deseq.debeAportarMas === uid;
           body.innerHTML =
             '<div class="dash-neto"><div><span class="dash-neto-label">' +
-              (meDeben ? 'Te deben' : 'Le debes') + '</span></div>' +
-            '<span class="dash-neto-value ' + netoClass(meDeben ? bal.neto : -bal.neto) + '">' +
-              esc(formatMonto(bal.neto)) + '</span></div>';
+              (yoDeboMas ? 'Deberías aportar más' : 'Tu pareja debería aportar más') + '</span></div>' +
+            '<span class="dash-neto-value ' + netoClass(yoDeboMas ? -deseq.brecha : deseq.brecha) + '">' +
+              esc(formatMonto(deseq.brecha)) + '</span></div>';
         }
         card.style.display = '';
       } catch (e) {
-        // Hogar no disponible (p.ej. tabla aún sin migrar) → no mostrar la card.
+        // Hogar no disponible → no mostrar la card.
       }
     })();
   })();
