@@ -1029,7 +1029,7 @@
         const miembros = estado.miembros || [];
         const creadorId = (miembros.find((m) => m.rol === 'creador') || {}).user_id || uid;
         const otro = (miembros.find((m) => m.user_id !== creadorId) || {}).user_id || null;
-        if (!otro || typeof calcularDesequilibrioHogar !== 'function') return;
+        if (!otro || typeof desequilibrioGastoHogar !== 'function') return;
         const [txs, liqs] = await Promise.all([getTransacciones({}), getLiquidacionesHogar()]);
         const modo = (estado.hogar && estado.hogar.reparto) || '50_50';
         const objetivo = { modo };
@@ -1038,19 +1038,31 @@
           const mB = miembros.find((m) => m.user_id === otro) || {};
           objetivo.esperadoA = mA.aporte_esperado; objetivo.esperadoB = mB.aporte_esperado;
         }
-        const deseq = calcularDesequilibrioHogar(txs, liqs, creadorId, otro, objetivo);
+        // Dos métricas separadas, nunca sumadas: el gasto se fue, el ahorro
+        // vuelve a quien lo puso al disolver (Tanda 2). El ahorro va sin liqs:
+        // un pago en efectivo no mueve el bote.
+        const dGasto = desequilibrioGastoHogar(txs, liqs, creadorId, otro, objetivo);
+        const dAhorro = desequilibrioAhorroHogar(txs, creadorId, otro, objetivo);
         const card = $('dashDeudaCard');
         const body = $('dashDeudaBody');
         if (!card || !body) return;
-        if (deseq.brecha === 0) {
+
+        if (dGasto.brecha === 0 && dAhorro.brecha === 0) {
           body.innerHTML = '<p class="dash-neto-label">Van igual</p>';
         } else {
-          const yoDeboMas = deseq.debeAportarMas === uid;
-          body.innerHTML =
-            '<div class="dash-neto"><div><span class="dash-neto-label">' +
-              (yoDeboMas ? 'Deberías aportar más' : 'Tu pareja debería aportar más') + '</span></div>' +
-            '<span class="dash-neto-value ' + netoClass(yoDeboMas ? -deseq.brecha : deseq.brecha) + '">' +
-              esc(formatMonto(deseq.brecha)) + '</span></div>';
+          const fila = (d, etiqueta, verbo) => {
+            if (d.brecha === 0) {
+              return '<div class="dash-neto"><div><span class="dash-neto-label">' +
+                esc(etiqueta) + '</span></div><span class="dash-neto-value">Van igual</span></div>';
+            }
+            const yoDeboMas = d.debeAportarMas === uid;
+            return '<div class="dash-neto"><div><span class="dash-neto-label">' +
+              esc(etiqueta) + ': ' + (yoDeboMas ? 'deberías ' + verbo : 'tu pareja debería ' + verbo) +
+              ' más</span></div>' +
+              '<span class="dash-neto-value ' + netoClass(yoDeboMas ? -d.brecha : d.brecha) + '">' +
+              esc(formatMonto(d.brecha)) + '</span></div>';
+          };
+          body.innerHTML = fila(dGasto, 'Gastos', 'aportar') + fila(dAhorro, 'Ahorro', 'ahorrar');
         }
         card.style.display = '';
       } catch (e) {
