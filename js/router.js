@@ -207,6 +207,12 @@ async function handleRouteChange() {
       return;
     }
 
+    // Primar el estado del hogar una vez por sesión. Va acá y no en un handler
+    // de auth porque hay tres caminos a una sesión activa (reload, login por
+    // form, retorno de OAuth) y los tres pasan por este punto. Sin await: el
+    // UI se corrige solo con el evento 'hogar:changed'.
+    if (!isPublic && typeof primeHogarState === 'function') primeHogarState();
+
     // Onboarding (primer login): si el perfil no lo completó, tomar la pantalla
     // antes de cargar cualquier vista protegida. Al terminar navega a #dashboard.
     if (!isPublic) {

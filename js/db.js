@@ -1486,6 +1486,34 @@ async function _refrescarHogarState() {
   }
 }
 
+// _hogarPrimed — guarda de idempotencia del priming inicial. window.hogarState
+// solo lo puebla getEstadoHogar(), y hasta Fase 7 nadie lo llamaba al iniciar
+// sesión: el primer render veía hogarState undefined, tieneHogar() daba false y
+// el UI del hogar se apagaba solo hasta que visitaras #hogar.
+let _hogarPrimed = false;
+
+// primeHogarState() — puebla window.hogarState una vez por sesión.
+// NO bloquea: se dispara sin await y los consumidores se corrigen solos al
+// recibir 'hogar:changed'. Si la red falla, _refrescarHogarState deja
+// hogarState en null y el gating cae a "sin hogar", que es el estado seguro.
+function primeHogarState() {
+  if (_hogarPrimed) return;
+  _hogarPrimed = true;
+  _refrescarHogarState();
+}
+
+// resetHogarPrime() — al cerrar sesión. Sin esto, el siguiente usuario que
+// entre en la misma pestaña hereda el hogarState del anterior.
+function resetHogarPrime() {
+  _hogarPrimed = false;
+  if (typeof window !== 'undefined') window.hogarState = null;
+}
+
+if (typeof window !== 'undefined') {
+  window.primeHogarState = primeHogarState;
+  window.resetHogarPrime = resetHogarPrime;
+}
+
 // crearHogar(nombre) — crea un hogar y agrega al usuario como creador.
 // Returns: { hogar_id, codigo } (RPC crear_hogar). Lanza Error en fallo.
 async function crearHogar(nombre) {
