@@ -283,7 +283,7 @@
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
         getAportesPorMiembro(m, a),
-        Promise.all(meses6.map(function (x) { return getBalanceHogar(x.mes, x.anio); })),
+        Promise.all(meses6.map(function (x) { return getAhorrosHogar(x.mes, x.anio); })),
         getMetas(),
       ]);
       var metasH = (resHog[5] || []).filter(function (x) {
@@ -297,7 +297,7 @@
         categoriasGasto: categoriasGasto || [],
         aportesMiembro: resHog[3] || [],
         balance6m: meses6.map(function (x, i) {
-          return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resHog[4][i] || {}).balance || 0 };
+          return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: Number(resHog[4][i]) || 0 };
         }),
         metas: metasH.map(function (mt, i) { return { meta: mt, aportes: aportesH[i] || [] }; }),
         recurrentes: recurrentes || [],
@@ -497,8 +497,9 @@
     function render6(datos) {
       var resumen = datos.resumen;
       // Alcance consistente: ingresos y gastos del mes visibles (hogar + personal).
-      var ingresos = (resumen.hogar.ingresos || 0) + (resumen.personal.ingresos || 0);
-      var gastos   = (resumen.hogar.gastos   || 0) + (resumen.personal.gastos   || 0);
+      // El hogar ya no tiene ingresos propios (Fase 6.3) — solo el personal aporta.
+      var ingresos = resumen.personal.ingresos || 0;
+      var gastos   = (resumen.hogar.gastos || 0) + (resumen.personal.gastos || 0);
       var balance  = ingresos - gastos;
       if (ingresos <= 0 && gastos <= 0) { setEstado(6, 'vacio'); return; }
 
