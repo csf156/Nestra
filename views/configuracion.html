@@ -500,6 +500,7 @@
     }
     .cfg-perfil-campos { display: flex; flex-direction: column; gap: var(--space-sm); }
     .cfg-input-group { display: flex; flex-direction: column; gap: 4px; }
+    .cfg-reparto-toggle { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-md); }
     .cfg-label { font-size: var(--font-size-sm); color: var(--text-secondary); }
     .cfg-input {
       padding: var(--space-sm) var(--space-md);
@@ -1851,6 +1852,13 @@
             '</div>';
           }).join('') +
           '<div class="cfg-datos-separador"></div>' +
+          '<p class="cfg-label">Qué significa "igualar" en el desequilibrio de aportes</p>' +
+          '<p class="hogar-card-sub" style="margin:0 0 8px">No es una deuda: define el objetivo contra el que se compara cuánto puso cada uno.</p>' +
+          '<div class="cfg-reparto-toggle" role="group" aria-label="Modo de reparto">' +
+            '<button type="button" class="btn btn-secondary btn-sm cfg-reparto-btn" data-modo="50_50">Mitad y mitad</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm cfg-reparto-btn" data-modo="proporcional">Proporcional al aporte esperado</button>' +
+          '</div>' +
+          '<div class="cfg-datos-separador"></div>' +
           '<p class="cfg-label">Presupuesto del hogar por categoría (S/)</p>' +
           catsHogar.map(function (c) {
             var lim = (c.limite_mensual_hogar != null ? c.limite_mensual_hogar : '');
@@ -1873,7 +1881,18 @@
             catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
           });
         });
-        // El selector de reparto vuelve con la Fase 6.3, que redefine su semántica.
+        var modoActual = hogar.reparto || '50_50';
+        Array.prototype.forEach.call(body.querySelectorAll('.cfg-reparto-btn'), function (btn) {
+          var activo = btn.getAttribute('data-modo') === modoActual;
+          btn.classList.toggle('btn-primary', activo);
+          btn.classList.toggle('btn-secondary', !activo);
+          btn.setAttribute('aria-pressed', String(activo));
+          btn.addEventListener('click', async function () {
+            var modo = btn.getAttribute('data-modo');
+            try { await setRepartoHogar(modo); mostrarToast('Reparto actualizado', 3000); await render(); }
+            catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
+          });
+        });
         Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-limite-save'), function (btn) {
           btn.addEventListener('click', async function () {
             var grp = btn.closest('[data-catid]');
