@@ -212,6 +212,7 @@
     background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary);
   }
   .hist-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .hist-chip:disabled { opacity: 0.4; cursor: not-allowed; }
   .hist-chip-sep { width: 1px; height: 20px; background: var(--border-light); margin: 0 var(--space-xs); }
 
   /* ── Filtros avanzados ──────────────────────────────────── */
@@ -1059,6 +1060,10 @@
     // ── Chips rápidos ─────────────────────────────────────────
     var chips = Array.prototype.slice.call(document.querySelectorAll('.hist-chip'));
     function syncChips() {
+      // El hogar solo registra gasto y ahorro: filtrar Hogar+Ingresos siempre
+      // da vacío. Si el ámbito activo es "hogar", el chip Ingresos queda
+      // deshabilitado (y su filtro, apagado) hasta que se suelte Hogar.
+      if (estado.ambito === 'hogar' && estado.tipo === 'ingreso') estado.tipo = null;
       chips.forEach(function (c) {
         var grupo = c.getAttribute('data-grupo');
         var valor = c.getAttribute('data-valor');
@@ -1067,6 +1072,9 @@
                      (grupo === 'ambito' && estado.ambito === valor);
         c.classList.toggle('hist-chip--active', activo);
         c.setAttribute('aria-pressed', String(activo));
+        if (grupo === 'tipo' && valor === 'ingreso') {
+          c.disabled = (estado.ambito === 'hogar');
+        }
       });
     }
     chips.forEach(function (c) {
@@ -1080,6 +1088,7 @@
         recargar();
       });
     });
+    syncChips();
 
     // ── Filtros avanzados ─────────────────────────────────────
     var advToggle = $('histAdvToggle');
