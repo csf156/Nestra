@@ -387,10 +387,11 @@
         $('resHogarSection').style.display = 'none';
         return;
       }
+      // actual/prev son datos.resumen.hogar de getResumenMensual: { gastos, ahorro }.
+      // El hogar ya no tiene ingresos propios ni "balance" (Fase 6.3).
       $('resHogarKpis').innerHTML =
-        kpiCard('Ingresos', actual.ingresos, calcDelta(actual.ingresos, prev.ingresos), false, 'pos') +
-        kpiCard('Gastos',   actual.gastos,   calcDelta(actual.gastos,   prev.gastos),   true,  'neg') +
-        kpiCard('Balance',  actual.balance,  calcDelta(actual.balance,  prev.balance),  false, 'balance');
+        kpiCard('Gastos compartidos', actual.gastos, calcDelta(actual.gastos, prev.gastos), true, 'neg') +
+        kpiCard('Ahorro aportado',    actual.ahorro, calcDelta(actual.ahorro, prev.ahorro),  false, 'pos');
       $('resHogarSection').style.display = 'block';
       $('resHogarSection').style.opacity = '1';
     }
