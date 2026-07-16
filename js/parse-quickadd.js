@@ -70,7 +70,16 @@ function parseQuickAdd(text, opts = {}) {
   const desc = str.replace(/S\/\.?/ig, ' ').replace(/\s+/g, ' ').trim();
   out.descripcion = desc || null;
 
-  // 6. Categoría: ahorro no lleva; resto vía matcher por tokens.
+  // 6. El hogar solo registra gasto y ahorro: un ingreso es siempre personal.
+  // Tipo y ámbito se reconocen como palabras independientes, así que "ingreso
+  // hogar" produciría la combinación que el CHECK transacciones_hogar_sin_ingreso
+  // rechaza. Sin esto el insert muere contra la base — y offline es peor: se
+  // encola en el outbox y se espeja como confirmada, pero el sync la rechaza
+  // para siempre y queda una fila fantasma solo en el cliente.
+  // El ámbito gana, igual que en el form (transaccion.html:_gateTipoPorAmbito).
+  if (out.ambito === 'hogar' && out.tipo === 'ingreso') out.tipo = 'gasto';
+
+  // 7. Categoría: ahorro no lleva; resto vía matcher por tokens.
   if (out.tipo !== 'ahorro') {
     out.categoria_id = matchCategoria(tokenize(desc), ctx);
   }

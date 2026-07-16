@@ -1058,10 +1058,11 @@ async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
 // Lanza Error si falla marcar el préstamo.
 async function marcarDevuelto(prestamo_id, transaccion_id) {
   try {
-    // 1. Leer la transacción original para replicar monto/ámbito.
+    // 1. Leer la transacción original para replicar el monto. El ámbito NO se
+    // replica: la devolución siempre es un ingreso personal (ver más abajo).
     const { data: original, error: errOrig } = await supabase
       .from('transacciones')
-      .select('monto, ambito')
+      .select('monto')
       .eq('id', transaccion_id)
       .single();
     if (errOrig) throw errOrig;
@@ -1085,7 +1086,12 @@ async function marcarDevuelto(prestamo_id, transaccion_id) {
       if (catDevolucion) {
         ingreso = await insertTransaccion({
           tipo: 'ingreso',
-          ambito: original.ambito,
+          // Siempre personal, aunque el préstamo se registrara con ámbito
+          // hogar: un ingreso no puede ser del hogar (CHECK
+          // transacciones_hogar_sin_ingreso). Replicar original.ambito haría
+          // que este insert fallara y, como el error se traga acá abajo, el
+          // préstamo quedaría cerrado y el dinero nunca registrado.
+          ambito: 'personal',
           categoria_id: catDevolucion.id,
           monto: original.monto,
           nota: 'Devolución de préstamo',
@@ -1496,8 +1502,17 @@ let _hogarPrimed = false;
 // NO bloquea: se dispara sin await y los consumidores se corrigen solos al
 // recibir 'hogar:changed'. Si la red falla, _refrescarHogarState deja
 // hogarState en null y el gating cae a "sin hogar", que es el estado seguro.
+//
+// Sin red no se consume la guarda. Abrir la PWA offline dejaba el hogar
+// apagado toda la sesión: el intento fallaba, el flag quedaba en true y
+// ninguna navegación posterior reintentaba aunque volviera la conexión.
+// No se comprueba el resultado del fetch porque no sirve de señal:
+// getEstadoHogar devuelve null igual si falla la red que si el usuario
+// simplemente no tiene hogar, así que reintentar según eso castigaría con una
+// consulta por navegación, para siempre, a quien no tenga hogar.
 function primeHogarState() {
   if (_hogarPrimed) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
   _hogarPrimed = true;
   _refrescarHogarState();
 }

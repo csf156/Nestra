@@ -1019,7 +1019,7 @@
 
     // ── Fase 6.3 — Desequilibrio de aportes (card solo si hay hogar) ──
     // Carga aparte: es opcional y no debe tumbar el resto del dashboard.
-    (async function cargarDesequilibrioHogar() {
+    async function cargarDesequilibrioHogar() {
       try {
         if (typeof tieneHogar === 'function' && !tieneHogar()) return;
         if (typeof getEstadoHogar !== 'function') return;
@@ -1056,6 +1056,23 @@
       } catch (e) {
         // Hogar no disponible → no mostrar la card.
       }
-    })();
+    }
+    cargarDesequilibrioHogar();
+    // Sin esto la card dependía de una carrera: primeHogarState() dispara la
+    // carga de hogarState sin await, y si su fetch no llegaba antes de que
+    // corriera este script, tieneHogar() daba false y la card no se mostraba
+    // hasta cambiar de sección y volver. Con el listener el orden deja de
+    // importar. Idempotente: re-render con los mismos datos.
+    //
+    // El handler se guarda en window y se quita el de la visita anterior: el
+    // router re-ejecuta este script en cada visita, y sin esto cada una dejaría
+    // un listener extra vivo sobre window (que sobrevive al cambio de vista),
+    // multiplicando las queries de este handler por cada visita. Misma fuga que
+    // tenía subscribeHogar con su canal realtime.
+    if (window._dashDeseqHandler) {
+      window.removeEventListener('hogar:changed', window._dashDeseqHandler);
+    }
+    window._dashDeseqHandler = cargarDesequilibrioHogar;
+    window.addEventListener('hogar:changed', window._dashDeseqHandler);
   })();
 </script>

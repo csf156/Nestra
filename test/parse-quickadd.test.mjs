@@ -67,3 +67,41 @@ test('nunca lanza con vacío/null', () => {
   assert.equal(parseQuickAdd('', { hoy: HOY }).monto, null);
   assert.equal(parseQuickAdd(null, { hoy: HOY }).monto, null);
 });
+
+// El hogar solo registra gasto y ahorro (CHECK transacciones_hogar_sin_ingreso,
+// migración 20260716). El parser reconocía tipo y ámbito como palabras sueltas
+// e independientes, así que "ingreso hogar" producía la combinación prohibida y
+// el insert moría contra la base: online con un error opaco, y offline peor —
+// se encolaba en el outbox, se espejaba como confirmada, y al sincronizar el
+// CHECK la rechazaba para siempre dejando una fila fantasma solo en el cliente.
+// El ámbito gana, igual que en el form (views/transaccion.html:_gateTipoPorAmbito).
+test('hogar + ingreso: el ámbito gana, el tipo cae a gasto', () => {
+  const r = p('sueldo 3000 ingreso hogar');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 3000);
+});
+
+test('hogar + ingreso: da igual el orden de las palabras', () => {
+  const r = p('hogar ingreso alquiler 1200');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'gasto');
+});
+
+test('hogar + ahorro sigue siendo válido', () => {
+  const r = p('ahorro hogar 200');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'ahorro');
+});
+
+test('personal + ingreso sigue siendo válido', () => {
+  const r = p('sueldo 3000 ingreso personal');
+  assert.equal(r.ambito, 'personal');
+  assert.equal(r.tipo, 'ingreso');
+});
+
+test('ingreso sin ámbito explícito sigue siendo personal', () => {
+  const r = p('sueldo 3000 ingreso');
+  assert.equal(r.ambito, 'personal');
+  assert.equal(r.tipo, 'ingreso');
+});

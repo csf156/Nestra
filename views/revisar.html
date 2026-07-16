@@ -254,7 +254,31 @@
       el.classList.add('rev-partes-restante--sobra');
     }
   }
+  // El hogar solo registra gasto y ahorro: un ingreso es siempre personal
+  // (CHECK transacciones_hogar_sin_ingreso). Sin este gate se podía elegir
+  // Ingreso+Hogar y el confirmar moría contra la base con "No se pudo guardar.
+  // Reintenta." para siempre — el pendiente nunca se iba de la cola. Es
+  // alcanzable de verdad: el parser de BCP produce tipo=ingreso ("Recibiste un
+  // yapeo"). El ámbito gana, igual que en el form.
+  // Devuelve true si tuvo que corregir el tipo, para que el llamador recargue
+  // las categorías: quedarse con las de 'ingreso' bajo un tipo 'gasto' violaría
+  // el CHECK transacciones_categoria_por_tipo — cambiar un bug por otro.
+  function gateTipoPorAmbito(i) {
+    var selTipo = document.getElementById('revTipo' + i);
+    var selAmbito = document.getElementById('revAmbito' + i);
+    if (!selTipo || !selAmbito) return false;
+    var esHogar = selAmbito.value === 'hogar';
+    var optIngreso = selTipo.querySelector('option[value="ingreso"]');
+    if (optIngreso) { optIngreso.disabled = esHogar; optIngreso.hidden = esHogar; }
+    if (esHogar && selTipo.value === 'ingreso') { selTipo.value = 'gasto'; return true; }
+    return false;
+  }
+
   function onAmbitoChange(i) {
+    // Si el gate corrigió el tipo, onTipoChange recarga las categorías y vuelve
+    // a entrar acá. No recursa: en la segunda pasada el tipo ya es 'gasto', el
+    // gate devuelve false y sigue de largo.
+    if (gateTipoPorAmbito(i)) { onTipoChange(i); return; }
     var tipo = document.getElementById('revTipo' + i).value;
     var ambito = document.getElementById('revAmbito' + i).value;
     var grupo = document.getElementById('revPartesGroup' + i);
