@@ -56,10 +56,19 @@ end $$;
 
 -- ── RPCs que el cliente invoca vía .rpc(...) ─────────────────────────
 -- set_reparto_hogar excluido a propósito: ver sección "Diferido" abajo.
+--
+-- distribuir_aporte_hogar retirado el 2026-07-16: era un fósil. Repartía el
+-- "ingreso de hogar" entre las metas del hogar, y la Fase 6.3 eliminó ese
+-- concepto — el hogar no tiene ingresos propios. La migración a3a9496 borró
+-- el RPC de la base y 3dd164b quitó las llamadas del cliente, pero nadie lo
+-- sacó de esta lista, así que el test quedó rojo de forma permanente desde
+-- entonces: exactamente el modo de fallo contra el que advierte la cabecera
+-- de este archivo. Verificado antes de quitarlo: no existe en pg_proc y no
+-- lo invoca ni js/ ni views/.
 do $$
 declare
   v_rpcs text[] := array[
-    'distribuir_ahorro','distribuir_aporte_hogar','aporte_directo_meta',
+    'distribuir_ahorro','aporte_directo_meta',
     'crear_hogar','generar_codigo','unirse_hogar','saldar_hogar',
     'disolver_hogar','set_aporte_esperado','renombrar_hogar'
   ];
