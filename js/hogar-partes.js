@@ -37,8 +37,25 @@ function validarPartesGastoHogar(total, partes) {
   return { ok: true };
 }
 
-if (typeof window !== 'undefined') {
-  window.validarPartesGastoHogar = validarPartesGastoHogar;
+// restanteGastoHogar(total, partes) — cuánto falta (o sobra, si es negativo)
+// por asignar del total. Partes con monto <= 0 no cuentan como asignación
+// (mismo criterio que validarPartesGastoHogar). Cent-safe, sin el error de
+// redondeo de punto flotante de JS. Solo para feedback en vivo del
+// formulario — no valida, no lanza; validarPartesGastoHogar sigue siendo
+// la fuente de verdad antes de enviar.
+function restanteGastoHogar(total, partes) {
+  var totalCent = Math.round((Number(total) || 0) * 100);
+  var sumaCent = 0;
+  (partes || []).forEach(function (p) {
+    var m = Number(p && p.monto);
+    if (m > 0) sumaCent += Math.round(m * 100);
+  });
+  return Math.round(totalCent - sumaCent) / 100;
 }
 
-export { validarPartesGastoHogar };
+if (typeof window !== 'undefined') {
+  window.validarPartesGastoHogar = validarPartesGastoHogar;
+  window.restanteGastoHogar = restanteGastoHogar;
+}
+
+export { validarPartesGastoHogar, restanteGastoHogar };

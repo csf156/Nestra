@@ -24,6 +24,10 @@
   .rev-partes-fila { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 6px; }
   .rev-partes-fila label { flex: 1 1 auto; font-size: var(--font-size-sm); }
   .rev-partes-fila input { width: 110px; }
+  .rev-partes-restante { margin: 4px 0 0; font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
+  .rev-partes-restante--falta { color: var(--color-warning); }
+  .rev-partes-restante--sobra { color: var(--color-danger); }
+  .rev-partes-restante--completo { color: var(--color-success); }
 </style>
 
 <div class="rev">
@@ -166,6 +170,7 @@
       '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
         '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
         '<div id="revPartesFilas' + i + '"></div>' +
+        '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
         '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
       '</div>') : '') +
       '<div class="rev-acciones">' +
@@ -229,6 +234,26 @@
       };
     });
   }
+  // Indicador en vivo de cuánto falta (o sobra) por asignar del total.
+  function actualizarRestante(i) {
+    var el = document.getElementById('revPartesRestante' + i);
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (!el || !grupo) return;
+    if (grupo.style.display === 'none') { el.textContent = ''; return; }
+    var total = parseFloat(document.getElementById('revMonto' + i).value) || 0;
+    var restante = restanteGastoHogar(total, leerPartes(i));
+    el.classList.remove('rev-partes-restante--falta', 'rev-partes-restante--sobra', 'rev-partes-restante--completo');
+    if (Math.abs(restante) < 0.005) {
+      el.textContent = 'Repartido completo.';
+      el.classList.add('rev-partes-restante--completo');
+    } else if (restante > 0) {
+      el.textContent = 'Faltan asignar ' + fmt(restante) + '.';
+      el.classList.add('rev-partes-restante--falta');
+    } else {
+      el.textContent = 'Sobran ' + fmt(-restante) + ' asignados de más.';
+      el.classList.add('rev-partes-restante--sobra');
+    }
+  }
   function onAmbitoChange(i) {
     var tipo = document.getElementById('revTipo' + i).value;
     var ambito = document.getElementById('revAmbito' + i).value;
@@ -241,6 +266,7 @@
     // en #transaccion — ver Task 11 de la Fase 6.3).
     var filasEl = document.getElementById('revPartesFilas' + i);
     if (mostrar && filasEl && !filasEl.children.length) renderPartesFilas(i);
+    actualizarRestante(i);
   }
 
   async function confirmar(i, btn) {
@@ -351,7 +377,12 @@
       });
       listaEl.addEventListener('input', function (ev) {
         var mMonto = ev.target.id && ev.target.id.match(/^revMonto(\d+)$/);
-        if (mMonto) onAmbitoChange(Number(mMonto[1]));
+        if (mMonto) { onAmbitoChange(Number(mMonto[1])); return; }
+        if (ev.target.classList.contains('rev-partes-monto')) {
+          var grupo = ev.target.closest('[id^="revPartesGroup"]');
+          var mIdx = grupo && grupo.id.match(/^revPartesGroup(\d+)$/);
+          if (mIdx) actualizarRestante(Number(mIdx[1]));
+        }
       });
     } catch (e) {
       console.error('revisar init falló:', e);

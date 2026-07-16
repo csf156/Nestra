@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { test } from 'node:test';
-import { validarPartesGastoHogar } from '../js/hogar-partes.js';
+import { validarPartesGastoHogar, restanteGastoHogar } from '../js/hogar-partes.js';
 
 test('suma exacta de partes = total → válido', () => {
   const r = validarPartesGastoHogar(100, [{ user_id: 'A', monto: 60 }, { user_id: 'B', monto: 40 }]);
@@ -57,4 +57,35 @@ test('total negativo → inválido', () => {
 test('parte sin user_id → inválido', () => {
   const r = validarPartesGastoHogar(100, [{ monto: 100 }]);
   assert.strictEqual(r.ok, false);
+});
+
+// ── restanteGastoHogar ────────────────────────────────────────────
+test('restante: nada asignado → falta el total', () => {
+  assert.strictEqual(restanteGastoHogar(100, []), 100);
+});
+
+test('restante: parcialmente asignado → falta la diferencia', () => {
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 30 }]), 70);
+});
+
+test('restante: exactamente asignado → 0', () => {
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 60 }, { user_id: 'B', monto: 40 }]), 0);
+});
+
+test('restante: sobre-asignado → negativo (sobran)', () => {
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 60 }, { user_id: 'B', monto: 50 }]), -10);
+});
+
+test('restante: partes con monto 0 o negativo no cuentan como asignación', () => {
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 30 }, { user_id: 'B', monto: 0 }]), 70);
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 30 }, { user_id: 'B', monto: -5 }]), 70);
+});
+
+test('restante: sin redondeo de punto flotante (33.34 + 66.67 vs 100)', () => {
+  assert.strictEqual(restanteGastoHogar(100, [{ user_id: 'A', monto: 33.34 }, { user_id: 'B', monto: 66.67 }]), -0.01);
+});
+
+test('restante: total no numérico o partes vacías → total completo', () => {
+  assert.strictEqual(restanteGastoHogar(null, []), 0);
+  assert.strictEqual(restanteGastoHogar(100, null), 100);
 });

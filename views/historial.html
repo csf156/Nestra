@@ -595,6 +595,7 @@
       orden: { campo: 'fecha', dir: 'desc' }, // orden client-side
     };
     var rawData = [];        // último resultado del servidor (sin filtro de nota)
+    var grupoTotales = {};   // grupo_id → suma de TODAS las filas del split (incluida la ajena, oculta)
     var reqToken = 0;        // anti-carrera: descarta respuestas viejas
 
     // ── Fechas ────────────────────────────────────────────────
@@ -650,14 +651,30 @@
         if (token !== reqToken) return;
         rawData = [];
       }
+      // Total real de cada grupo (ambas filas), calculado ANTES de ocultar
+      // la del otro miembro — es el dato de contexto que sí se muestra.
+      grupoTotales = {};
+      rawData.forEach(function (t) {
+        if (!t.grupo_id) return;
+        grupoTotales[t.grupo_id] = (grupoTotales[t.grupo_id] || 0) + Number(t.monto);
+      });
       aplicarLocalYRender();
     }
 
-    // ── Filtro local (nota) ───────────────────────────────────
+    // ── Filtro local (mi parte de un split + nota) ─────────────
+    // RLS deja ver ambas filas de un gasto compartido (transparencia general
+    // de hogar), pero en TU historial no se lista la fila que puso el otro
+    // miembro — solo la tuya, con el total del grupo como contexto
+    // (grupoDetalle en _datosTx). Los gastos de hogar normales (1 solo
+    // pagador) siguen visibles para ambos, sin cambios.
     function datosVisibles() {
+      var uid = window.currentUser && window.currentUser.id;
+      var base = rawData.filter(function (t) {
+        return !t.grupo_id || t.user_id === uid;
+      });
       var q = estado.nota.trim().toLowerCase();
-      if (!q) return rawData;
-      return rawData.filter(function (t) {
+      if (!q) return base;
+      return base.filter(function (t) {
         return (t.nota || '').toLowerCase().indexOf(q) !== -1;
       });
     }
@@ -755,6 +772,12 @@
                  ? ' <span class="hist-badge hist-badge--hogar">Hogar</span>'
                  : ' <span class="hist-badge hist-badge--personal">Personal</span>'),
         grupo: !!t.grupo_id,
+        // Contexto del split: tu parte de un gasto compartido cuyo total es
+        // otro número (la fila del otro miembro no se muestra en tu lista,
+        // pero el total sí, para que "S/30" no se lea como un gasto aislado).
+        grupoDetalle: (t.grupo_id && grupoTotales[t.grupo_id] != null)
+          ? (formatMonto(t.monto) + ' de ' + formatMonto(grupoTotales[t.grupo_id]) + ' totales')
+          : null,
         directo: !!t.es_aporte_directo,
         usuario: _nombreUsuario(t.user_id),
       };
@@ -774,7 +797,10 @@
     function cardTx(t, mostrarFecha) {
       var d = _datosTx(t);
       var iconoHtml = chipCategoria(t);
-      var aporteBadge = d.grupo ? '<span class="hist-badge hist-badge--aporte" title="Gasto compartido">⚭ compartido</span>' : '';
+      var aporteBadge = d.grupo
+        ? '<span class="hist-badge hist-badge--aporte" title="Gasto compartido' + (d.grupoDetalle ? ' — ' + esc(d.grupoDetalle) : '') + '">' +
+          '⚭ compartido' + (d.grupoDetalle ? ' · ' + esc(d.grupoDetalle) : '') + '</span>'
+        : '';
       var splitBadge = t._split ? '<span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
@@ -802,7 +828,10 @@
     // Fila de tabla (desktop).
     function rowTx(t) {
       var d = _datosTx(t);
-      var aporteMark = d.grupo ? ' <span class="hist-badge hist-badge--aporte" title="Gasto compartido">⚭ compartido</span>' : '';
+      var aporteMark = d.grupo
+        ? ' <span class="hist-badge hist-badge--aporte" title="Gasto compartido' + (d.grupoDetalle ? ' — ' + esc(d.grupoDetalle) : '') + '">' +
+          '⚭ compartido' + (d.grupoDetalle ? ' · ' + esc(d.grupoDetalle) : '') + '</span>'
+        : '';
       var splitMark = t._split ? ' <span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
