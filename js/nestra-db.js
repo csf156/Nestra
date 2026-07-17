@@ -1,13 +1,14 @@
 // Nestra — capa IndexedDB (espejo local + outbox de operaciones pendientes).
 // Depende del global `idb` (js/vendor/idb-umd.js). Expone funciones globales.
 //
-// Stores espejo (keyPath 'id'): transacciones, categorias, metas, prestamos.
+// Stores espejo (keyPath 'id'): transacciones, categorias, metas, prestamos,
+//   presupuestos, plantillas, recurrentes, ingest_pendientes.
 // Store outbox (keyPath 'op_id', autoincrement): operaciones de alta pendientes.
 //   { op_id, entity, payload, status:'pending'|'syncing'|'error', error?, created_at }
 
 const NESTRA_IDB_NAME = 'nestra';
-const NESTRA_IDB_VERSION = 5;
-const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos', 'plantillas', 'recurrentes'];
+const NESTRA_IDB_VERSION = 6;
+const MIRROR_STORES = ['transacciones', 'categorias', 'metas', 'prestamos', 'presupuestos', 'plantillas', 'recurrentes', 'ingest_pendientes'];
 
 let _nestraDbPromise = null;
 
