@@ -164,10 +164,6 @@
           </button>
         </div>
         <div class="cfg-pref-row cfg-pref-row--readonly">
-          <span class="cfg-pref-nombre">Moneda</span>
-          <span class="cfg-pref-valor">Soles (S/)</span>
-        </div>
-        <div class="cfg-pref-row cfg-pref-row--readonly">
           <span class="cfg-pref-nombre">Idioma</span>
           <span class="cfg-pref-valor">Español</span>
         </div>
@@ -500,6 +496,7 @@
     }
     .cfg-perfil-campos { display: flex; flex-direction: column; gap: var(--space-sm); }
     .cfg-input-group { display: flex; flex-direction: column; gap: 4px; }
+    .cfg-reparto-toggle { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-md); }
     .cfg-label { font-size: var(--font-size-sm); color: var(--text-secondary); }
     .cfg-input {
       padding: var(--space-sm) var(--space-md);
@@ -1831,7 +1828,6 @@
         var hogar = st.hogar || {};
         var miembros = st.miembros || [];
         var uid = (window.currentUser && window.currentUser.id) || null;
-        var modo = hogar.reparto || '50_50';
         var body = $('cfgHogarBody');
         var catsHogar = (await getCategorias('gasto')).filter(function (c) { return c.user_id == null; });
         body.innerHTML =
@@ -1852,12 +1848,11 @@
             '</div>';
           }).join('') +
           '<div class="cfg-datos-separador"></div>' +
-          '<p class="cfg-label">Reparto de gastos del hogar</p>' +
-          '<div class="cfg-input-group">' +
-            '<select id="cfgHogarReparto" class="cfg-select">' +
-              '<option value="50_50"' + (modo === '50_50' ? ' selected' : '') + '>Mitad y mitad (50/50)</option>' +
-              '<option value="proporcional"' + (modo === 'proporcional' ? ' selected' : '') + '>Proporcional al ingreso</option>' +
-            '</select>' +
+          '<p class="cfg-label">Qué significa "igualar" en el desequilibrio de aportes</p>' +
+          '<p class="hogar-card-sub" style="margin:0 0 8px">No es una deuda: define el objetivo contra el que se compara cuánto puso cada uno.</p>' +
+          '<div class="cfg-reparto-toggle" role="group" aria-label="Modo de reparto">' +
+            '<button type="button" class="btn btn-secondary btn-sm cfg-reparto-btn" data-modo="50_50">Mitad y mitad</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm cfg-reparto-btn" data-modo="proporcional">Proporcional al aporte esperado</button>' +
           '</div>' +
           '<div class="cfg-datos-separador"></div>' +
           '<p class="cfg-label">Presupuesto del hogar por categoría (S/)</p>' +
@@ -1882,9 +1877,17 @@
             catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
           });
         });
-        $('cfgHogarReparto').addEventListener('change', async function () {
-          try { await setRepartoHogar(this.value); mostrarToast('Reparto actualizado', 3000); }
-          catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
+        var modoActual = hogar.reparto || '50_50';
+        Array.prototype.forEach.call(body.querySelectorAll('.cfg-reparto-btn'), function (btn) {
+          var activo = btn.getAttribute('data-modo') === modoActual;
+          btn.classList.toggle('btn-primary', activo);
+          btn.classList.toggle('btn-secondary', !activo);
+          btn.setAttribute('aria-pressed', String(activo));
+          btn.addEventListener('click', async function () {
+            var modo = btn.getAttribute('data-modo');
+            try { await setRepartoHogar(modo); mostrarToast('Reparto actualizado', 3000); await render(); }
+            catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
+          });
         });
         Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-limite-save'), function (btn) {
           btn.addEventListener('click', async function () {

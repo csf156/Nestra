@@ -1,0 +1,28 @@
+name = "nestra-email-ingest"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# Opción A (sin dominio): Google Apps Script en cada cuenta Gmail hace POST
+# a https://nestra-email-ingest.<subdominio>.workers.dev/ingest.
+# El subdominio workers.dev es gratis; no se necesita Email Routing ni dominio.
+
+# Secrets (NO van aquí; se cargan con `wrangler secret put <NOMBRE>`):
+#   SUPABASE_URL           https://<ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE  service_role JWT (salta RLS; NUNCA en cliente/repo)
+#
+# Los tokens por usuario NO son secrets del Worker: viven hasheados en la
+# tabla email_ingest_tokens (SHA-256). Alta de usuario = insertar fila, sin
+# redeploy. Solo hay 2 secrets fijos, no crecen con el número de usuarios.
+
+[observability]
+enabled = true
+
+[vars]
+# Corte de puesta en vivo (2026-07-15): correos con fecha anterior NO se
+# registran — el usuario decidió no importar backlog. Cinturón adicional a la
+# etiqueta nestra-procesado de Gmail.
+INGEST_DESDE = "2026-07-15T00:00:00Z"
+
+# Clave pública VAPID — no es secreta (coincide con VAPID_PUBLIC_KEY en
+# js/config.js). La privada (secreta) va como Worker secret: VAPID_PRIVATE_KEY.
+VAPID_PUBLIC_KEY = "BEy0lcrgND9vnAirt9FyytTvFeAcVE3pcZVEQRMk2eRP84fhLgGaEYx3tnRT5xQrFzh-o8ocDfjsgGccg3uP4PA"

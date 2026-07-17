@@ -67,3 +67,99 @@ test('nunca lanza con vacío/null', () => {
   assert.equal(parseQuickAdd('', { hoy: HOY }).monto, null);
   assert.equal(parseQuickAdd(null, { hoy: HOY }).monto, null);
 });
+
+// El hogar solo registra gasto y ahorro (CHECK transacciones_hogar_sin_ingreso,
+// migración 20260716). El parser reconocía tipo y ámbito como palabras sueltas
+// e independientes, así que "ingreso hogar" producía la combinación prohibida y
+// el insert moría contra la base: online con un error opaco, y offline peor —
+// se encolaba en el outbox, se espejaba como confirmada, y al sincronizar el
+// CHECK la rechazaba para siempre dejando una fila fantasma solo en el cliente.
+// El ámbito gana, igual que en el form (views/transaccion.html:_gateTipoPorAmbito).
+test('hogar + ingreso: el ámbito gana, el tipo cae a gasto', () => {
+  const r = p('sueldo 3000 ingreso hogar');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 3000);
+});
+
+test('hogar + ingreso: da igual el orden de las palabras', () => {
+  const r = p('hogar ingreso alquiler 1200');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'gasto');
+});
+
+test('hogar + ahorro sigue siendo válido', () => {
+  const r = p('ahorro hogar 200');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.tipo, 'ahorro');
+});
+
+test('personal + ingreso sigue siendo válido', () => {
+  const r = p('sueldo 3000 ingreso personal');
+  assert.equal(r.ambito, 'personal');
+  assert.equal(r.tipo, 'ingreso');
+});
+
+test('ingreso sin ámbito explícito sigue siendo personal', () => {
+  const r = p('sueldo 3000 ingreso');
+  assert.equal(r.ambito, 'personal');
+  assert.equal(r.tipo, 'ingreso');
+});
+
+// ── Aporte a meta (Tanda 3, #6) ────────────────────────────────────────────
+// Nombres con emoji y tilde a propósito: son los reales de la base.
+const METAS_T3 = [{ id: 'm1', nombre: 'Alquiler 🏠' }, { id: 'm2', nombre: 'Máquina de afeitar' }];
+const pm = (s) => parseQuickAdd(s, { hoy: HOY, ctx: { metas: METAS_T3 } });
+
+test('"aporte meta alquiler S/5" → ahorro + meta_id + monto', () => {
+  const r = pm('aporte meta alquiler S/5');
+  assert.equal(r.tipo, 'ahorro');
+  assert.equal(r.meta_id, 'm1');
+  assert.equal(r.monto, 5);
+});
+
+test('meta sin S/: "meta alquiler 5"', () => {
+  const r = pm('meta alquiler 5');
+  assert.equal(r.meta_id, 'm1');
+  assert.equal(r.monto, 5);
+});
+
+test('meta casa con tildes: "meta maquina 20"', () => {
+  assert.equal(pm('meta maquina 20').meta_id, 'm2');
+});
+
+test('la meta gana al ambito escrito', () => {
+  const r = pm('meta alquiler personal S/5');
+  assert.equal(r.meta_id, 'm1');
+  assert.equal(r.tipo, 'ahorro');
+});
+
+test('meta sin match → metaError, sin meta_id, pero el monto se conserva', () => {
+  const r = pm('meta viaje a japon S/5');
+  assert.equal(r.meta_id, undefined);
+  assert.equal(r.metaError, 'no-encontrada');
+  assert.equal(r.monto, 5);
+});
+
+test('meta ambigua → candidatas', () => {
+  const r = parseQuickAdd('meta viaje S/5', {
+    hoy: HOY, ctx: { metas: [{ id: 'a', nombre: 'Viaje Cusco' }, { id: 'b', nombre: 'Viaje Lima' }] },
+  });
+  assert.equal(r.metaError, 'ambigua');
+  assert.deepEqual(r.metaCandidatas, ['Viaje Cusco', 'Viaje Lima']);
+});
+
+test('REGRESION: sin la palabra "meta" nada cambia', () => {
+  const r = pm('uber 15');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 15);
+  assert.equal(r.meta_id, undefined);
+});
+
+test('REGRESION: "ahorro hogar S/100" sigue igual (ya funcionaba)', () => {
+  const r = pm('ahorro hogar S/100');
+  assert.equal(r.tipo, 'ahorro');
+  assert.equal(r.ambito, 'hogar');
+  assert.equal(r.monto, 100);
+  assert.equal(r.meta_id, undefined);
+});

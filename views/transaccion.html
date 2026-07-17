@@ -184,14 +184,12 @@
         </div>
       </div>
 
-      <!-- Aporte al hogar (condicional) -->
-      <div id="aporteHogarGroup" class="form-group aporte-hogar-group"
-           style="display:none;" aria-live="polite">
-        <label class="checkbox-label">
-          <input type="checkbox" id="aporteHogar" name="aporteHogar" />
-          <span>Registrar como aporte al hogar</span>
-        </label>
-        <p class="form-hint">Crea dos transacciones vinculadas: tu gasto y el ingreso del hogar.</p>
+      <!-- Partes del gasto compartido (condicional: ambito=hogar && tipo=gasto) -->
+      <div id="partesGroup" class="form-group partes-group" style="display:none;" aria-live="polite">
+        <p class="form-hint" style="margin:0 0 8px">¿Quién puso cuánto?</p>
+        <div id="partesFilas"></div>
+        <p id="partesRestante" class="form-hint partes-restante"></p>
+        <p id="partesError" class="field-error" role="alert" style="display:none"></p>
       </div>
 
       <!-- Nota -->
@@ -408,6 +406,14 @@
     padding: var(--space-md);
     animation: txSlideDown 0.2s ease-out;
   }
+  .partes-group { border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); }
+  .partes-fila { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 6px; }
+  .partes-fila label { flex: 1 1 auto; font-size: var(--font-size-sm); }
+  .partes-fila input { width: 110px; }
+  .partes-restante { margin: 4px 0 0; font-weight: var(--font-weight-semibold); }
+  .partes-restante--falta { color: var(--color-warning); }
+  .partes-restante--sobra { color: var(--color-danger); }
+  .partes-restante--completo { color: var(--color-success); }
   .checkbox-label {
     display: flex;
     align-items: center;
@@ -731,8 +737,9 @@
     const btnAmbitoPersonal = document.getElementById('btnAmbitoPersonal');
     const btnAmbitoHogar    = document.getElementById('btnAmbitoHogar');
 
-    const aporteHogarGroup = document.getElementById('aporteHogarGroup');
-    const aporteHogarEl    = document.getElementById('aporteHogar');
+    const partesGroup = document.getElementById('partesGroup');
+    const partesFilas  = document.getElementById('partesFilas');
+    const partesError  = document.getElementById('partesError');
 
     const prestamoGroup    = document.getElementById('prestamoGroup');
     const deudorEl         = document.getElementById('deudor');
@@ -819,15 +826,27 @@
       document.getElementById('categoriaGroup').style.display = esAhorro ? 'none' : '';
       if (esAhorro) { _ocultarNuevaCat(); _ocultarPrestamo(); }
       else cargarCategorias();
-      _mostrarAporteHogar();
+      _mostrarPartes();
     }
+    // El hogar solo registra gasto y ahorro: un ingreso es siempre personal
+    // (entra a tu bolsillo, no al hogar). La regla se aplica también en
+    // historial y con un CHECK en la base.
+    function _gateTipoPorAmbito(ambito) {
+      var esHogar = (ambito === 'hogar');
+      btnTipoIngreso.style.display = esHogar ? 'none' : '';
+      // El ámbito gana: el usuario acaba de decir "esto es del hogar", así que
+      // se respeta y se corrige el tipo. Al volver a personal NO se revierte.
+      if (esHogar && tipoEl.value === 'ingreso') _setTipo('gasto');
+    }
+
     function _setAmbito(val) {
       ambitoEl.value = val;
       btnAmbitoPersonal.classList.toggle('tx-active', val === 'personal');
       btnAmbitoPersonal.setAttribute('aria-pressed', String(val === 'personal'));
       btnAmbitoHogar.classList.toggle('tx-active', val === 'hogar');
       btnAmbitoHogar.setAttribute('aria-pressed', String(val === 'hogar'));
-      _mostrarAporteHogar();
+      _gateTipoPorAmbito(val);
+      _mostrarPartes();
     }
 
     btnTipoGasto.addEventListener('click',   () => _setTipo('gasto'));
@@ -848,14 +867,66 @@
       window.addEventListener('hogar:changed', aplicar);
     })();
 
-    // ── Aporte al hogar ───────────────────────────────────────
-    function _mostrarAporteHogar() {
-      // En edición no ofrecemos convertir en aporte (rompería la mitad ya existente).
-      if (editTx) { aporteHogarGroup.style.display = 'none'; aporteHogarEl.checked = false; return; }
-      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto';
-      aporteHogarGroup.style.display = esHogarGasto ? 'block' : 'none';
-      if (!esHogarGasto) aporteHogarEl.checked = false;
+    // ── Partes del gasto compartido (Fase 6.3) ──────────────────
+    // Siempre visible para ambito=hogar && tipo=gasto (no checkbox), prefill
+    // 100% al registrante. En edición no se ofrece (no editable desde
+    // historial de todos modos si terminó con grupo_id).
+    function _miembrosHogar() {
+      const st = window.hogarState || {};
+      return (st.miembros || []).map((m) => ({
+        user_id: m.user_id,
+        nombre: (window.currentUser && m.user_id === window.currentUser.id) ? 'Tú' : 'Pareja',
+      }));
     }
+    function _renderPartesFilas() {
+      const miembros = _miembrosHogar();
+      const total = parseFloat(montoEl.value) || 0;
+      if (miembros.length < 2) { partesFilas.innerHTML = ''; return; }
+      const uid = window.currentUser && window.currentUser.id;
+      partesFilas.innerHTML = miembros.map((m) => {
+        const prefill = m.user_id === uid ? total : 0;
+        return `<div class="partes-fila" data-uid="${esc(m.user_id)}">` +
+          `<label>${esc(m.nombre)}</label>` +
+          `<input type="number" min="0" step="0.01" class="partes-monto" value="${prefill}">` +
+          `</div>`;
+      }).join('');
+    }
+    function _leerPartes() {
+      return Array.from(partesFilas.querySelectorAll('.partes-fila')).map((row) => ({
+        user_id: row.getAttribute('data-uid'),
+        monto: parseFloat(row.querySelector('.partes-monto').value) || 0,
+      }));
+    }
+    // Indicador en vivo de cuánto falta (o sobra) por asignar del total.
+    function _actualizarRestante() {
+      const el = document.getElementById('partesRestante');
+      if (!el) return;
+      if (partesGroup.style.display === 'none') { el.textContent = ''; return; }
+      const total = parseFloat(montoEl.value) || 0;
+      const restante = restanteGastoHogar(total, _leerPartes());
+      el.classList.remove('partes-restante--falta', 'partes-restante--sobra', 'partes-restante--completo');
+      if (Math.abs(restante) < 0.005) {
+        el.textContent = 'Repartido completo.';
+        el.classList.add('partes-restante--completo');
+      } else if (restante > 0) {
+        el.textContent = 'Faltan asignar ' + _fmtMonto(restante) + '.';
+        el.classList.add('partes-restante--falta');
+      } else {
+        el.textContent = 'Sobran ' + _fmtMonto(-restante) + ' asignados de más.';
+        el.classList.add('partes-restante--sobra');
+      }
+    }
+    function _mostrarPartes() {
+      if (editTx) { partesGroup.style.display = 'none'; return; }
+      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' && _miembrosHogar().length >= 2;
+      partesGroup.style.display = esHogarGasto ? 'block' : 'none';
+      if (esHogarGasto && !partesFilas.children.length) _renderPartesFilas();
+      _actualizarRestante();
+    }
+    montoEl.addEventListener('input', () => { _mostrarPartes(); });
+    partesFilas.addEventListener('input', (e) => {
+      if (e.target.classList.contains('partes-monto')) _actualizarRestante();
+    });
 
     // ── Préstamo ──────────────────────────────────────────────
     function _esPrestamo() {
@@ -1174,8 +1245,23 @@
           await mostrarExito(savedCatId);
           return;
         }
-        if (aporteHogarEl.checked) {
-          await insertAporteHogar(monto, savedCatId, nota, fecha);
+        const esHogarGastoConPartes = partesGroup.style.display !== 'none';
+        if (esHogarGastoConPartes) {
+          const partes = _leerPartes().filter((p) => p.monto > 0);
+          const check = validarPartesGastoHogar(monto, partes);
+          if (!check.ok) {
+            partesError.textContent = check.error;
+            partesError.style.display = 'block';
+            setCargando(false);
+            return;
+          }
+          partesError.style.display = 'none';
+          if (partes.length === 1) {
+            // Camino rápido: un solo pagador → transacción normal, offline y editable.
+            await insertTransaccion({ tipo: 'gasto', ambito: 'hogar', categoria_id: savedCatId, monto, fecha, nota });
+          } else {
+            await registrarGastoHogar(fecha, savedCatId, nota, partes);
+          }
         } else {
           const tx = await insertTransaccion({
             tipo:         tipoEl.value,
@@ -1218,16 +1304,12 @@
       btnTipoAhorro.setAttribute('aria-pressed', String(editTx.tipo === 'ahorro'));
       document.getElementById('categoriaGroup').style.display = (editTx.tipo === 'ahorro') ? 'none' : '';
 
-      ambitoEl.value = editTx.ambito;
-      btnAmbitoPersonal.classList.toggle('tx-active', editTx.ambito === 'personal');
-      btnAmbitoPersonal.setAttribute('aria-pressed', String(editTx.ambito === 'personal'));
-      btnAmbitoHogar.classList.toggle('tx-active', editTx.ambito === 'hogar');
-      btnAmbitoHogar.setAttribute('aria-pressed', String(editTx.ambito === 'hogar'));
+      _setAmbito(editTx.ambito);
 
       montoEl.value = editTx.monto;
       fechaEl.value = String(editTx.fecha).split('T')[0];
       notaEl.value = editTx.nota || '';
-      aporteHogarGroup.style.display = 'none';
+      partesGroup.style.display = 'none';
 
       cargarCategorias(editTx.categoria_id);
     } else {
@@ -1256,7 +1338,7 @@
         cargarCategorias();
       }
 
-      _mostrarAporteHogar();
+      _mostrarPartes();
 
       // Prefill desde Web Share Target (captura de Yape, etc.). Se consume una vez.
       const sp = window._sharePrefill || null;
@@ -1289,7 +1371,11 @@
       const learned = (typeof autocatLearned === 'function') ? await autocatLearned() : {};
       const cats = await getCategorias(tipo === 'ahorro' ? 'gasto' : tipo);
       const seed = window.NESTRA_SEED || {};
-      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed };
+      // No filtramos por ámbito: el usuario puede aportar a una meta personal
+      // o de hogar, y es la meta la que decide el ámbito, no el contexto.
+      const metasRaw = (typeof getMetas === 'function') ? await getMetas() : [];
+      const metas = metasRaw.filter((m) => m.estado === 'en_curso').map((m) => ({ id: m.id, nombre: m.nombre }));
+      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed, metas };
     }
     let _quickTokens = [], _quickTxId = null, _quickTipo = 'gasto';
 
@@ -1318,22 +1404,42 @@
         const ctx = await _ctxPara(pre.tipo);
         const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
         if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
+        if (r.metaError) {
+          errEl.textContent = r.metaError === 'ambigua'
+            ? 'Hay varias metas que coinciden: ' + r.metaCandidatas.join(', ') + '. Precisa cuál.'
+            : 'No encontré una meta con ese nombre.';
+          errEl.style.display = 'block';
+          return;
+        }
         _quickTokens = tokenize(r.descripcion || '');
         _quickTipo = r.tipo;
         if (r.tipo !== 'ahorro' && !r.categoria_id) {
           await _mostrarAsk(r);
           return;
         }
-        const tx = await insertTransaccion({
-          tipo: r.tipo, ambito: r.ambito,
-          categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
-          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
-        });
-        _quickTxId = tx && tx.id;
+        let txId;
+        if (r.meta_id) {
+          // Aporte 100% a una meta: aporte_directo_meta lo asigna entero, marca
+          // es_aporte_directo (para que distribuir_ahorro la salte) y manda el
+          // excedente al fondo del ambito de la meta.
+          // OJO: es online-only (lanza si !navigator.onLine). El quick-add normal
+          // sí encola offline; este no puede — calcular el excedente exige leer
+          // el estado de la meta en el servidor. El catch de abajo muestra ese
+          // mensaje tal cual.
+          txId = await insertAporteDirecto(r.meta_id, r.monto, r.fecha, r.descripcion);
+        } else {
+          const tx = await insertTransaccion({
+            tipo: r.tipo, ambito: r.ambito,
+            categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
+            monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+          });
+          txId = tx && tx.id;
+        }
+        _quickTxId = txId;
         await _mostrarConfirm(r);
       } catch (e) {
         console.error('quickAgregar falló:', e);
-        errEl.textContent = 'No se pudo guardar. Reintenta.';
+        errEl.textContent = (e && e.message) ? e.message : 'No se pudo guardar. Reintenta.';
         errEl.style.display = 'block';
       }
     }
@@ -1345,7 +1451,10 @@
       const msg = document.getElementById('txQuickConfirmMsg');
       const cats = r.tipo === 'ahorro' ? [] : await getCategorias(r.tipo);
       const tipoTxt = r.tipo === 'gasto' ? 'gasto' : (r.tipo === 'ingreso' ? 'ingreso' : 'ahorro');
-      const hogar = r.ambito === 'hogar' ? ' (hogar)' : '';
+      // r.ambito es el que dejó el parser (personal por defecto) y NO refleja el
+      // ámbito real cuando es un aporte directo a meta: es la meta la que decide
+      // su ámbito, no el texto. Omitimos la etiqueta en ese caso para no mentir.
+      const hogar = (r.ambito === 'hogar' && !r.meta_id) ? ' (hogar)' : '';
       if (r.tipo === 'ahorro') {
         msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>' + esc(hogar);
       } else {

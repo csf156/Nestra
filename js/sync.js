@@ -70,6 +70,37 @@ async function _replayOp(op) {
     }
   }
 
+  if (op.entity === 'gasto_hogar') {
+    try {
+      const p = op.payload;
+      const { data, error } = await supabase.rpc('registrar_gasto_hogar', {
+        p_grupo_id: p.grupo_id,
+        p_fecha: p.fecha,
+        p_categoria_id: p.categoria_id,
+        p_nota: p.nota,
+        p_partes: p.partes,
+      });
+      if (error) throw error;
+      // El RPC genera sus propios ids server-side (no reusa los del client
+      // optimista) -> las filas optimistas mirroreadas offline quedan
+      // huérfanas bajo el mismo grupo_id. Limpiarlas antes de mirrorear
+      // las filas reales para no dejar duplicados fantasma en el espejo.
+      try {
+        const db = await nestraDB();
+        const todas = await db.getAll('transacciones');
+        const idsViejos = todas.filter((t) => t.grupo_id === p.grupo_id).map((t) => t.id);
+        for (const idViejo of idsViejos) await db.delete('transacciones', idViejo);
+      } catch (_) {}
+      for (const fila of data || []) await mirrorPut('transacciones', fila);
+      return 'done';
+    } catch (err) {
+      if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) return 'retry';
+      console.error('Sync gasto_hogar falló:', err.message || err);
+      await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
+      return 'skip';
+    }
+  }
+
   try {
     const server = await _serverRow(entity, payload.id);
     const winner = window.lwwWinner(payload, server);

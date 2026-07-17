@@ -22,5 +22,21 @@
       cta + '</div>';
   }
 
+  // actualizarIngestBadge() — refresca el contador de movimientos por revisar
+  // en el nav (#navIngestBadge). Best-effort: sin conteo, badge oculto.
+  // La llama el router en cada ruta protegida y la vista al resolver una fila.
+  async function actualizarIngestBadge() {
+    var el = document.getElementById('navIngestBadge');
+    if (!el || typeof window.contarIngestPendientes !== 'function') return;
+    try {
+      var n = await window.contarIngestPendientes();
+      el.textContent = n > 99 ? '99+' : String(n);
+      el.hidden = !(n > 0);
+    } catch (e) {
+      el.hidden = true;
+    }
+  }
+
   window.renderEmptyState = renderEmptyState;
+  window.actualizarIngestBadge = actualizarIngestBadge;
 })();
