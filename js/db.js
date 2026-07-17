@@ -650,51 +650,6 @@ async function getProfiles() {
   }
 }
 
-// getAportesPorMiembro(mes, anio) — aporte real al hogar por cada miembro en el
-// mes dado, junto al esperado de su perfil. Para el gráfico "aporte real vs. esperado".
-// Real = SUMA de gasto hogar + ahorro hogar del miembro en el mes.
-// Returns: [{ user_id, nombre, esperado, real }] (un elemento por perfil) o [].
-// RLS: perfiles del hogar y transacciones de aporte visibles entre miembros.
-async function getAportesPorMiembro(mes, anio) {
-  try {
-    const { desde, hasta } = _rangoMes(mes, anio);
-    const uid = (typeof window !== 'undefined' && window.currentUser) ? window.currentUser.id : null;
-    // Miembros del hogar + su aporte esperado (hogar_miembros, visible entre
-    // miembros vía RLS). Fuente única de "aporte esperado" (Fase 6.1).
-    const { data: miembros, error: errM } = await supabase
-      .from('hogar_miembros').select('user_id, aporte_esperado');
-    if (errM) throw errM;
-    if (!miembros || !miembros.length) return [];
-
-    // Real = gasto hogar (su parte de gastos compartidos) + ahorro hogar
-    // (lo que apartó) del miembro en el mes. Consistente con
-    // aporteRealPorMiembro (js/hogar-aporte.js).
-    const { data: txs, error: errT } = await supabase
-      .from('transacciones')
-      .select('user_id, tipo, monto')
-      .not('hogar_id', 'is', null)
-      .in('tipo', ['gasto', 'ahorro'])
-      .gte('fecha', desde)
-      .lte('fecha', hasta);
-    if (errT) throw errT;
-
-    const realPorUser = new Map();
-    (txs || []).forEach((t) => {
-      realPorUser.set(t.user_id, (realPorUser.get(t.user_id) || 0) + Number(t.monto));
-    });
-
-    return miembros.map((m) => ({
-      user_id: m.user_id,
-      nombre: (m.user_id === uid) ? 'Tú' : 'Pareja',
-      esperado: Number(m.aporte_esperado) || 0,
-      real: realPorUser.get(m.user_id) || 0,
-    }));
-  } catch (err) {
-    console.error('Error en getAportesPorMiembro():', err.message || err);
-    return [];
-  }
-}
-
 // updateProfile(datos) — actualiza el perfil del usuario activo.
 // datos: { nombre? }  (el aporte esperado del hogar vive en hogar_miembros, Fase 6.1)
 // RLS solo permite editar el propio perfil (user_id = auth.uid()).
