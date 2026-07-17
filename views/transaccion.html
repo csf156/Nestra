@@ -1371,7 +1371,11 @@
       const learned = (typeof autocatLearned === 'function') ? await autocatLearned() : {};
       const cats = await getCategorias(tipo === 'ahorro' ? 'gasto' : tipo);
       const seed = window.NESTRA_SEED || {};
-      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed };
+      // No filtramos por ámbito: el usuario puede aportar a una meta personal
+      // o de hogar, y es la meta la que decide el ámbito, no el contexto.
+      const metasRaw = (typeof getMetas === 'function') ? await getMetas() : [];
+      const metas = metasRaw.filter((m) => m.estado === 'en_curso').map((m) => ({ id: m.id, nombre: m.nombre }));
+      return { learned, categorias: cats.map((c) => ({ id: c.id, nombre: c.nombre })), seed, metas };
     }
     let _quickTokens = [], _quickTxId = null, _quickTipo = 'gasto';
 
@@ -1400,22 +1404,42 @@
         const ctx = await _ctxPara(pre.tipo);
         const r = parseQuickAdd(txt, { hoy: _hoyISO(), ctx });
         if (r.monto == null) { errEl.textContent = 'No detecté un monto. Ej: "Uber 15".'; errEl.style.display = 'block'; return; }
+        if (r.metaError) {
+          errEl.textContent = r.metaError === 'ambigua'
+            ? 'Hay varias metas que coinciden: ' + r.metaCandidatas.join(', ') + '. Precisa cuál.'
+            : 'No encontré una meta con ese nombre.';
+          errEl.style.display = 'block';
+          return;
+        }
         _quickTokens = tokenize(r.descripcion || '');
         _quickTipo = r.tipo;
         if (r.tipo !== 'ahorro' && !r.categoria_id) {
           await _mostrarAsk(r);
           return;
         }
-        const tx = await insertTransaccion({
-          tipo: r.tipo, ambito: r.ambito,
-          categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
-          monto: r.monto, fecha: r.fecha, nota: r.descripcion,
-        });
-        _quickTxId = tx && tx.id;
+        let txId;
+        if (r.meta_id) {
+          // Aporte 100% a una meta: aporte_directo_meta lo asigna entero, marca
+          // es_aporte_directo (para que distribuir_ahorro la salte) y manda el
+          // excedente al fondo del ambito de la meta.
+          // OJO: es online-only (lanza si !navigator.onLine). El quick-add normal
+          // sí encola offline; este no puede — calcular el excedente exige leer
+          // el estado de la meta en el servidor. El catch de abajo muestra ese
+          // mensaje tal cual.
+          txId = await insertAporteDirecto(r.meta_id, r.monto, r.fecha, r.descripcion);
+        } else {
+          const tx = await insertTransaccion({
+            tipo: r.tipo, ambito: r.ambito,
+            categoria_id: r.tipo === 'ahorro' ? null : r.categoria_id,
+            monto: r.monto, fecha: r.fecha, nota: r.descripcion,
+          });
+          txId = tx && tx.id;
+        }
+        _quickTxId = txId;
         await _mostrarConfirm(r);
       } catch (e) {
         console.error('quickAgregar falló:', e);
-        errEl.textContent = 'No se pudo guardar. Reintenta.';
+        errEl.textContent = (e && e.message) ? e.message : 'No se pudo guardar. Reintenta.';
         errEl.style.display = 'block';
       }
     }
@@ -1427,7 +1451,10 @@
       const msg = document.getElementById('txQuickConfirmMsg');
       const cats = r.tipo === 'ahorro' ? [] : await getCategorias(r.tipo);
       const tipoTxt = r.tipo === 'gasto' ? 'gasto' : (r.tipo === 'ingreso' ? 'ingreso' : 'ahorro');
-      const hogar = r.ambito === 'hogar' ? ' (hogar)' : '';
+      // r.ambito es el que dejó el parser (personal por defecto) y NO refleja el
+      // ámbito real cuando es un aporte directo a meta: es la meta la que decide
+      // su ámbito, no el texto. Omitimos la etiqueta en ese caso para no mentir.
+      const hogar = (r.ambito === 'hogar' && !r.meta_id) ? ' (hogar)' : '';
       if (r.tipo === 'ahorro') {
         msg.innerHTML = 'Registré un <b class="qc-em">' + tipoTxt + '</b> de <b class="qc-em">' + esc(_fmtMonto(r.monto)) + '</b>' + esc(hogar);
       } else {
