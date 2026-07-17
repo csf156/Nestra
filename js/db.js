@@ -1624,12 +1624,14 @@ function subscribeHogar(hogarId, onChange) {
 // El Worker encola propuestas parseadas de los correos del banco; el usuario
 // las confirma/corrige/descarta aquí. Filas 'revisar-manual' llegan sin
 // tipo/monto/fecha (formato no reconocido): el usuario las completa.
-// Online-only a propósito: la cola vive en el servidor y revisar exige ver
-// el estado real; sin red la vista muestra error, no un espejo rancio.
+// Offline-first: la cola se espeja en IndexedDB (MIRROR_STORES) y los cambios
+// de estado (confirmar/descartar/revertir) van por la outbox con LWW por
+// updated_at, igual que las transacciones. Sin red la lista y el badge cargan
+// del espejo y las acciones se encolan.
 // ═══════════════════════════════════════════════════════════════
 
 // getIngestPendientes() — pendientes de revisión (incluye revisar-manual),
-// más recientes primero. Lanza en fallo (la vista muestra el error).
+// más recientes primero. Offline-first vía _mirroredRead.
 async function getIngestPendientes() {
   const rows = await _mirroredRead('ingest_pendientes', async () => {
     const { data, error } = await supabase
