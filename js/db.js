@@ -1660,29 +1660,58 @@ async function contarIngestPendientes() {
   }
 }
 
-// confirmarIngestPendiente(id, transaccionId, datos) — marca la propuesta como
-// confirmada y la enlaza a la transacción creada. `datos` {tipo, monto, fecha}
-// escribe de vuelta lo que el usuario editó: deja la cola como auditoría de lo
-// realmente confirmado y satisface el check propuesta_completa cuando la fila
-// venía de 'revisar-manual' (campos NULL). Lanza en fallo.
+// _aplicarIngestEstado(id, patch) — aplica un cambio de estado a un pendiente,
+// offline-first y con LWW. `patch` NO incluye updated_at: lo fija aquí.
+// Online: UPDATE directo + espejo. Offline / net-error: espejo optimista + outbox.
+async function _aplicarIngestEstado(id, patch) {
+  const updated_at = new Date().toISOString();
+  const full = { ...patch, updated_at };
+
+  async function _mirrorMerge() {
+    try {
+      const db = await nestraDB();
+      const row = await db.get('ingest_pendientes', id);
+      if (row) await db.put('ingest_pendientes', { ...row, ...full });
+    } catch (_) {}
+  }
+  async function _offline() {
+    await _mirrorMerge();
+    await outboxAdd('ingest_estado', { id, ...full });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+  }
+
+  if (!navigator.onLine) { await _offline(); return; }
+  try {
+    const { error } = await supabase.from('ingest_pendientes').update(full).eq('id', id);
+    if (error) throw error;
+    await _mirrorMerge();
+  } catch (err) {
+    if (_isNetworkError(err)) { await _offline(); return; }
+    console.error('Error en _aplicarIngestEstado():', err.message || err);
+    throw err;
+  }
+}
+
+// confirmarIngestPendiente(id, transaccionId, datos) — marca confirmado y enlaza
+// la tx. `datos` {tipo,monto,fecha} escribe de vuelta lo editado (audita lo
+// confirmado y satisface propuesta_completa cuando venía de 'revisar-manual').
+// transaccionId puede ser null (hogar-split offline: los ids reales los genera
+// el RPC en el servidor; el enlace se omite y la nota queda de referencia).
 async function confirmarIngestPendiente(id, transaccionId, datos = {}) {
-  const fila = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
-  if (datos.tipo != null) fila.tipo = datos.tipo;
-  if (datos.monto != null) fila.monto = datos.monto;
-  if (datos.fecha != null) fila.fecha = datos.fecha;
-  const { error } = await supabase
-    .from('ingest_pendientes')
-    .update(fila)
-    .eq('id', id);
-  if (error) throw error;
+  const patch = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
+  if (datos.tipo != null) patch.tipo = datos.tipo;
+  if (datos.monto != null) patch.monto = datos.monto;
+  if (datos.fecha != null) patch.fecha = datos.fecha;
+  await _aplicarIngestEstado(id, patch);
 }
 
 // descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
-// Lanza en fallo.
 async function descartarIngestPendiente(id) {
-  const { error } = await supabase
-    .from('ingest_pendientes')
-    .update({ estado: 'descartado', resolved_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) throw error;
+  await _aplicarIngestEstado(id, { estado: 'descartado', resolved_at: new Date().toISOString() });
+}
+
+// revertirIngestPendiente(id) — devuelve un pendiente a 'pendiente' (undo de
+// confirmar/descartar). Limpia el enlace de tx y resolved_at.
+async function revertirIngestPendiente(id) {
+  await _aplicarIngestEstado(id, { estado: 'pendiente', transaccion_id: null, resolved_at: null });
 }
