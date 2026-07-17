@@ -99,6 +99,7 @@ async function logout() {
     window.currentUser = null;
     window.currentProfile = null;
     window.hogarState = null;
+    if (typeof resetHogarPrime === 'function') resetHogarPrime();
 
     if (realtimeChannel) {
       await supabase.removeChannel(realtimeChannel);
@@ -198,6 +199,7 @@ function handleSessionExpired() {
   window.currentUser = null;
   window.currentProfile = null;
   window.hogarState = null;
+  if (typeof resetHogarPrime === 'function') resetHogarPrime();
 
   if (realtimeChannel) {
     supabase.removeChannel(realtimeChannel);

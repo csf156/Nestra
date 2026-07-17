@@ -145,6 +145,7 @@ const ROUTES = {
   'reset-password': { view: 'reset-password', public: true },
   dashboard: { view: 'dashboard' },
   historial: { view: 'historial' },
+  revisar: { view: 'revisar' },
   transaccion: { view: 'transaccion' },
   graficos: { view: 'graficos' },
   metas: { view: 'metas' },
@@ -206,6 +207,12 @@ async function handleRouteChange() {
       return;
     }
 
+    // Primar el estado del hogar una vez por sesión. Va acá y no en un handler
+    // de auth porque hay tres caminos a una sesión activa (reload, login por
+    // form, retorno de OAuth) y los tres pasan por este punto. Sin await: el
+    // UI se corrige solo con el evento 'hogar:changed'.
+    if (!isPublic && typeof primeHogarState === 'function') primeHogarState();
+
     // Onboarding (primer login): si el perfil no lo completó, tomar la pantalla
     // antes de cargar cualquier vista protegida. Al terminar navega a #dashboard.
     if (!isPublic) {
@@ -234,6 +241,11 @@ async function handleRouteChange() {
     // Actualizar chip de usuario en vistas protegidas (sesión activa)
     if (!isPublic && typeof updateUserChip === 'function') {
       updateUserChip();
+    }
+
+    // Badge de movimientos por revisar (ingesta de correos). Best-effort.
+    if (!isPublic && typeof actualizarIngestBadge === 'function') {
+      actualizarIngestBadge();
     }
   } catch (err) {
     // loadView already rendered an inline error card; don't overwrite it with

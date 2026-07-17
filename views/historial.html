@@ -123,16 +123,15 @@
      aria-labelledby="histAporteTitle">
   <div class="modal-content hist-aporte-modal">
     <p class="hist-aporte-icon" aria-hidden="true"><svg class="cat-icono"><use href="assets/tabler-sprite.svg#tabler-alert-triangle"></use></svg></p>
-    <h2 class="hist-aporte-title" id="histAporteTitle">¿Borrar el aporte completo?</h2>
+    <h2 class="hist-aporte-title" id="histAporteTitle">¿Borrar el gasto compartido completo?</h2>
     <p class="hist-aporte-body" id="histAporteBody">
-      Este movimiento es parte de un aporte al hogar. Borrarlo elimina
-      <strong>las dos mitades</strong> (tu gasto y el ingreso del hogar) y
-      revierte lo repartido a las metas.
+      Este movimiento es parte de un gasto compartido del hogar. Borrarlo
+      elimina <strong>la parte de ambos miembros</strong>.
     </p>
     <div class="hist-aporte-actions">
       <button type="button" class="btn btn-secondary" id="histAporteCancel">Cancelar</button>
       <button type="button" class="btn btn-danger" id="histAporteConfirm">
-        <span id="histAporteConfirmText">Borrar aporte</span>
+        <span id="histAporteConfirmText">Borrar gasto compartido</span>
         <span id="histAporteSpinner" class="spinner" role="status" aria-label="Borrando" style="display:none;"></span>
       </button>
     </div>
@@ -213,6 +212,7 @@
     background: var(--color-primary); color: var(--bg-light); border-color: var(--color-primary);
   }
   .hist-chip:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .hist-chip:disabled { opacity: 0.4; cursor: not-allowed; }
   .hist-chip-sep { width: 1px; height: 20px; background: var(--border-light); margin: 0 var(--space-xs); }
 
   /* ── Filtros avanzados ──────────────────────────────────── */
@@ -596,6 +596,7 @@
       orden: { campo: 'fecha', dir: 'desc' }, // orden client-side
     };
     var rawData = [];        // último resultado del servidor (sin filtro de nota)
+    var grupoTotales = {};   // grupo_id → suma de TODAS las filas del split (incluida la ajena, oculta)
     var reqToken = 0;        // anti-carrera: descarta respuestas viejas
 
     // ── Fechas ────────────────────────────────────────────────
@@ -651,14 +652,30 @@
         if (token !== reqToken) return;
         rawData = [];
       }
+      // Total real de cada grupo (ambas filas), calculado ANTES de ocultar
+      // la del otro miembro — es el dato de contexto que sí se muestra.
+      grupoTotales = {};
+      rawData.forEach(function (t) {
+        if (!t.grupo_id) return;
+        grupoTotales[t.grupo_id] = (grupoTotales[t.grupo_id] || 0) + Number(t.monto);
+      });
       aplicarLocalYRender();
     }
 
-    // ── Filtro local (nota) ───────────────────────────────────
+    // ── Filtro local (mi parte de un split + nota) ─────────────
+    // RLS deja ver ambas filas de un gasto compartido (transparencia general
+    // de hogar), pero en TU historial no se lista la fila que puso el otro
+    // miembro — solo la tuya, con el total del grupo como contexto
+    // (grupoDetalle en _datosTx). Los gastos de hogar normales (1 solo
+    // pagador) siguen visibles para ambos, sin cambios.
     function datosVisibles() {
+      var uid = window.currentUser && window.currentUser.id;
+      var base = rawData.filter(function (t) {
+        return !t.grupo_id || t.user_id === uid;
+      });
       var q = estado.nota.trim().toLowerCase();
-      if (!q) return rawData;
-      return rawData.filter(function (t) {
+      if (!q) return base;
+      return base.filter(function (t) {
         return (t.nota || '').toLowerCase().indexOf(q) !== -1;
       });
     }
@@ -755,7 +772,13 @@
                (t.ambito === 'hogar'
                  ? ' <span class="hist-badge hist-badge--hogar">Hogar</span>'
                  : ' <span class="hist-badge hist-badge--personal">Personal</span>'),
-        aporte: !!t.aporte_id,
+        grupo: !!t.grupo_id,
+        // Contexto del split: tu parte de un gasto compartido cuyo total es
+        // otro número (la fila del otro miembro no se muestra en tu lista,
+        // pero el total sí, para que "S/30" no se lea como un gasto aislado).
+        grupoDetalle: (t.grupo_id && grupoTotales[t.grupo_id] != null)
+          ? (formatMonto(t.monto) + ' de ' + formatMonto(grupoTotales[t.grupo_id]) + ' totales')
+          : null,
         directo: !!t.es_aporte_directo,
         usuario: _nombreUsuario(t.user_id),
       };
@@ -775,11 +798,14 @@
     function cardTx(t, mostrarFecha) {
       var d = _datosTx(t);
       var iconoHtml = chipCategoria(t);
-      var aporteBadge = d.aporte ? '<span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var aporteBadge = d.grupo
+        ? '<span class="hist-badge hist-badge--aporte" title="Gasto compartido' + (d.grupoDetalle ? ' — ' + esc(d.grupoDetalle) : '') + '">' +
+          '⚭ compartido' + (d.grupoDetalle ? ' · ' + esc(d.grupoDetalle) : '') + '</span>'
+        : '';
       var splitBadge = t._split ? '<span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var fechaMeta = mostrarFecha ? '<span class="hist-tx-fecha">' + esc(formatFecha(t.fecha)) + '</span>' : '';
       var nota = t.nota ? '<span class="hist-tx-nota" title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>' : '';
-      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
+      var btnEditar = (d.grupo || d.directo || t._split) ? '' :
         '<button type="button" class="btn btn-secondary btn-small" data-act="editar">Editar</button>';
       var directoBadge = d.directo ? '<span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       var usuarioBadge = '<span class="hist-tx-usuario"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-user"></use></svg> ' + esc(d.usuario) + '</span>';
@@ -803,12 +829,15 @@
     // Fila de tabla (desktop).
     function rowTx(t) {
       var d = _datosTx(t);
-      var aporteMark = d.aporte ? ' <span class="hist-badge hist-badge--aporte" title="Aporte vinculado">↔ aporte</span>' : '';
+      var aporteMark = d.grupo
+        ? ' <span class="hist-badge hist-badge--aporte" title="Gasto compartido' + (d.grupoDetalle ? ' — ' + esc(d.grupoDetalle) : '') + '">' +
+          '⚭ compartido' + (d.grupoDetalle ? ' · ' + esc(d.grupoDetalle) : '') + '</span>'
+        : '';
       var splitMark = t._split ? ' <span class="hist-split-badge">Dividido (' + t._lineas.length + ')</span>' : '';
       var nota = t.nota
         ? '<span title="' + esc(t.nota) + '">' + esc(t.nota) + '</span>'
         : '<span class="hist-muted">—</span>';
-      var btnEditar = (d.aporte || d.directo || t._split) ? '' :
+      var btnEditar = (d.grupo || d.directo || t._split) ? '' :
         '<button type="button" class="hist-iconbtn" data-act="editar" aria-label="Editar ' + esc(d.cat) + '"><svg class="cat-icono" aria-hidden="true"><use href="assets/tabler-sprite.svg#tabler-pencil"></use></svg></button>';
       var directoMark = d.directo ? ' <span class="hist-badge hist-badge--aporte" title="Aporte directo a meta">&rarr; meta</span>' : '';
       return '<tr data-id="' + esc(t.id) + '"' + (t._split ? ' data-split-id="' + esc(t.split_id) + '"' : '') + '>' +
@@ -1031,6 +1060,10 @@
     // ── Chips rápidos ─────────────────────────────────────────
     var chips = Array.prototype.slice.call(document.querySelectorAll('.hist-chip'));
     function syncChips() {
+      // El hogar solo registra gasto y ahorro: filtrar Hogar+Ingresos siempre
+      // da vacío. Si el ámbito activo es "hogar", el chip Ingresos queda
+      // deshabilitado (y su filtro, apagado) hasta que se suelte Hogar.
+      if (estado.ambito === 'hogar' && estado.tipo === 'ingreso') estado.tipo = null;
       chips.forEach(function (c) {
         var grupo = c.getAttribute('data-grupo');
         var valor = c.getAttribute('data-valor');
@@ -1039,6 +1072,9 @@
                      (grupo === 'ambito' && estado.ambito === valor);
         c.classList.toggle('hist-chip--active', activo);
         c.setAttribute('aria-pressed', String(activo));
+        if (grupo === 'tipo' && valor === 'ingreso') {
+          c.disabled = (estado.ambito === 'hogar');
+        }
       });
     }
     chips.forEach(function (c) {
@@ -1143,7 +1179,7 @@
 
     // ── Borrado ───────────────────────────────────────────────
     // Normal / split → undo-toast (optimistic, 5 s).
-    // Aporte vinculado (aporte_id) → modal (irreversible: toca 2 filas + metas).
+    // Gasto compartido (grupo_id) → modal (toca las filas de ambos miembros).
 
     var _delTimer = null, _delPend = null;        // borrado normal diferido
     var _splitTimer = null, _splitPend = null;    // borrado split diferido
@@ -1151,7 +1187,7 @@
     function pedirBorrado(id, splitId) {
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
       if (!tx && !splitId) return;
-      if (tx && tx.aporte_id) { abrirModalAporte(tx); return; }   // irreversible → modal
+      if (tx && tx.grupo_id) { abrirModalAporte(tx); return; }   // toca las filas de ambos → modal
       if (splitId) { borrarSplitConToast(splitId); return; }      // split → undo toast
       borrarConToast(tx);                                         // normal → undo toast
     }
@@ -1217,9 +1253,8 @@
     function abrirModalAporte(tx) {
       aporteTxId = tx.id;
       $('histAporteBody').innerHTML =
-        'Este movimiento es parte de un <strong>aporte al hogar</strong> de ' +
-        esc(formatMonto(tx.monto)) + '. Borrarlo elimina <strong>las dos mitades</strong> ' +
-        '(tu gasto y el ingreso del hogar) y revierte lo repartido a las metas. No se puede deshacer.';
+        'Este movimiento es parte de un <strong>gasto compartido del hogar</strong>. ' +
+        'Borrarlo elimina <strong>la parte de ambos miembros</strong>. No se puede deshacer.';
       aporteModal.classList.add('active');
       setTimeout(function () { $('histAporteCancel').focus(); }, 50);
     }
@@ -1244,18 +1279,18 @@
       try {
         await deleteTransaccion(id);
         cerrarModalAporte();
-        await recargar(); // el borrado tocó dos filas + metas
-        mostrarToast('Aporte eliminado', null, null, 3000);
+        await recargar(); // el borrado tocó las filas de ambos miembros
+        mostrarToast('Gasto compartido eliminado', null, null, 3000);
       } catch (err) {
         cerrarModalAporte();
-        mostrarToast('No se pudo borrar el aporte. Reintenta.', null, null, 4000);
+        mostrarToast('No se pudo borrar el gasto compartido. Reintenta.', null, null, 4000);
       }
     });
 
     // ── Editar ────────────────────────────────────────────────
     function abrirEdicion(id) {
       var tx = rawData.filter(function (t) { return String(t.id) === String(id); })[0];
-      if (!tx || tx.aporte_id || tx.es_aporte_directo) return; // aporte vinculado / directo no editable
+      if (!tx || tx.grupo_id || tx.es_aporte_directo) return; // gasto compartido / aporte directo no editables
       if (typeof abrirModalTransaccion !== 'function') { window.location.hash = '#transaccion'; return; }
       window._editTx = tx;
       abrirModalTransaccion();

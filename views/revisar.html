@@ -1,0 +1,421 @@
+<style>
+  .rev { max-width: 640px; margin: 0 auto; }
+  .rev-header { margin-bottom: var(--space-lg); }
+  .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
+  .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
+  .rev-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
+  .rev-card { padding: var(--space-md); }
+  .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+  .rev-banco { text-transform: uppercase; }
+  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
+  .rev-comercio { font-weight: var(--font-weight-semibold); margin-bottom: 2px; overflow-wrap: anywhere; }
+  .rev-original { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); }
+  .rev-original.rev-original-warn { color: var(--color-warning); }
+  .rev-raw { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); overflow-wrap: anywhere; }
+  .rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+  .rev-grid .rev-field-full { grid-column: 1 / -1; }
+  .rev-field label { display: block; font-size: var(--font-size-xs); color: var(--text-secondary); margin-bottom: 2px; }
+  .rev-field input, .rev-field select { width: 100%; }
+  .rev-acciones { display: flex; gap: var(--space-sm); }
+  .rev-acciones .btn { flex: 1; }
+  .rev-error { color: var(--color-danger); font-size: var(--font-size-sm); margin-top: var(--space-sm); display: none; }
+  .rev-loading { display: flex; flex-direction: column; gap: var(--space-md); }
+  .rev-partes { border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
+  .rev-partes-fila { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: 6px; }
+  .rev-partes-fila label { flex: 1 1 auto; font-size: var(--font-size-sm); }
+  .rev-partes-fila input { width: 110px; }
+  .rev-partes-restante { margin: 4px 0 0; font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); }
+  .rev-partes-restante--falta { color: var(--color-warning); }
+  .rev-partes-restante--sobra { color: var(--color-danger); }
+  .rev-partes-restante--completo { color: var(--color-success); }
+</style>
+
+<div class="rev">
+  <header class="rev-header">
+    <h1 class="rev-title">Revisar movimientos</h1>
+    <p class="rev-sub">Detectados en tus correos del banco. Confirma, corrige o descarta — nada se registra sin tu OK.</p>
+  </header>
+
+  <div id="revLoading" class="rev-loading" role="status" aria-label="Cargando">
+    <div class="skeleton skeleton-card" style="height:180px"></div>
+    <div class="skeleton skeleton-card" style="height:180px"></div>
+  </div>
+
+  <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
+  <div id="revVacio" style="display:none;"></div>
+  <p class="rev-error" id="revErrorGlobal"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Guard de versión: si el SW sirve JS viejo sin estos globales mientras la
+  // vista es nueva, avisar en vez de morir en silencio (patrón de transaccion.html).
+  var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
+                'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
+                'validarPartesGastoHogar'].filter(function (f) {
+    return typeof window[f] !== 'function';
+  });
+
+  var loadingEl = document.getElementById('revLoading');
+  var listaEl = document.getElementById('revLista');
+  var vacioEl = document.getElementById('revVacio');
+  var errGlobal = document.getElementById('revErrorGlobal');
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  function fmt(n) {
+    return (typeof formatMonto === 'function') ? formatMonto(Number(n)) : 'S/ ' + Number(n).toFixed(2);
+  }
+
+  if (faltan.length) {
+    loadingEl.style.display = 'none';
+    errGlobal.textContent = 'Hay una versión nueva de la app. Ciérrala por completo y vuelve a abrirla.';
+    errGlobal.style.display = 'block';
+    return;
+  }
+
+  var BANCO_LABEL = { bbva: 'BBVA', bcp: 'BCP', yape: 'Yape' };
+  var _cats = { gasto: null, ingreso: null };   // cache de categorías por tipo
+  var _learned = {};
+
+  async function catsPara(tipo) {
+    var t = (tipo === 'ingreso') ? 'ingreso' : 'gasto'; // ahorro no lleva categoría
+    if (!_cats[t]) {
+      var cats = await getCategorias(t);
+      _cats[t] = (cats || []).map(function (c) { return { id: c.id, nombre: c.nombre }; });
+    }
+    return _cats[t];
+  }
+
+  // Sugerencia de categoría: mismo motor que el quick-add (autocat.js).
+  // El Worker no la infiere a propósito — el mapa aprendido vive en IndexedDB.
+  async function sugerirCategoria(texto, tipo) {
+    if (!texto || typeof matchCategoria !== 'function' || typeof tokenize !== 'function') return null;
+    var cats = await catsPara(tipo);
+    var ctx = { learned: _learned, categorias: cats, seed: window.NESTRA_SEED || {} };
+    return matchCategoria(tokenize(texto), ctx);
+  }
+
+  function opcionesCategoria(cats, seleccionada) {
+    var html = '<option value="">Sin categoría</option>';
+    cats.forEach(function (c) {
+      html += '<option value="' + esc(c.id) + '"' + (c.id === seleccionada ? ' selected' : '') + '>' + esc(c.nombre) + '</option>';
+    });
+    return html;
+  }
+
+  function renderVacio() {
+    listaEl.style.display = 'none';
+    vacioEl.style.display = 'block';
+    vacioEl.innerHTML = (typeof renderEmptyState === 'function')
+      ? renderEmptyState({
+          icon: 'inbox',
+          title: 'Nada por revisar',
+          desc: 'Cuando llegue un correo de tu banco con un consumo o transferencia, aparecerá aquí para que lo confirmes.',
+        })
+      : '<p>Nada por revisar.</p>';
+  }
+
+  var hayHogar = (typeof tieneHogar === 'function') && tieneHogar();
+
+  async function cardHTML(p, i) {
+    var manual = p.estado === 'revisar-manual';
+    var tipo = p.tipo || 'gasto';
+    var texto = p.comercio || p.contraparte || '';
+    var sugerida = manual ? null : await sugerirCategoria(texto, tipo);
+    var cats = await catsPara(tipo);
+
+    var original = '';
+    if (p.moneda_original) {
+      original = p.tasa_cambio
+        ? '<p class="rev-original">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' @ ' + esc(p.tasa_cambio) + ' — conversión aproximada, corrige si difiere del cargo real</p>'
+        : '<p class="rev-original rev-original-warn">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' — la conversión falló: el monto está en ' + esc(p.moneda_original) + ', corrígelo a tu moneda</p>';
+    }
+
+    return '<li class="card rev-card" id="revCard' + i + '">' +
+      '<div class="rev-top">' +
+        '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+        (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
+        (p.ultimos4 ? '<span class="badge badge-neutral">•••• ' + esc(p.ultimos4) + '</span>' : '') +
+        '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+      '</div>' +
+      (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
+      (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
+      original +
+      '<div class="rev-grid">' +
+        '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
+          '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
+        '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
+          '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
+        '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
+          '<select id="revTipo' + i + '">' +
+            '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
+            '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
+            '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
+          '</select></div>' +
+        '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
+          '<select id="revAmbito' + i + '">' +
+            '<option value="personal" selected>Personal</option>' +
+            (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
+          '</select></div>' +
+        '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
+          '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
+      '</div>' +
+      (hayHogar ? (
+      '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
+        '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
+        '<div id="revPartesFilas' + i + '"></div>' +
+        '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
+        '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
+      '</div>') : '') +
+      '<div class="rev-acciones">' +
+        '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
+        '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
+      '</div>' +
+      '<p class="rev-error" id="revErr' + i + '"></p>' +
+    '</li>';
+  }
+
+  var _filas = [];
+
+  function mostrarError(i, msg) {
+    var el = document.getElementById('revErr' + i);
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+  }
+
+  async function onTipoChange(i) {
+    var tipo = document.getElementById('revTipo' + i).value;
+    var wrap = document.getElementById('revCatWrap' + i);
+    if (tipo === 'ahorro') { wrap.style.display = 'none'; onAmbitoChange(i); return; }
+    wrap.style.display = '';
+    var p = _filas[i];
+    var texto = p.comercio || p.contraparte || '';
+    var sugerida = await sugerirCategoria(texto, tipo);
+    document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
+    onAmbitoChange(i);
+  }
+
+  // ── Partes del gasto compartido al aprobar (mismo patrón que #transaccion) ──
+  function miembrosHogar() {
+    var st = window.hogarState || {};
+    return (st.miembros || []).map(function (m) {
+      return {
+        user_id: m.user_id,
+        nombre: (window.currentUser && m.user_id === window.currentUser.id) ? 'Tú' : 'Pareja',
+      };
+    });
+  }
+  function renderPartesFilas(i) {
+    var miembros = miembrosHogar();
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (!filasEl || miembros.length < 2) { if (filasEl) filasEl.innerHTML = ''; return; }
+    var total = parseFloat(document.getElementById('revMonto' + i).value) || 0;
+    var uid = window.currentUser && window.currentUser.id;
+    filasEl.innerHTML = miembros.map(function (m) {
+      var prefill = m.user_id === uid ? total : 0;
+      return '<div class="rev-partes-fila" data-uid="' + esc(m.user_id) + '">' +
+        '<label>' + esc(m.nombre) + '</label>' +
+        '<input type="number" min="0" step="0.01" class="rev-partes-monto" value="' + prefill + '">' +
+        '</div>';
+    }).join('');
+  }
+  function leerPartes(i) {
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (!filasEl) return [];
+    return Array.prototype.map.call(filasEl.querySelectorAll('.rev-partes-fila'), function (row) {
+      return {
+        user_id: row.getAttribute('data-uid'),
+        monto: parseFloat(row.querySelector('.rev-partes-monto').value) || 0,
+      };
+    });
+  }
+  // Indicador en vivo de cuánto falta (o sobra) por asignar del total.
+  function actualizarRestante(i) {
+    var el = document.getElementById('revPartesRestante' + i);
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (!el || !grupo) return;
+    if (grupo.style.display === 'none') { el.textContent = ''; return; }
+    var total = parseFloat(document.getElementById('revMonto' + i).value) || 0;
+    var restante = restanteGastoHogar(total, leerPartes(i));
+    el.classList.remove('rev-partes-restante--falta', 'rev-partes-restante--sobra', 'rev-partes-restante--completo');
+    if (Math.abs(restante) < 0.005) {
+      el.textContent = 'Repartido completo.';
+      el.classList.add('rev-partes-restante--completo');
+    } else if (restante > 0) {
+      el.textContent = 'Faltan asignar ' + fmt(restante) + '.';
+      el.classList.add('rev-partes-restante--falta');
+    } else {
+      el.textContent = 'Sobran ' + fmt(-restante) + ' asignados de más.';
+      el.classList.add('rev-partes-restante--sobra');
+    }
+  }
+  // El hogar solo registra gasto y ahorro: un ingreso es siempre personal
+  // (CHECK transacciones_hogar_sin_ingreso). Sin este gate se podía elegir
+  // Ingreso+Hogar y el confirmar moría contra la base con "No se pudo guardar.
+  // Reintenta." para siempre — el pendiente nunca se iba de la cola. Es
+  // alcanzable de verdad: el parser de BCP produce tipo=ingreso ("Recibiste un
+  // yapeo"). El ámbito gana, igual que en el form.
+  // Devuelve true si tuvo que corregir el tipo, para que el llamador recargue
+  // las categorías: quedarse con las de 'ingreso' bajo un tipo 'gasto' violaría
+  // el CHECK transacciones_categoria_por_tipo — cambiar un bug por otro.
+  function gateTipoPorAmbito(i) {
+    var selTipo = document.getElementById('revTipo' + i);
+    var selAmbito = document.getElementById('revAmbito' + i);
+    if (!selTipo || !selAmbito) return false;
+    var esHogar = selAmbito.value === 'hogar';
+    var optIngreso = selTipo.querySelector('option[value="ingreso"]');
+    if (optIngreso) { optIngreso.disabled = esHogar; optIngreso.hidden = esHogar; }
+    if (esHogar && selTipo.value === 'ingreso') { selTipo.value = 'gasto'; return true; }
+    return false;
+  }
+
+  function onAmbitoChange(i) {
+    // Si el gate corrigió el tipo, onTipoChange recarga las categorías y vuelve
+    // a entrar acá. No recursa: en la segunda pasada el tipo ya es 'gasto', el
+    // gate devuelve false y sigue de largo.
+    if (gateTipoPorAmbito(i)) { onTipoChange(i); return; }
+    var tipo = document.getElementById('revTipo' + i).value;
+    var ambito = document.getElementById('revAmbito' + i).value;
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (!grupo) return;
+    var mostrar = tipo === 'gasto' && ambito === 'hogar' && miembrosHogar().length >= 2;
+    grupo.style.display = mostrar ? 'block' : 'none';
+    // Solo prefillea en el primer render: si el usuario ya tecleó un split a
+    // mano, un cambio de monto/tipo no debe pisarlo (mismo bug que se corrigió
+    // en #transaccion — ver Task 11 de la Fase 6.3).
+    var filasEl = document.getElementById('revPartesFilas' + i);
+    if (mostrar && filasEl && !filasEl.children.length) renderPartesFilas(i);
+    actualizarRestante(i);
+  }
+
+  async function confirmar(i, btn) {
+    var errEl = document.getElementById('revErr' + i);
+    if (errEl) errEl.style.display = 'none';
+    var partesErrEl = document.getElementById('revPartesErr' + i);
+    if (partesErrEl) { partesErrEl.style.display = 'none'; partesErrEl.textContent = ''; }
+    var p = _filas[i];
+    var monto = parseFloat(document.getElementById('revMonto' + i).value);
+    var fecha = document.getElementById('revFecha' + i).value;
+    var tipo = document.getElementById('revTipo' + i).value;
+    var ambito = document.getElementById('revAmbito' + i).value;
+    var catId = document.getElementById('revCat' + i).value || null;
+
+    if (!(monto > 0)) { mostrarError(i, 'Ingresa un monto mayor a 0.'); return; }
+    if (!fecha) { mostrarError(i, 'Ingresa la fecha.'); return; }
+    if (tipo !== 'ahorro' && !catId) { mostrarError(i, 'Elige una categoría.'); return; }
+
+    // Gasto compartido con partes: si el bloque de partes está visible
+    // (ambito=hogar, tipo=gasto, hay 2 miembros), valida y decide la vía.
+    var grupo = document.getElementById('revPartesGroup' + i);
+    var conPartes = tipo === 'gasto' && ambito === 'hogar' && grupo && grupo.style.display !== 'none';
+    var partes = null;
+    if (conPartes) {
+      partes = leerPartes(i).filter(function (x) { return x.monto > 0; });
+      var check = validarPartesGastoHogar(monto, partes);
+      if (!check.ok) {
+        if (partesErrEl) { partesErrEl.textContent = check.error; partesErrEl.style.display = 'block'; }
+        return;
+      }
+    }
+
+    var nota = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
+    btn.disabled = true;
+    try {
+      var txId;
+      if (conPartes && partes.length > 1) {
+        // 2+ pagadores → registrar_gasto_hogar (RPC); la fila propia sirve
+        // de referencia de auditoría en ingest_pendientes.
+        var filas = await registrarGastoHogar(fecha, catId, nota, partes);
+        var uid = window.currentUser && window.currentUser.id;
+        var propia = (filas || []).filter(Boolean).find(function (f) { return f.user_id === uid; });
+        txId = propia && propia.id;
+      } else {
+        // Un solo pagador (o ambito personal/ahorro) → transacción normal,
+        // igual que antes. insertTransaccion ya aprende comercio→categoría
+        // (autocatLearnTokens sobre la nota) — la próxima sugerencia mejora sola.
+        var tx = await insertTransaccion({
+          tipo: tipo, ambito: ambito,
+          categoria_id: tipo === 'ahorro' ? null : catId,
+          monto: monto, fecha: fecha,
+          nota: nota,
+        });
+        txId = tx && tx.id;
+      }
+      await confirmarIngestPendiente(p.id, txId, { tipo: tipo, monto: monto, fecha: fecha });
+      quitarCard(i);
+    } catch (e) {
+      console.error('confirmar pendiente falló:', e);
+      btn.disabled = false;
+      mostrarError(i, 'No se pudo guardar. Reintenta.');
+    }
+  }
+
+  async function descartar(i, btn) {
+    btn.disabled = true;
+    try {
+      await descartarIngestPendiente(_filas[i].id);
+      quitarCard(i);
+    } catch (e) {
+      console.error('descartar pendiente falló:', e);
+      btn.disabled = false;
+      mostrarError(i, 'No se pudo descartar. Reintenta.');
+    }
+  }
+
+  function quitarCard(i) {
+    var card = document.getElementById('revCard' + i);
+    if (card) card.remove();
+    _filas[i] = null;
+    if (!_filas.some(Boolean)) renderVacio();
+    if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+  }
+
+  async function init() {
+    try {
+      if (typeof autocatLearned === 'function') _learned = await autocatLearned();
+      _filas = await getIngestPendientes();
+      loadingEl.style.display = 'none';
+      if (!_filas.length) { renderVacio(); return; }
+
+      var html = '';
+      for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
+      listaEl.innerHTML = html;
+      listaEl.style.display = '';
+
+      listaEl.addEventListener('click', function (ev) {
+        var b = ev.target.closest('[data-rev-confirmar]');
+        if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
+        var d = ev.target.closest('[data-rev-descartar]');
+        if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
+      });
+      listaEl.addEventListener('change', function (ev) {
+        var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
+        if (mTipo) { onTipoChange(Number(mTipo[1])); return; }
+        var mAmbito = ev.target.id && ev.target.id.match(/^revAmbito(\d+)$/);
+        if (mAmbito) onAmbitoChange(Number(mAmbito[1]));
+      });
+      listaEl.addEventListener('input', function (ev) {
+        var mMonto = ev.target.id && ev.target.id.match(/^revMonto(\d+)$/);
+        if (mMonto) { onAmbitoChange(Number(mMonto[1])); return; }
+        if (ev.target.classList.contains('rev-partes-monto')) {
+          var grupo = ev.target.closest('[id^="revPartesGroup"]');
+          var mIdx = grupo && grupo.id.match(/^revPartesGroup(\d+)$/);
+          if (mIdx) actualizarRestante(Number(mIdx[1]));
+        }
+      });
+    } catch (e) {
+      console.error('revisar init falló:', e);
+      loadingEl.style.display = 'none';
+      errGlobal.textContent = 'No se pudieron cargar los pendientes. Revisa tu conexión y reintenta.';
+      errGlobal.style.display = 'block';
+    }
+  }
+
+  init();
+})();
+</script>

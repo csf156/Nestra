@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v21';
+const SHELL_VERSION = 'v30';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -33,9 +33,13 @@ precaching.precacheAndRoute([
   { url: 'js/alerts.js', revision: SHELL_VERSION },
   { url: 'js/insights.js', revision: SHELL_VERSION },
   { url: 'js/safe-to-spend.js', revision: SHELL_VERSION },
-  { url: 'js/hogar-balance.js', revision: SHELL_VERSION },
+  { url: 'js/hogar-desequilibrio.js', revision: SHELL_VERSION },
+  { url: 'js/hogar-partes.js', revision: SHELL_VERSION },
   { url: 'js/hogar-aporte.js', revision: SHELL_VERSION },
   { url: 'js/presupuestos.js', revision: SHELL_VERSION },
+  { url: 'js/presupuestos-orden.js', revision: SHELL_VERSION },
+  { url: 'js/graficos-serie.js', revision: SHELL_VERSION },
+  { url: 'js/meta-resolver.js', revision: SHELL_VERSION },
   { url: 'js/recurrentes-detect.js', revision: SHELL_VERSION },
   { url: 'js/brujula.js', revision: SHELL_VERSION },
   { url: 'js/flujo-proyeccion.js', revision: SHELL_VERSION },

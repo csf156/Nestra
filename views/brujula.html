@@ -189,7 +189,7 @@
       var res = await Promise.all([
         getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
         getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
-        (ambito === 'personal' ? getBalancePersonal(hoy.mes, hoy.anio) : getBalanceHogar(hoy.mes, hoy.anio)),
+        getBalancePersonal(hoy.mes, hoy.anio), // Fase 6.3: liquidez siempre contra el bolsillo del que pregunta, sea cual sea el ámbito de la categoría
         getMetas(ambito),
         getRecurrentes(),
       ]);

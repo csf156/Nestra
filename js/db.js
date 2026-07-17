@@ -240,14 +240,20 @@ async function updateTransaccion(id, datos) {
 }
 
 // _serverDeleteTransaccion(id) — borra en el servidor. Si la fila tiene
-// aporte_id, borra ambas mitades. Usado online y en el replay de la outbox.
+// grupo_id (gasto compartido con partes de otro miembro), borra el grupo
+// completo vía RPC (la policy DELETE es owner-scoped: no se puede borrar
+// la fila del otro miembro directamente). Usado online y en el replay
+// de la outbox.
 async function _serverDeleteTransaccion(id) {
   const { data: fila, error: errLeer } = await supabase
-    .from('transacciones').select('id, aporte_id').eq('id', id).single();
+    .from('transacciones').select('id, grupo_id').eq('id', id).single();
   if (errLeer) throw errLeer;
-  let query = supabase.from('transacciones').delete();
-  query = (fila && fila.aporte_id) ? query.eq('aporte_id', fila.aporte_id) : query.eq('id', id);
-  const { error } = await query;
+  if (fila && fila.grupo_id) {
+    const { error } = await supabase.rpc('borrar_gasto_hogar', { p_grupo_id: fila.grupo_id });
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('transacciones').delete().eq('id', id);
   if (error) throw error;
 }
 
@@ -272,66 +278,15 @@ async function deleteTransaccion(id) {
 }
 
 // insertAporteHogar(monto, categoria_id, nota, fecha) — aporte al hogar.
-// Crea atómicamente dos transacciones vinculadas por un mismo aporte_id:
-//   1. Gasto PERSONAL del usuario activo (sale de su balance personal),
-//      usando la categoría de gasto que se pasa en `categoria_id`.
-//   2. Ingreso del HOGAR (entra al balance compartido), usando una
-//      categoría de TIPO ingreso resuelta automáticamente (preferencia:
-//      "Aporte al hogar" → "Otros ingresos" → primera categoría ingreso).
-//      Así el ingreso no contamina una categoría de gasto en los gráficos.
-// PostgREST inserta ambas filas en una sola sentencia (.insert([a, b])):
-// es atómico server-side — si una falla, no se crea ninguna. deleteTransaccion
-// limpia ambas mitades por aporte_id.
-// Returns: array con las dos filas insertadas. Lanza Error en fallo.
+// PUENTE TEMPORAL (Fase 6.3): "aportar al hogar" es ahorro al hogar, sin
+// excepción — inserta una única transacción tipo='ahorro' ambito='hogar',
+// que insertTransaccion ya reparte automáticamente entre metas del hogar +
+// fondo de emergencia (distribuir_ahorro). Reemplaza el viejo par
+// gasto-personal + ingreso-hogar (ficción retirada en Fase 6.3).
+// `categoria_id` se ignora: los ahorros no llevan categoría.
+// Returns: fila insertada. Lanza Error en fallo.
 async function insertAporteHogar(monto, categoria_id, nota, fecha) {
-  try {
-    if (!navigator.onLine) throw new Error('Esta acción requiere conexión a internet.');
-    const userId = _requireUserId();
-    const aporteId = crypto.randomUUID();
-
-    // Resolver categoría de tipo ingreso para la mitad del hogar.
-    const catsIngreso = await getCategorias('ingreso');
-    if (!catsIngreso.length) {
-      throw new Error('No hay categorías de ingreso para el aporte al hogar');
-    }
-    const catIngreso =
-      catsIngreso.find((c) => c.nombre === 'Aporte al hogar') ||
-      catsIngreso.find((c) => c.nombre === 'Otros ingresos') ||
-      catsIngreso[0];
-
-    const base = {
-      monto,
-      nota: nota ?? null,
-      user_id: userId,
-      aporte_id: aporteId,
-    };
-    if (fecha) base.fecha = fecha;
-
-    const filas = [
-      { ...base, tipo: 'gasto',   ambito: 'personal', categoria_id },
-      { ...base, tipo: 'ingreso', ambito: 'hogar',    categoria_id: catIngreso.id },
-    ];
-
-    const { data, error } = await supabase
-      .from('transacciones')
-      .insert(filas)
-      .select();
-    if (error) throw error;
-
-    // Repartir el aporte entre las metas del hogar vía RPC atómico. Best-effort:
-    // el aporte y su aporte_id ya existen (balances correctos); un fallo del
-    // reparto NO debe revertir las transacciones ni propagarse.
-    try {
-      const { error: errRpc } = await supabase.rpc('distribuir_aporte_hogar', { p_aporte_id: aporteId });
-      if (errRpc) throw errRpc;
-    } catch (errRpc) {
-      console.error('Aviso: no se pudo repartir el aporte entre metas del hogar:', errRpc.message || errRpc);
-    }
-    return data;
-  } catch (err) {
-    console.error('Error en insertAporteHogar():', err.message || err);
-    throw err;
-  }
+  return insertTransaccion({ tipo: 'ahorro', ambito: 'hogar', categoria_id: null, monto, fecha, nota });
 }
 
 
@@ -339,36 +294,54 @@ async function insertAporteHogar(monto, categoria_id, nota, fecha) {
 // BALANCES
 // ═══════════════════════════════════════════════════════════════════
 
-// getBalanceHogar(mes, anio) — totales del hogar para el mes dado.
-// Returns: { ingresos, gastos, balance }. Ceros en error.
-async function getBalanceHogar(mes, anio) {
+// getGastosHogar(mes, anio) — total de GASTOS compartidos del hogar en el mes
+// (todas las filas ambito='hogar' tipo='gasto', de cualquier miembro).
+// Returns: número (0 en error).
+async function getGastosHogar(mes, anio) {
   try {
     const { desde, hasta } = _rangoMes(mes, anio);
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto')
+      .select('monto')
       .not('hogar_id', 'is', null)
-      .neq('tipo', 'ahorro')
+      .eq('ambito', 'hogar')
+      .eq('tipo', 'gasto')
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (error) throw error;
-
-    let ingresos = 0, gastos = 0;
-    (data || []).forEach((t) => {
-      if (t.tipo === 'ingreso') ingresos += Number(t.monto);
-      else if (t.tipo === 'gasto') gastos += Number(t.monto);
-    });
-    return { ingresos, gastos, balance: ingresos - gastos };
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
   } catch (err) {
-    console.error('Error en getBalanceHogar():', err.message || err);
-    return { ingresos: 0, gastos: 0, balance: 0 };
+    console.error('Error en getGastosHogar():', err.message || err);
+    return 0;
+  }
+}
+
+// getAhorroHogarAcumulado() — ahorro total aportado al hogar, todos los
+// tiempos, de cualquier miembro. Es el número de cabecera: "Ahorro del
+// hogar". Reemplaza el viejo "Balance del hogar" (ingresos-gastos), que
+// dependía de la ficción de ingresos-hogar (retirada en Fase 6.3).
+// Returns: número (0 en error).
+async function getAhorroHogarAcumulado() {
+  try {
+    const { data, error } = await supabase
+      .from('transacciones')
+      .select('monto')
+      .not('hogar_id', 'is', null)
+      .eq('ambito', 'hogar')
+      .eq('tipo', 'ahorro');
+    if (error) throw error;
+    return (data || []).reduce((sum, t) => sum + Number(t.monto), 0);
+  } catch (err) {
+    console.error('Error en getAhorroHogarAcumulado():', err.message || err);
+    return 0;
   }
 }
 
 // getBalancePersonal(mes, anio) — totales personales del usuario activo.
-// El aporte al hogar ya es un gasto personal (con aporte_id); por eso
-// `gastos` lo incluye y `aporte_realizado` lo reporta por separado como
-// subconjunto informativo (no se resta dos veces).
+// SIN filtro de hogar_id: el dinero vive en el miembro sea cual sea el
+// ámbito de la fila (Fase 6.3 — el hogar ya no tiene bolsillo propio).
+// `aporte_realizado` reporta, como subconjunto informativo, cuánto de
+// `gastos` fue hacia el hogar (no se resta dos veces).
 // Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
 async function getBalancePersonal(mes, anio) {
   try {
@@ -376,9 +349,8 @@ async function getBalancePersonal(mes, anio) {
     const { desde, hasta } = _rangoMes(mes, anio);
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto, aporte_id')
+      .select('tipo, monto, ambito')
       .eq('user_id', userId)
-      .is('hogar_id', null)
       .neq('tipo', 'ahorro')
       .gte('fecha', desde)
       .lte('fecha', hasta);
@@ -391,7 +363,7 @@ async function getBalancePersonal(mes, anio) {
         ingresos += monto;
       } else if (t.tipo === 'gasto') {
         gastos += monto;
-        if (t.aporte_id) aporte_realizado += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
       }
     });
     return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos };
@@ -402,51 +374,32 @@ async function getBalancePersonal(mes, anio) {
 }
 
 
-// getSaldoAcumuladoHogar() — balance del hogar sumando todos los tiempos (sin filtro de mes).
-// Returns: { ingresos, gastos, balance }. Ceros en error.
-async function getSaldoAcumuladoHogar() {
-  try {
-    const { data, error } = await supabase
-      .from('transacciones')
-      .select('tipo, monto')
-      .not('hogar_id', 'is', null)
-      .neq('tipo', 'ahorro');
-    if (error) throw error;
-    let ingresos = 0, gastos = 0;
-    (data || []).forEach((t) => {
-      if (t.tipo === 'ingreso') ingresos += Number(t.monto);
-      else if (t.tipo === 'gasto') gastos += Number(t.monto);
-    });
-    return { ingresos, gastos, balance: ingresos - gastos };
-  } catch (err) {
-    console.error('Error en getSaldoAcumuladoHogar():', err.message || err);
-    return { ingresos: 0, gastos: 0, balance: 0 };
-  }
-}
-
-// getSaldoAcumuladoPersonal() — balance personal acumulado (todos los tiempos).
+// getSaldoAcumuladoPersonal() — saldo disponible personal (todos los tiempos).
+// SIN filtro de hogar_id (Fase 6.3): un gasto o ahorro hacia el hogar sale
+// igual del bolsillo del miembro. balance = ingresos − gastos − ahorros.
 // Returns: { ingresos, gastos, aporte_realizado, balance }. Ceros en error.
 async function getSaldoAcumuladoPersonal() {
   try {
     const userId = _requireUserId();
     const { data, error } = await supabase
       .from('transacciones')
-      .select('tipo, monto, aporte_id')
-      .eq('user_id', userId)
-      .is('hogar_id', null)
-      .neq('tipo', 'ahorro');
+      .select('tipo, monto, ambito')
+      .eq('user_id', userId);
     if (error) throw error;
-    let ingresos = 0, gastos = 0, aporte_realizado = 0;
+    let ingresos = 0, gastos = 0, ahorros = 0, aporte_realizado = 0;
     (data || []).forEach((t) => {
       const monto = Number(t.monto);
       if (t.tipo === 'ingreso') {
         ingresos += monto;
       } else if (t.tipo === 'gasto') {
         gastos += monto;
-        if (t.aporte_id) aporte_realizado += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
+      } else if (t.tipo === 'ahorro') {
+        ahorros += monto;
+        if (t.ambito === 'hogar') aporte_realizado += monto;
       }
     });
-    return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos };
+    return { ingresos, gastos, aporte_realizado, balance: ingresos - gastos - ahorros };
   } catch (err) {
     console.error('Error en getSaldoAcumuladoPersonal():', err.message || err);
     return { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 };
@@ -699,7 +652,7 @@ async function getProfiles() {
 
 // getAportesPorMiembro(mes, anio) — aporte real al hogar por cada miembro en el
 // mes dado, junto al esperado de su perfil. Para el gráfico "aporte real vs. esperado".
-// Real = SUMA de transacciones con aporte_id != null en el mes, agrupado por user_id.
+// Real = SUMA de gasto hogar + ahorro hogar del miembro en el mes.
 // Returns: [{ user_id, nombre, esperado, real }] (un elemento por perfil) o [].
 // RLS: perfiles del hogar y transacciones de aporte visibles entre miembros.
 async function getAportesPorMiembro(mes, anio) {
@@ -713,13 +666,14 @@ async function getAportesPorMiembro(mes, anio) {
     if (errM) throw errM;
     if (!miembros || !miembros.length) return [];
 
-    // Real = todo lo que el miembro puso al hogar en el mes (ingresos + gastos
-    // del hogar que pagó). Consistente con aporteRealPorMiembro de #hogar.
+    // Real = gasto hogar (su parte de gastos compartidos) + ahorro hogar
+    // (lo que apartó) del miembro en el mes. Consistente con
+    // aporteRealPorMiembro (js/hogar-aporte.js).
     const { data: txs, error: errT } = await supabase
       .from('transacciones')
       .select('user_id, tipo, monto')
       .not('hogar_id', 'is', null)
-      .in('tipo', ['ingreso', 'gasto'])
+      .in('tipo', ['gasto', 'ahorro'])
       .gte('fecha', desde)
       .lte('fecha', hasta);
     if (errT) throw errT;
@@ -1104,10 +1058,11 @@ async function insertPrestamo(transaccion_id, deudor, estado = 'pendiente') {
 // Lanza Error si falla marcar el préstamo.
 async function marcarDevuelto(prestamo_id, transaccion_id) {
   try {
-    // 1. Leer la transacción original para replicar monto/ámbito.
+    // 1. Leer la transacción original para replicar el monto. El ámbito NO se
+    // replica: la devolución siempre es un ingreso personal (ver más abajo).
     const { data: original, error: errOrig } = await supabase
       .from('transacciones')
-      .select('monto, ambito')
+      .select('monto')
       .eq('id', transaccion_id)
       .single();
     if (errOrig) throw errOrig;
@@ -1131,7 +1086,12 @@ async function marcarDevuelto(prestamo_id, transaccion_id) {
       if (catDevolucion) {
         ingreso = await insertTransaccion({
           tipo: 'ingreso',
-          ambito: original.ambito,
+          // Siempre personal, aunque el préstamo se registrara con ámbito
+          // hogar: un ingreso no puede ser del hogar (CHECK
+          // transacciones_hogar_sin_ingreso). Replicar original.ambito haría
+          // que este insert fallara y, como el error se traga acá abajo, el
+          // préstamo quedaría cerrado y el dinero nunca registrado.
+          ambito: 'personal',
           categoria_id: catDevolucion.id,
           monto: original.monto,
           nota: 'Devolución de préstamo',
@@ -1222,20 +1182,24 @@ async function updateDesafio(id, datos) {
 // RESUMEN
 // ═══════════════════════════════════════════════════════════════════
 
-// getResumenMensual(mes, anio) — cierre del mes: balances + desglose.
-// Combina balance del hogar, balance personal del usuario activo, y el
-// desglose de gastos por categoría (hogar + personales propios) del mes.
-// Returns: { hogar, personal, porCategoria } — porCategoria es array de
-//          { categoria_id, nombre, total }. Estructura vacía en error.
+// getResumenMensual(mes, anio) — cierre del mes: gastos/ahorro del hogar +
+// balance personal del usuario activo + desglose de gastos por categoría
+// (hogar + personales propios) del mes. El hogar ya no tiene "balance"
+// (Fase 6.3: sin ingresos propios) — solo gastos compartidos y ahorro.
+// Returns: { hogar, personal, porCategoria } — hogar es { gastos, ahorro };
+// porCategoria es array de { categoria_id, nombre, total }. Estructura
+// vacía en error.
 async function getResumenMensual(mes, anio) {
   try {
     const userId = _requireUserId();
     const { desde, hasta } = _rangoMes(mes, anio);
 
-    const [hogar, personal] = await Promise.all([
-      getBalanceHogar(mes, anio),
+    const [gastosHogar, ahorroHogar, personal] = await Promise.all([
+      getGastosHogar(mes, anio),
+      getAhorrosHogar(mes, anio),
       getBalancePersonal(mes, anio),
     ]);
+    const hogar = { gastos: gastosHogar, ahorro: ahorroHogar };
 
     // Gastos del mes visibles (hogar + personales propios) por categoría.
     const { data, error } = await supabase
@@ -1263,7 +1227,7 @@ async function getResumenMensual(mes, anio) {
   } catch (err) {
     console.error('Error en getResumenMensual():', err.message || err);
     return {
-      hogar: { ingresos: 0, gastos: 0, balance: 0 },
+      hogar: { gastos: 0, ahorro: 0 },
       personal: { ingresos: 0, gastos: 0, aporte_realizado: 0, balance: 0 },
       porCategoria: [],
     };
@@ -1386,6 +1350,67 @@ async function deleteSplit(splitId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// GASTO COMPARTIDO (Fase 6.3) — split de un gasto de hogar entre miembros
+// ═══════════════════════════════════════════════════════════════════
+// registrarGastoHogar(fecha, categoria_id, nota, partes) — partes:
+// [{ user_id, monto }]. Un solo elemento con user_id = usuario activo NO
+// pasa por aquí (usar insertTransaccion normal: es el camino rápido de un
+// solo pagador, editable y offline como cualquier gasto).
+// Online: RPC registrar_gasto_hogar (security definer, valida en servidor).
+// Offline: encola en la outbox (entity 'gasto_hogar'); el replay reintenta
+// el mismo RPC con el mismo grupo_id (idempotente).
+// Returns: array de filas creadas (u optimista con _pending:true si offline).
+// Lanza Error en fallo online real.
+
+// _filasOptimistasGastoHogar(...) — arma las filas optimistas (mismo shape
+// que devuelve el servidor) para mirrorear localmente mientras la op está
+// en la outbox. Usado tanto por la rama offline como por el fallback de
+// error de red en el catch, para que ambas devuelvan/mirroreen igual.
+function _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes) {
+  return partes.map((p) => ({
+    id: crypto.randomUUID(), grupo_id: grupoId, tipo: 'gasto', ambito: 'hogar',
+    user_id: p.user_id, categoria_id, monto: p.monto, nota: nota ?? null,
+    fecha: fecha || new Date().toISOString().slice(0, 10), _pending: true,
+  }));
+}
+
+async function registrarGastoHogar(fecha, categoria_id, nota, partes) {
+  const grupoId = crypto.randomUUID();
+  const payload = { grupo_id: grupoId, fecha: fecha || null, categoria_id, nota: nota ?? null, partes };
+
+  if (!navigator.onLine) {
+    await outboxAdd('gasto_hogar', payload);
+    const filasOptimistas = _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes);
+    for (const fila of filasOptimistas) await mirrorPut('transacciones', fila);
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+    return filasOptimistas;
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('registrar_gasto_hogar', {
+      p_grupo_id: grupoId,
+      p_fecha: fecha || null,
+      p_categoria_id: categoria_id,
+      p_nota: nota ?? null,
+      p_partes: partes,
+    });
+    if (error) throw error;
+    for (const fila of data || []) await mirrorPut('transacciones', fila);
+    return data;
+  } catch (err) {
+    if (_isNetworkError(err)) {
+      await outboxAdd('gasto_hogar', payload);
+      const filasOptimistas = _filasOptimistasGastoHogar(grupoId, fecha, categoria_id, nota, partes);
+      for (const fila of filasOptimistas) await mirrorPut('transacciones', fila);
+      if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+      return filasOptimistas;
+    }
+    console.error('Error en registrarGastoHogar():', err.message || err);
+    throw err;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // RECIBO (Fase 3) — Storage privado, path = {user_id}/{tx_id}.webp
 // ═══════════════════════════════════════════════════════════════════
 async function subirRecibo(transaccionId, blob) {
@@ -1465,6 +1490,43 @@ async function _refrescarHogarState() {
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent('hogar:changed'));
   }
+}
+
+// _hogarPrimed — guarda de idempotencia del priming inicial. window.hogarState
+// solo lo puebla getEstadoHogar(), y hasta Fase 7 nadie lo llamaba al iniciar
+// sesión: el primer render veía hogarState undefined, tieneHogar() daba false y
+// el UI del hogar se apagaba solo hasta que visitaras #hogar.
+let _hogarPrimed = false;
+
+// primeHogarState() — puebla window.hogarState una vez por sesión.
+// NO bloquea: se dispara sin await y los consumidores se corrigen solos al
+// recibir 'hogar:changed'. Si la red falla, _refrescarHogarState deja
+// hogarState en null y el gating cae a "sin hogar", que es el estado seguro.
+//
+// Sin red no se consume la guarda. Abrir la PWA offline dejaba el hogar
+// apagado toda la sesión: el intento fallaba, el flag quedaba en true y
+// ninguna navegación posterior reintentaba aunque volviera la conexión.
+// No se comprueba el resultado del fetch porque no sirve de señal:
+// getEstadoHogar devuelve null igual si falla la red que si el usuario
+// simplemente no tiene hogar, así que reintentar según eso castigaría con una
+// consulta por navegación, para siempre, a quien no tenga hogar.
+function primeHogarState() {
+  if (_hogarPrimed) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  _hogarPrimed = true;
+  _refrescarHogarState();
+}
+
+// resetHogarPrime() — al cerrar sesión. Sin esto, el siguiente usuario que
+// entre en la misma pestaña hereda el hogarState del anterior.
+function resetHogarPrime() {
+  _hogarPrimed = false;
+  if (typeof window !== 'undefined') window.hogarState = null;
+}
+
+if (typeof window !== 'undefined') {
+  window.primeHogarState = primeHogarState;
+  window.resetHogarPrime = resetHogarPrime;
 }
 
 // crearHogar(nombre) — crea un hogar y agrega al usuario como creador.
@@ -1574,7 +1636,24 @@ async function getLiquidacionesHogar() {
 // Returns: el channel para luego hacer supabase.removeChannel(channel), o null.
 function subscribeHogar(hogarId, onChange) {
   if (!hogarId) return null;
-  const ch = supabase.channel('hogar-' + hogarId)
+  const topic = 'hogar-' + hogarId;
+  // supabase.channel(topic) NO crea una instancia nueva si el topic ya existe:
+  // devuelve la que está registrada. La vista de hogar se re-monta en cada
+  // visita (el router re-ejecuta su script) y su variable `channel` vive en el
+  // closure del IIFE, así que la limpieza de la visita anterior nunca corre y
+  // el canal sigue registrado. Al volver, esta función recibía esa instancia
+  // —ya suscrita— y encadenar .on() sobre ella lanza:
+  //
+  //   cannot add `postgres_changes` callbacks for realtime:hogar-<id>
+  //   after `subscribe()`
+  //
+  // El throw subía hasta el catch de render() y la vista mostraba "No se pudo
+  // cargar el hogar. Revisa tu conexión", que no tenía nada que ver.
+  // Quitando la instancia previa, channel() sí devuelve una limpia.
+  supabase.getChannels()
+    .filter((c) => c.topic === 'realtime:' + topic || c.topic === topic)
+    .forEach((c) => supabase.removeChannel(c));
+  const ch = supabase.channel(topic)
     .on('postgres_changes',
         { event: '*', schema: 'public', table: 'transacciones', filter: 'hogar_id=eq.' + hogarId },
         onChange)
@@ -1583,4 +1662,68 @@ function subscribeHogar(hogarId, onChange) {
         onChange)
     .subscribe();
   return ch;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INGESTA DE CORREOS BANCARIOS — cola de revisión (ingest_pendientes)
+// El Worker encola propuestas parseadas de los correos del banco; el usuario
+// las confirma/corrige/descarta aquí. Filas 'revisar-manual' llegan sin
+// tipo/monto/fecha (formato no reconocido): el usuario las completa.
+// Online-only a propósito: la cola vive en el servidor y revisar exige ver
+// el estado real; sin red la vista muestra error, no un espejo rancio.
+// ═══════════════════════════════════════════════════════════════
+
+// getIngestPendientes() — pendientes de revisión (incluye revisar-manual),
+// más recientes primero. Lanza en fallo (la vista muestra el error).
+async function getIngestPendientes() {
+  const { data, error } = await supabase
+    .from('ingest_pendientes')
+    .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, raw_subject, created_at')
+    .in('estado', ['pendiente', 'revisar-manual'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// contarIngestPendientes() — conteo para el badge del nav. 0 en error (el
+// badge es informativo; no debe romper la navegación).
+async function contarIngestPendientes() {
+  try {
+    const { count, error } = await supabase
+      .from('ingest_pendientes')
+      .select('id', { count: 'exact', head: true })
+      .in('estado', ['pendiente', 'revisar-manual']);
+    if (error) throw error;
+    return count || 0;
+  } catch (err) {
+    console.error('Error en contarIngestPendientes():', err.message || err);
+    return 0;
+  }
+}
+
+// confirmarIngestPendiente(id, transaccionId, datos) — marca la propuesta como
+// confirmada y la enlaza a la transacción creada. `datos` {tipo, monto, fecha}
+// escribe de vuelta lo que el usuario editó: deja la cola como auditoría de lo
+// realmente confirmado y satisface el check propuesta_completa cuando la fila
+// venía de 'revisar-manual' (campos NULL). Lanza en fallo.
+async function confirmarIngestPendiente(id, transaccionId, datos = {}) {
+  const fila = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
+  if (datos.tipo != null) fila.tipo = datos.tipo;
+  if (datos.monto != null) fila.monto = datos.monto;
+  if (datos.fecha != null) fila.fecha = datos.fecha;
+  const { error } = await supabase
+    .from('ingest_pendientes')
+    .update(fila)
+    .eq('id', id);
+  if (error) throw error;
+}
+
+// descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
+// Lanza en fallo.
+async function descartarIngestPendiente(id) {
+  const { error } = await supabase
+    .from('ingest_pendientes')
+    .update({ estado: 'descartado', resolved_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
 }
