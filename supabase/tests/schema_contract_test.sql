@@ -116,6 +116,41 @@ begin
   end if;
 end $$;
 
+-- ── Aislamiento entre hogares en distribuir_ahorro ───────────────────
+-- La rama 'hogar' de distribuir_ahorro no filtraba por hogar_id en 3 sitios
+-- (el fondo + las dos pasadas del loop de metas), así que repartía el ahorro
+-- de un hogar entre las metas de CUALQUIER hogar. Como es SECURITY DEFINER,
+-- escribía saltándose la RLS. Estaba dormido porque solo existía un hogar
+-- (`limit 1` siempre acertaba); se detectó el 2026-07-16 al crear un segundo.
+-- Migración: 20260716_distribuir_ahorro_aisla_hogar.sql.
+--
+-- Este check es textual a propósito: no hay forma barata de ejercitar el RPC
+-- desde un test de solo lectura (exige auth.uid() y dos hogares con metas).
+-- Vigila que nadie reintroduzca la versión sin filtrar al re-crear la función.
+do $$
+declare
+  v_def text;
+  v_loops int;
+begin
+  select pg_get_functiondef(p.oid) into v_def
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.proname = 'distribuir_ahorro';
+
+  if v_def is null then
+    raise exception 'FALLO: distribuir_ahorro no existe';
+  end if;
+
+  if v_def not like '%and hogar_id = v_tx.hogar_id%' then
+    raise exception 'FALLO: distribuir_ahorro busca el fondo del hogar sin filtrar por hogar_id — reparte a las metas de otro hogar';
+  end if;
+
+  v_loops := (length(v_def) - length(replace(v_def, 'm.hogar_id = v_tx.hogar_id', '')))
+             / length('m.hogar_id = v_tx.hogar_id');
+  if v_loops < 2 then
+    raise exception 'FALLO: distribuir_ahorro tiene % de los 2 loops de metas acotados a v_tx.hogar_id — fuga entre hogares', v_loops;
+  end if;
+end $$;
+
 -- ── Buckets de Storage que el cliente usa vía supabase.storage.from(...) ──
 do $$
 declare
