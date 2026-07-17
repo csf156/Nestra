@@ -1,16 +1,23 @@
 # Nestra v2 — reglas del proyecto
 
-App PWA vanilla (sin build). Rama de trabajo/deploy: `v2`.
+App PWA vanilla (sin build). **Rama única de trabajo y deploy: `main`.**
 
-**v1 retirada el 2026-07-01.** `main` ahora sirve el código v2 sobre la base v2 (`ombnhxueclqfeyjzhroz`) — se hizo cutover (PR #5) tras migrar los datos reales de los 2 usuarios de la base v1 a la v2. `js/config.js` ya NO tiene gate por hostname: todos los hosts usan la base v2. Ambas ramas (`v2` y `main`) llevan la misma config. Hosts vivos: `nestra-8rl.pages.dev` (Cloudflare Pages, rama v2) y `csf156.github.io/Nestra/` (GitHub Pages, rama main) — ambos = mismo código v2, misma base v2.
+**v1 retirada el 2026-07-01**, y **`v2` retirada el 2026-07-17.** Todo vive en `main`, sobre la base v2 (`ombnhxueclqfeyjzhroz`). `js/config.js` no tiene gate por hostname: todos los hosts usan la base v2.
+
+**Un solo host vivo: `nestra-8rl.pages.dev`** (Cloudflare Pages, rama `main`). GitHub Pages (`csf156.github.io/Nestra/`) se retiró el 2026-07-17.
+
+> **Por qué se consolidó, para no repetirlo:** durante ~3 días hubo dos ramas sirviendo dos hosts contra la MISMA base, y `main` se quedó 70 commits atrás sin que nada lo detectara (v21 vs v30) — el deploy diario solo tocaba `v2`. Código viejo contra esquema nuevo rompe de verdad: `main` tenía el toggle de ámbito hogar pero no el gate de "hogar sin ingresos", y la base ya tenía el CHECK. Una rama, un host, cero deriva posible.
 
 ## Deploy y preview en el teléfono del usuario
 
 El sitio del usuario es **Cloudflare Pages**: `https://nestra-8rl.pages.dev/`.
-Pages está conectado al repo `csf156/Nestra` y **reconstruye automáticamente al hacer `git push origin v2`** (rama `v2` = producción de ese proyecto Pages; NO toca v1/main). Para que el usuario vea cambios en su teléfono o laptop: **commit + push a `v2`**, esperar ~1-2 min el build, y recargar / cerrar-reabrir la PWA.
+Pages está conectado al repo `csf156/Nestra` y **reconstruye automáticamente al hacer `git push origin main`** (rama `main` = producción de ese proyecto Pages). Para que el usuario vea cambios en su teléfono o laptop: **commit + push a `main`**, esperar ~1-2 min el build, y recargar / cerrar-reabrir la PWA.
 
+- **`main` está protegida:** el push directo se rechaza (`repository rule violations`). Hay que abrir PR (`gh pr create`) y mergearlo. No intentes forzar el push.
+- **Hay dos worktrees del repo**: `C:/Users/csf93/Desktop/Nestra` y `C:/Users/csf93/Desktop/Nestra/..Nestra-v2` (de ahí el path con puntos). Solo uno puede tener `main` checkouteado a la vez; si `git checkout main` falla con *"already used by worktree"*, es eso. Trabajar en una rama aparte y abrir PR lo evita.
 - NO es un túnel a un server local. El server local en 5050 (`preview_start` config `nestra` de `.claude/launch.json`, `npx serve -l 5050 .`) sirve SOLO para tu verificación en navegador; el usuario NO lo ve.
-- Tras `push`, verificar el deploy live con `curl -sL https://nestra-8rl.pages.dev/sw.js | grep SHELL_VERSION`.
+- Tras el merge, verificar el deploy live **con cache-buster** — la caché de borde de Pages devuelve el archivo viejo y da falsos negativos:
+  `curl -sL "https://nestra-8rl.pages.dev/sw.js?cb=$RANDOM" | grep SHELL_VERSION`
 - Las vistas (`views/*.html`) usan **NetworkFirst** en `sw.js`; los cambios se ven al recargar online. Tras cambios de assets se bumpea `SHELL_VERSION` en `sw.js`; en el teléfono puede requerir cerrar/reabrir la PWA para tomar el shell nuevo.
 - El SW y la cámara (`<input capture>`) exigen HTTPS; Pages ya lo da.
 
