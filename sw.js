@@ -38,6 +38,8 @@ precaching.precacheAndRoute([
   { url: 'js/hogar-aporte.js', revision: SHELL_VERSION },
   { url: 'js/presupuestos.js', revision: SHELL_VERSION },
   { url: 'js/presupuestos-orden.js', revision: SHELL_VERSION },
+  { url: 'js/graficos-serie.js', revision: SHELL_VERSION },
+  { url: 'js/meta-resolver.js', revision: SHELL_VERSION },
   { url: 'js/recurrentes-detect.js', revision: SHELL_VERSION },
   { url: 'js/brujula.js', revision: SHELL_VERSION },
   { url: 'js/flujo-proyeccion.js', revision: SHELL_VERSION },

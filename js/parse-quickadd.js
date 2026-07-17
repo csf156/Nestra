@@ -1,6 +1,7 @@
 // js/parse-quickadd.js — parser de reglas para quick-add (free-text → transacción).
 // Sin AI. Carga: <script type="module"> (expone window.parseQuickAdd) y ESM en Node.
 import { tokenize, matchCategoria } from './autocat.js';
+import { resolverMeta } from './meta-resolver.js';
 
 function _normalizeNum(raw) {
   let s = String(raw).replace(/\s/g, '');
@@ -65,6 +66,26 @@ function parseQuickAdd(text, opts = {}) {
     if (bestIdx >= 0) str = str.slice(0, bestIdx) + ' ' + str.slice(bestIdx + bestRaw.length);
   }
   out.monto = (monto != null && monto > 0) ? monto : null;
+
+  // 4.5 Aporte a meta: "meta <nombre>" apunta a una meta concreta y fuerza
+  // tipo=ahorro (un aporte a meta siempre lo es).
+  //
+  // Va DESPUES del monto a proposito: si se extrae antes, el nombre se traga la
+  // cifra ("meta alquiler S/5" → nombre "alquiler S/5" y monto null).
+  //
+  // El \b de los dos lados no es decorativo: sin el, "meta" casaria dentro de
+  // otras palabras.
+  //
+  // El ambito NO se toca: lo hereda la meta (aporte_directo_meta usa el suyo),
+  // asi que un ambito escrito a mano se ignora — la meta es lo especifico.
+  const mMeta = str.match(/\bmeta\b\s*(.*)$/i);
+  if (mMeta) {
+    out.tipo = 'ahorro';
+    const res = resolverMeta(mMeta[1], (ctx && ctx.metas) || []);
+    if (res.meta_id) out.meta_id = res.meta_id;
+    else { out.metaError = res.error; out.metaCandidatas = res.candidatas || []; }
+    str = str.slice(0, mMeta.index) + ' ';
+  }
 
   // 5. Descripción.
   const desc = str.replace(/S\/\.?/ig, ' ').replace(/\s+/g, ' ').trim();
