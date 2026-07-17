@@ -43,7 +43,7 @@
     </section>
     <section class="graf-card" id="card3">
       <h2 class="graf-card-title">Aporte real vs. esperado</h2>
-      <p class="graf-card-desc">Aporte al hogar de cada miembro este mes.</p>
+      <p class="graf-card-desc">Aporte al hogar de cada miembro este mes, en gasto y en ahorro.</p>
       <div class="graf-state" data-card="3"></div>
       <div class="graf-canvas-wrap"><canvas id="chart3" aria-label="Aporte real frente a esperado por miembro"></canvas></div>
     </section>
@@ -294,7 +294,7 @@
           resumen: { hogar: balP, porCategoria: derivarPorCategoria(txMesP) },
           resumenAnterior: { porCategoria: derivarPorCategoria(resPers[1] || []) },
           categoriasGasto: categoriasGasto || [],
-          aportesMiembro: [],
+          miembrosHogar: [],
           balance6m: meses6.map(function (x, i) {
             return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: (resPers[2][i] || {}).balance || 0 };
           }),
@@ -310,7 +310,11 @@
           .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
-        getAportesPorMiembro(m, a),
+        // [3] libre: aquí iba getAportesPorMiembro. El chart 3 ahora se calcula
+        // desde txMes con aporteRealPorMiembro. Se deja el hueco en vez de
+        // renumerar: los índices de abajo son posicionales y moverlos en
+        // silencio le daría al chart 4 los datos del 7.
+        null,
         Promise.all(meses6.map(function (x) { return getAhorrosHogar(x.mes, x.anio); })),
         getMetas(),
       ]);
@@ -329,7 +333,11 @@
         resumen: resHog[1],
         resumenAnterior: resHog[2],
         categoriasGasto: categoriasGasto || [],
-        aportesMiembro: resHog[3] || [],
+        // Miembros con su aporte_esperado. hogarState ya los trae (db.js:1464 los
+        // selecciona) y el router lo prima al iniciar sesión (Tanda 1), así que no
+        // hace falta consultar de nuevo. El "real" lo calcula render3 desde txMes
+        // con aporteRealPorMiembro, que es pura y tiene tests.
+        miembrosHogar: ((typeof window !== 'undefined' && window.hogarState && window.hogarState.miembros) || []),
         balance6m: meses6.map(function (x, i) {
           return { label: nombreMes(x.mes, x.anio).split(' ')[0].slice(0, 3), balance: Number(resHog[4][i]) || 0 };
         }),
@@ -435,28 +443,47 @@
       });
     }
     function render3(datos) {
-      var miembros = datos.aportesMiembro || [];
+      var miembros = datos.miembrosHogar || [];
       if (!miembros.length) { setEstado(3, 'vacio'); return; }
-      var labels = miembros.map(function (x) { return x.nombre; });
-      var esperado = miembros.map(function (x) { return x.esperado; });
-      var real = miembros.map(function (x) { return x.real; });
+      var uid = (window.currentUser && window.currentUser.id) || null;
+      var rango = {
+        desde: new Date(estado.anio, estado.mes - 1, 1).toISOString().slice(0, 10),
+        hasta: new Date(estado.anio, estado.mes, 0).toISOString().slice(0, 10),
+      };
+      var filas = miembros.map(function (m) {
+        var r = (typeof aporteRealPorMiembro === 'function')
+          ? aporteRealPorMiembro(datos.txMes, m.user_id, rango)
+          : { gasto: 0, ahorro: 0, total: 0 };
+        return {
+          nombre: (m.user_id === uid) ? 'Tú' : 'Pareja',
+          esperado: Number(m.aporte_esperado) || 0,
+          gasto: r.gasto, ahorro: r.ahorro,
+        };
+      });
 
       setEstado(3, 'ok');
       charts.chart3 = new Chart($('chart3'), {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: filas.map(function (x) { return x.nombre; }),
           datasets: [
-            { label: 'Esperado', data: esperado, backgroundColor: cssVar('--text-secondary') },
-            { label: 'Real', data: real, backgroundColor: cssVar('--color-primary') },
+            // La barra "Real" va apilada en dos: el gasto se fue, el ahorro
+            // vuelve a quien lo puso al disolver. Sumarlos en una sola insinuaba
+            // que quien ahorra aporta más. Ver el spec de la Tanda 2.
+            { label: 'Esperado', data: filas.map(function (x) { return x.esperado; }),
+              backgroundColor: cssVar('--text-secondary'), stack: 'esperado' },
+            { label: 'Real · gasto', data: filas.map(function (x) { return x.gasto; }),
+              backgroundColor: cssVar('--color-primary'), stack: 'real' },
+            { label: 'Real · ahorro', data: filas.map(function (x) { return x.ahorro; }),
+              backgroundColor: cssVar('--color-success'), stack: 'real' },
           ],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: _legendOpts(cssVar('--text-dark')) },
           scales: {
-            x: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },
-            y: { ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, beginAtZero: true },
+            x: { stacked: true, ticks: _tickOpts(cssVar('--text-secondary')), grid: { display: false } },
+            y: { stacked: true, ticks: _tickOpts(cssVar('--text-secondary')), grid: { color: cssVar('--border-light') }, beginAtZero: true },
           },
         },
       });
