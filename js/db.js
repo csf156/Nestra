@@ -1631,25 +1631,27 @@ function subscribeHogar(hogarId, onChange) {
 // getIngestPendientes() — pendientes de revisión (incluye revisar-manual),
 // más recientes primero. Lanza en fallo (la vista muestra el error).
 async function getIngestPendientes() {
-  const { data, error } = await supabase
-    .from('ingest_pendientes')
-    .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, raw_subject, created_at')
-    .in('estado', ['pendiente', 'revisar-manual'])
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
+  const rows = await _mirroredRead('ingest_pendientes', async () => {
+    const { data, error } = await supabase
+      .from('ingest_pendientes')
+      .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, transaccion_id, raw_subject, created_at, updated_at')
+      .in('estado', ['pendiente', 'revisar-manual', 'confirmado', 'descartado']);
+    if (error) throw error;
+    return data || [];
+  });
+  // El espejo guarda el set completo; filtramos/ordenamos en cliente para que
+  // el badge/undo vean estados no-pendientes sin re-fetch, igual que getTransacciones.
+  return rows
+    .filter((p) => p.estado === 'pendiente' || p.estado === 'revisar-manual')
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : (a.created_at > b.created_at ? -1 : 0)));
 }
 
 // contarIngestPendientes() — conteo para el badge del nav. 0 en error (el
 // badge es informativo; no debe romper la navegación).
 async function contarIngestPendientes() {
   try {
-    const { count, error } = await supabase
-      .from('ingest_pendientes')
-      .select('id', { count: 'exact', head: true })
-      .in('estado', ['pendiente', 'revisar-manual']);
-    if (error) throw error;
-    return count || 0;
+    const filas = await getIngestPendientes();
+    return filas.length;
   } catch (err) {
     console.error('Error en contarIngestPendientes():', err.message || err);
     return 0;
