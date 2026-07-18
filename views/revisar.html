@@ -90,6 +90,7 @@
   // Guard de versión: si el SW sirve JS viejo sin estos globales mientras la
   // vista es nueva, avisar en vez de morir en silencio (patrón de transaccion.html).
   var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
+                'revertirIngestPendiente', 'deleteTransaccion',
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
                 'validarPartesGastoHogar'].filter(function (f) {
     return typeof window[f] !== 'function';
