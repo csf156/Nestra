@@ -77,6 +77,10 @@
   <p class="rev-error" id="revErrorGlobal"></p>
   <div class="rev-sheet-backdrop" id="revSheetBackdrop"></div>
   <div class="rev-sheet" id="revSheet" role="dialog" aria-label="Elegir categoría"></div>
+  <div class="rev-undo-toast" id="revUndoToast" role="status">
+    <span class="rev-undo-msg"></span>
+    <button type="button" class="rev-undo-btn" id="revUndoBtn">Deshacer</button>
+  </div>
 </div>
 
 <script>
@@ -415,14 +419,12 @@
     var nota = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
     btn.disabled = true;
     try {
-      var txId;
+      var txIds;
       if (conPartes && partes.length > 1) {
-        // 2+ pagadores → registrar_gasto_hogar (RPC); la fila propia sirve
-        // de referencia de auditoría en ingest_pendientes.
+        // 2+ pagadores → registrar_gasto_hogar (RPC); todas las filas creadas se
+        // guardan para poder revertirlas si el usuario deshace.
         var filas = await registrarGastoHogar(fecha, catId, nota, partes);
-        var uid = window.currentUser && window.currentUser.id;
-        var propia = (filas || []).filter(Boolean).find(function (f) { return f.user_id === uid; });
-        txId = propia && propia.id;
+        txIds = (filas || []).filter(Boolean).map(function (f) { return f.id; });
       } else {
         // Un solo pagador (o ambito personal/ahorro) → transacción normal,
         // igual que antes. insertTransaccion ya aprende comercio→categoría
@@ -433,10 +435,10 @@
           monto: monto, fecha: fecha,
           nota: nota,
         });
-        txId = tx && tx.id;
+        txIds = [tx.id];
       }
-      await confirmarIngestPendiente(p.id, txId, { tipo: tipo, monto: monto, fecha: fecha });
-      quitarCard(i);
+      await confirmarIngestPendiente(p.id, (txIds.length === 1 ? txIds[0] : null), { tipo: tipo, monto: monto, fecha: fecha });
+      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds });
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
       btn.disabled = false;
@@ -448,7 +450,7 @@
     btn.disabled = true;
     try {
       await descartarIngestPendiente(_filas[i].id);
-      quitarCard(i);
+      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id });
     } catch (e) {
       console.error('descartar pendiente falló:', e);
       btn.disabled = false;
@@ -462,6 +464,61 @@
     _filas[i] = null;
     if (!_filas.some(Boolean)) renderVacio();
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+  }
+
+  // ── Undo: la card se oculta (no se borra) y un toast permite revertir 5s ──
+  var _undoTimer = null;
+  function quitarCardConUndo(i, ctx) {
+    var card = document.getElementById('revCard' + i);
+    if (card) card.style.display = 'none';
+    if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+    mostrarToastUndo(i, ctx);
+  }
+  function mostrarToastUndo(i, ctx) {
+    // Si había un toast vivo, finalízalo (borra su card y limpia su timer) antes
+    // de reusar el único elemento de toast para la nueva acción.
+    if (_undoTimer) { clearTimeout(_undoTimer); finalizarUndo(); }
+    var t = document.getElementById('revUndoToast');
+    t.querySelector('.rev-undo-msg').textContent = ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado';
+    t.setAttribute('data-idx', i);
+    t._ctx = ctx;
+    t.classList.add('is-open');
+    _undoTimer = setTimeout(finalizarUndo, 5000);
+  }
+  function finalizarUndo() {
+    var t = document.getElementById('revUndoToast');
+    var ctx = t._ctx; t._ctx = null;
+    t.classList.remove('is-open');
+    _undoTimer = null;
+    if (!ctx) return;
+    var i = Number(t.getAttribute('data-idx'));
+    var card = document.getElementById('revCard' + i);
+    if (card) card.remove();
+    _filas[i] = null;
+    if (!_filas.some(Boolean)) renderVacio();
+  }
+  async function deshacer() {
+    if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+    var t = document.getElementById('revUndoToast');
+    var ctx = t._ctx; t._ctx = null;
+    t.classList.remove('is-open');
+    if (!ctx) return;
+    try {
+      if (ctx.accion === 'confirmar') {
+        for (var k = 0; k < (ctx.txIds || []).length; k++) {
+          if (ctx.txIds[k]) await deleteTransaccion(ctx.txIds[k]);
+        }
+      }
+      await revertirIngestPendiente(ctx.pendienteId);
+      var i = Number(t.getAttribute('data-idx'));
+      var card = document.getElementById('revCard' + i);
+      if (card) card.style.display = '';
+      if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+    } catch (e) {
+      console.error('deshacer falló:', e);
+      errGlobal.textContent = 'No se pudo deshacer. Revisa #historial.';
+      errGlobal.style.display = 'block';
+    }
   }
 
   // ── Swipe: confirmar (derecha) / descartar (izquierda) con gate ──
@@ -553,6 +610,7 @@
         if (op) elegirCategoria(op.getAttribute('data-val'));
       });
       document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
+      document.getElementById('revUndoBtn').addEventListener('click', deshacer);
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
