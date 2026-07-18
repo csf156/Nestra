@@ -125,3 +125,56 @@ test('gastos sin categoría no se infieren como fijos', () => {
   const out = calcularSafeToSpend(txs, [], { hoy: HOY });
   assert.strictEqual(out.diario, 300); // sin reserva por fijos → 2100/7
 });
+
+// ── Desglose: los componentes que la card muestra al desplegar ──────────
+// El número hero era opaco (¿de dónde sale "te pasaste por S/712"?), así que
+// calcularSafeToSpend expone las piezas que ya calculaba internamente.
+
+test('desglose: presente en estado ok y cuadra con restanteMes', () => {
+  const out = calcularSafeToSpend([ing(2100, '2026-06-05'), gas(700, '2026-06-10')], [], { hoy: HOY });
+  assert.strictEqual(out.estado, 'ok');
+  assert.ok(out.desglose, 'falta desglose');
+  assert.strictEqual(out.desglose.ingresoEstimado, 2100);
+  assert.strictEqual(out.desglose.yaGastado, 700);
+  assert.strictEqual(out.desglose.gastosFijos, 0);
+  assert.strictEqual(out.desglose.ahorroMetas, 0);
+  assert.strictEqual(out.desglose.disponible, 2100);
+  // disponible − yaGastado === restanteMes
+  assert.strictEqual(out.desglose.disponible - out.desglose.yaGastado, out.restanteMes);
+});
+
+test('desglose: presente en estado excedido y cuadra con exceso', () => {
+  const out = calcularSafeToSpend([ing(500, '2026-06-05'), gas(900, '2026-06-10')], [], { hoy: HOY });
+  assert.strictEqual(out.estado, 'excedido');
+  assert.strictEqual(out.desglose.ingresoEstimado, 500);
+  assert.strictEqual(out.desglose.yaGastado, 900);
+  assert.strictEqual(out.desglose.disponible, 500);
+  // yaGastado − disponible === exceso
+  assert.strictEqual(out.desglose.yaGastado - out.desglose.disponible, out.exceso);
+});
+
+test('desglose: disponible descuenta fijos y metas', () => {
+  // 'c1' gastado en abril y mayo (2 meses cerrados) → fijo estimado = mediana(400,400) = 400.
+  const txs = [
+    ing(3000, '2026-06-03'),
+    gas(400, '2026-04-05', 'c1'),
+    gas(400, '2026-05-05', 'c1'),
+  ];
+  const out = calcularSafeToSpend(txs, [], { hoy: HOY });
+  assert.strictEqual(out.desglose.gastosFijos, 400);
+  assert.strictEqual(out.desglose.ingresoEstimado, 3000);
+  // disponible = ingreso − fijos − metas
+  assert.strictEqual(
+    out.desglose.disponible,
+    out.desglose.ingresoEstimado - out.desglose.gastosFijos - out.desglose.ahorroMetas
+  );
+});
+
+test('desglose: los importes son números redondeados (listos para mostrar)', () => {
+  const out = calcularSafeToSpend([ing(2100, '2026-06-05')], [meta({})], { hoy: HOY });
+  for (const [k, v] of Object.entries(out.desglose)) {
+    assert.strictEqual(typeof v, 'number', k + ' no es número');
+    assert.ok(Number.isFinite(v), k + ' no es finito');
+    assert.strictEqual(v, Math.round(v), k + ' no está redondeado');
+  }
+});

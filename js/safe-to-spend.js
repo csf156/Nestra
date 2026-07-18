@@ -35,8 +35,14 @@ function mediana(nums) {
 }
 
 // calcularSafeToSpend(transacciones, metas, { hoy }) — número hero personal.
-// Devuelve null (no mostrar) | {estado:'ok',diario,restanteMes,diasRestantes}
-// | {estado:'excedido',exceso,diasRestantes}.
+// Devuelve null (no mostrar) | {estado:'ok',diario,restanteMes,diasRestantes,desglose}
+// | {estado:'excedido',exceso,diasRestantes,desglose}.
+//
+// `desglose` expone las piezas que el cálculo ya hacía internamente, para que la
+// card pueda explicar de dónde sale el número en vez de mostrarlo a secas:
+//   { ingresoEstimado, gastosFijos, ahorroMetas, disponible, yaGastado }
+// con disponible = ingresoEstimado − gastosFijos − ahorroMetas, y la identidad
+// disponible − yaGastado = restanteMes (o −exceso). Redondeados: son para mostrar.
 function calcularSafeToSpend(transacciones, metas, opts) {
   const hoy = opts.hoy;
   const y = hoy.getFullYear(), mo = hoy.getMonth();
@@ -64,14 +70,35 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   const aporteMetasRestante = calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes);
 
   const numerador = ingresoEstimado - gastoAcumulado - fijosComprometidos - aporteMetasRestante;
+
+  // El desglose se redondea a partir de los MISMOS valores redondeados que se
+  // muestran, no de los crudos: así la resta que ve el usuario cuadra en
+  // pantalla. Redondear cada pieza por su lado dejaba sumas que fallaban por 1.
+  const ingresoR = Math.round(ingresoEstimado);
+  const fijosR = Math.round(fijosComprometidos);
+  const metasR = Math.round(aporteMetasRestante);
+  const desglose = {
+    ingresoEstimado: ingresoR,
+    gastosFijos: fijosR,
+    ahorroMetas: metasR,
+    disponible: ingresoR - fijosR - metasR,
+    yaGastado: Math.round(gastoAcumulado),
+  };
+
   if (numerador < 0) {
-    return { estado: 'excedido', exceso: Math.round(-numerador), diasRestantes };
+    return {
+      estado: 'excedido',
+      exceso: desglose.yaGastado - desglose.disponible,
+      diasRestantes,
+      desglose,
+    };
   }
   return {
     estado: 'ok',
     diario: Math.round(numerador / diasRestantes),
-    restanteMes: Math.round(numerador),
+    restanteMes: desglose.disponible - desglose.yaGastado,
     diasRestantes,
+    desglose,
   };
 }
 
