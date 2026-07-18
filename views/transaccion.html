@@ -1372,9 +1372,13 @@
       montoEl.value = editTx.monto;
       fechaEl.value = String(editTx.fecha).split('T')[0];
       notaEl.value = editTx.nota || '';
-      partesGroup.style.display = 'none';
 
-      cargarCategorias(editTx.categoria_id);
+      // _setAmbito ya llamó a _mostrarPartes(), pero en ese momento la
+      // categoría aún no cargó (cargarCategorias es async) — _esPrestamo()
+      // no puede leerla todavía. Re-evaluar cuando la categoría ya esté
+      // seleccionada, para que el bloqueo por préstamo (y mostrar partes al
+      // abrir directamente una tx que ya es hogar+gasto) sea correcto.
+      cargarCategorias(editTx.categoria_id).then(_mostrarPartes);
     } else {
       // Prefill desde Quick-Add del dashboard. Tiene prioridad sobre share prefill.
       // Se resuelve DESPUÉS de cargarCategorias() porque categoria_id se pasa
