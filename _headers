@@ -1,0 +1,22 @@
+# Cloudflare Pages — cabeceras de seguridad (aplican SOLO en Pages, no en el
+# preview local `npx serve`). Verificar en vivo tras merge con cache-buster:
+#   curl -sI "https://nestra-8rl.pages.dev/?cb=$RANDOM" | grep -i content-security
+#
+# CSP — modelo de amenaza: el comercio/asunto de un correo bancario HOSTIL
+# llega al DOM de #revisar. La vista ya escapa todo con esc() (control
+# primario); la CSP es la segunda capa. Como la app es vanilla sin build y
+# router.js re-inyecta el <script> inline de cada vista, 'unsafe-inline' en
+# script-src es inevitable — el valor real de esta CSP es:
+#   * connect-src acotado -> aunque corriera JS inyectado, no puede exfiltrar
+#     el sb-token a un dominio atacante (fetch/XHR/WebSocket bloqueados).
+#   * object-src 'none' / base-uri 'self' -> sin plugins ni secuestro de <base>.
+#   * frame-ancestors 'none' -> sin clickjacking (no se puede embeber la PWA).
+# Orígenes externos legítimos (grepeados del código):
+#   script  cdn.jsdelivr.net  -> @supabase/supabase-js (con SRI en index.html)
+#   connect ombnhxueclqfeyjzhroz.supabase.co  -> REST/Auth/Storage (https) + Realtime (wss)
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ombnhxueclqfeyjzhroz.supabase.co wss://ombnhxueclqfeyjzhroz.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), payment=()
