@@ -176,6 +176,26 @@
     font-size: var(--font-size-sm);
     opacity: 0.92;
   }
+  /* Desglose del hero. Va sobre el mismo gradiente, así que hereda el blanco ya
+     validado por test/contraste-s2s.test.mjs; las opacidades se mantienen altas
+     (≥0.88, como .dash-s2s-sub) para no comerse ese contraste. */
+  .dash-s2s-desglose { margin: var(--space-md) 0 0; font-size: var(--font-size-sm); }
+  .dash-s2s-desglose > summary {
+    cursor: pointer; opacity: 0.92; list-style: none;
+    padding: var(--space-xs) 0; min-height: 32px; display: flex; align-items: center; gap: 6px;
+  }
+  .dash-s2s-desglose > summary::-webkit-details-marker { display: none; }
+  .dash-s2s-desglose > summary::after { content: '▾'; transition: transform 0.15s ease; }
+  .dash-s2s-desglose[open] > summary::after { transform: rotate(180deg); }
+  .dash-s2s-dl { margin: var(--space-sm) 0 0; padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md); background: rgba(255,255,255,0.12); }
+  .dash-s2s-fila { display: flex; justify-content: space-between; gap: var(--space-md); padding: 3px 0; }
+  .dash-s2s-fila dt { opacity: 0.9; }
+  .dash-s2s-fila dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold); }
+  .dash-s2s-fila--total { border-top: 1px solid rgba(255,255,255,0.35); margin-top: 4px; padding-top: 6px; }
+  .dash-s2s-fila--total dt { opacity: 1; font-weight: var(--font-weight-semibold); }
+  .dash-s2s-nota { margin: var(--space-sm) 0 0; font-size: var(--font-size-xs); opacity: 0.88; }
+  @media (prefers-reduced-motion: reduce) { .dash-s2s-desglose > summary::after { transition: none; } }
 
   .dash-microahorro { margin: var(--space-md) 0; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--border-light); background: color-mix(in srgb, var(--color-success) 8%, transparent); display:flex; flex-direction:column; gap: var(--space-sm); }
   .dash-microahorro[hidden] { display:none; }
@@ -717,12 +737,14 @@
       const cont = $('dashSafeToSpend');
       if (!cont) return;
       if (!res) { cont.innerHTML = ''; return; }
+      const dias = `${res.diasRestantes} día${res.diasRestantes === 1 ? '' : 's'}`;
       if (res.estado === 'excedido') {
         cont.innerHTML = `
           <div class="dash-s2s-card dash-s2s-card--excedido">
-            <p class="dash-s2s-label">Este mes</p>
+            <p class="dash-s2s-label">Te pasaste por</p>
             <p class="dash-s2s-monto">${esc(formatMonto(res.exceso))}</p>
-            <p class="dash-s2s-sub">Te pasaste de lo disponible. Cuida los próximos ${res.diasRestantes} días.</p>
+            <p class="dash-s2s-sub">Quedan ${dias} de mes.</p>
+            ${desgloseHTML(res, 'Te pasaste por', res.exceso)}
           </div>`;
         return;
       }
@@ -730,8 +752,38 @@
         <div class="dash-s2s-card">
           <p class="dash-s2s-label">Puedes gastar hoy</p>
           <p class="dash-s2s-monto">${esc(formatMonto(res.diario))}</p>
-          <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${res.diasRestantes} día${res.diasRestantes === 1 ? '' : 's'}.</p>
+          <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${dias}.</p>
+          ${desgloseHTML(res, 'Te queda para el mes', res.restanteMes)}
         </div>`;
+    }
+
+    // desgloseHTML(res, etiquetaFinal, montoFinal) — explica de dónde sale el
+    // número hero. Cerrado por defecto: la card se lee de un vistazo y el detalle
+    // está a un toque. Sin desglose (versión vieja del cálculo) no rompe: no pinta.
+    function desgloseHTML(res, etiquetaFinal, montoFinal) {
+      const d = res.desglose;
+      if (!d) return '';
+      const fila = (etiqueta, monto, total) =>
+        `<div class="dash-s2s-fila${total ? ' dash-s2s-fila--total' : ''}">
+           <dt>${esc(etiqueta)}</dt><dd>${esc(formatMonto(monto))}</dd>
+         </div>`;
+      return `
+        <details class="dash-s2s-desglose">
+          <summary>Ver cómo se calcula</summary>
+          <dl class="dash-s2s-dl">
+            ${fila('Ingreso estimado del mes', d.ingresoEstimado)}
+            ${fila('− Gastos fijos previstos', d.gastosFijos)}
+            ${fila('− Ahorro para tus metas', d.ahorroMetas)}
+            ${fila('= Disponible para el día a día', d.disponible, true)}
+            ${fila('Ya gastaste', d.yaGastado)}
+            ${fila(etiquetaFinal, montoFinal, true)}
+          </dl>
+          <p class="dash-s2s-nota">
+            El <strong>ingreso estimado</strong> es lo que entró este mes; si tu sueldo aún no cae,
+            el promedio de tus últimos meses. Los <strong>gastos fijos previstos</strong> son
+            categorías en las que gastas casi todos los meses: se reserva lo que aún no has pagado.
+          </p>
+        </details>`;
     }
 
     // ── Render: presupuestos del mes ──────────────────────────
