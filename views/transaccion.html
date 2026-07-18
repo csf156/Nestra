@@ -868,9 +868,13 @@
     })();
 
     // ── Partes del gasto compartido (Fase 6.3) ──────────────────
-    // Siempre visible para ambito=hogar && tipo=gasto (no checkbox), prefill
-    // 100% al registrante. En edición no se ofrece (no editable desde
-    // historial de todos modos si terminó con grupo_id).
+    // Visible para ambito=hogar && tipo=gasto && 2+ miembros, tanto en alta
+    // como en edición de una transacción SIN dividir (grupo_id null — un
+    // gasto ya dividido no se edita desde aquí, historial.html lo bloquea
+    // antes de abrir el editor). Nunca se ofrece si la categoría es
+    // "Dinero que prestamos" (_esPrestamo()): sin análogo en gasto
+    // compartido. Prefill 100% al usuario actual siempre, también editando —
+    // la fila original nunca tuvo reparto, no hay nada que precargar del otro.
     function _miembrosHogar() {
       const st = window.hogarState || {};
       return (st.miembros || []).map((m) => ({
@@ -916,9 +920,29 @@
         el.classList.add('partes-restante--sobra');
       }
     }
+    // _migrarReciboASplit(filas) — best-effort: descarga el recibo de la tx
+    // original y lo re-sube a la fila del usuario actual dentro del split
+    // nuevo. Un fallo aquí NUNCA revierte el split ya creado (el archivo
+    // original en Storage no se borra al borrar la transacción — no hay
+    // pérdida irreversible, solo desvinculación). Devuelve un string de aviso
+    // si no se pudo migrar, o null si migró bien.
+    async function _migrarReciboASplit(filas) {
+      const uid = window.currentUser && window.currentUser.id;
+      const propia = (filas || []).filter(Boolean).find((f) => f.user_id === uid);
+      if (!propia) return 'El recibo no se pudo trasladar (sin fila propia en el split). Adjúntalo de nuevo si quieres conservarlo.';
+      if (!navigator.onLine) return 'El recibo no se pudo trasladar (sin conexión). Adjúntalo de nuevo si quieres conservarlo.';
+      try {
+        const { data: blob, error } = await supabase.storage.from('recibos').download(editTx.recibo_path);
+        if (error || !blob) throw error || new Error('sin blob');
+        await subirRecibo(propia.id, blob);
+        return null;
+      } catch (_) {
+        return 'El recibo no se pudo trasladar. Adjúntalo de nuevo si quieres conservarlo.';
+      }
+    }
     function _mostrarPartes() {
-      if (editTx) { partesGroup.style.display = 'none'; return; }
-      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' && _miembrosHogar().length >= 2;
+      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' &&
+        _miembrosHogar().length >= 2 && !_esPrestamo();
       partesGroup.style.display = esHogarGasto ? 'block' : 'none';
       if (esHogarGasto && !partesFilas.children.length) _renderPartesFilas();
       _actualizarRestante();
@@ -1153,7 +1177,7 @@
     }
 
     // ── Pantalla de éxito ─────────────────────────────────────
-    async function mostrarExito(categoriaId) {
+    async function mostrarExito(categoriaId, avisoExtra) {
       form.style.display = 'none';
       txExito.style.display = 'flex';
 
@@ -1164,16 +1188,27 @@
         alerta = await evaluarAlertaCategoria(categoriaId, mes, anio);
       } catch (_) {}
 
+      const partesHtml = [];
       if (alerta) {
-        txAlertaPost.innerHTML = `
+        partesHtml.push(`
           <div class="alert-item alert-item--${esc(alerta.nivel)}" role="status">
             <span class="alert-icon" aria-hidden="true">${esc(alerta.icono)}</span>
             <span>${esc(alerta.mensaje)}</span>
-          </div>`;
+          </div>`);
+      }
+      if (avisoExtra) {
+        partesHtml.push(`
+          <div class="alert-item alert-item--suave" role="status">
+            <span>${esc(avisoExtra)}</span>
+          </div>`);
+      }
+
+      if (partesHtml.length) {
+        txAlertaPost.innerHTML = partesHtml.join('');
         txAlertaPost.style.display = 'block';
-        // Con alerta: espera que el usuario haga click.
+        // Con alerta o aviso: espera que el usuario haga click.
       } else {
-        // Sin alerta: navega automáticamente tras 1.8s.
+        // Sin nada que mostrar: navega automáticamente tras 1.8s.
         setTimeout(() => {
           if (window._modalMode) window._modalRefresh = true;
           _salir();
@@ -1229,8 +1264,36 @@
       setCargando(true);
       try {
         if (editTx) {
-          // Edición: solo actualiza campos. No toca préstamos ni aportes
-          // vinculados (esas filas no son editables desde el historial).
+          const conPartesEnEdicion = partesGroup.style.display !== 'none';
+          if (conPartesEnEdicion) {
+            const partes = _leerPartes().filter((p) => p.monto > 0);
+            const check = validarPartesGastoHogar(monto, partes);
+            if (!check.ok) {
+              partesError.textContent = check.error;
+              partesError.style.display = 'block';
+              setCargando(false);
+              return;
+            }
+            partesError.style.display = 'none';
+            if (partes.length >= 2) {
+              // Conversión 1 fila → N: crear el split PRIMERO, borrar la
+              // original SOLO si eso resolvió — si registrarGastoHogar lanza
+              // (error real, no de red — ya distingue y encola offline), la
+              // fila original queda intacta.
+              const filas = await registrarGastoHogar(fecha, savedCatId, nota, partes);
+              await deleteTransaccion(editTx.id);
+              let avisoExtra = null;
+              if (editTx.recibo_path) {
+                avisoExtra = await _migrarReciboASplit(filas);
+              }
+              await mostrarExito(savedCatId, avisoExtra);
+              return;
+            }
+            // partes.length === 1 (todo en la fila propia): camino simple,
+            // sin crear grupo_id — cae al updateTransaccion de abajo.
+          }
+          // Edición sin split: solo actualiza campos. No toca préstamos ni
+          // aportes vinculados (esas filas no son editables desde el historial).
           await updateTransaccion(editTx.id, {
             tipo:         tipoEl.value,
             ambito:       ambitoEl.value,
@@ -1309,9 +1372,13 @@
       montoEl.value = editTx.monto;
       fechaEl.value = String(editTx.fecha).split('T')[0];
       notaEl.value = editTx.nota || '';
-      partesGroup.style.display = 'none';
 
-      cargarCategorias(editTx.categoria_id);
+      // _setAmbito ya llamó a _mostrarPartes(), pero en ese momento la
+      // categoría aún no cargó (cargarCategorias es async) — _esPrestamo()
+      // no puede leerla todavía. Re-evaluar cuando la categoría ya esté
+      // seleccionada, para que el bloqueo por préstamo (y mostrar partes al
+      // abrir directamente una tx que ya es hogar+gasto) sea correcto.
+      cargarCategorias(editTx.categoria_id).then(_mostrarPartes);
     } else {
       // Prefill desde Quick-Add del dashboard. Tiene prioridad sobre share prefill.
       // Se resuelve DESPUÉS de cargarCategorias() porque categoria_id se pasa
