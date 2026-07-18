@@ -77,7 +77,7 @@ test('categoría con un solo mes cerrado no es fija', () => {
 
 function meta(over) {
   return Object.assign({
-    id: 'm1', ambito: 'personal', hogar_id: null, estado: 'en_curso', es_fondo_emergencia: false,
+    id: 'm1', nombre: 'Meta', ambito: 'personal', hogar_id: null, estado: 'en_curso', es_fondo_emergencia: false,
     monto_objetivo: 1200, monto_actual: 0, fecha_limite: '2026-12-31',
   }, over);
 }
@@ -172,9 +172,87 @@ test('desglose: disponible descuenta fijos y metas', () => {
 
 test('desglose: los importes son números redondeados (listos para mostrar)', () => {
   const out = calcularSafeToSpend([ing(2100, '2026-06-05')], [meta({})], { hoy: HOY });
+  // metasFueraDeRitmo es la única pieza no-numérica del desglose a propósito:
+  // lista de {nombre, planMensual}, no un importe.
   for (const [k, v] of Object.entries(out.desglose)) {
+    if (k === 'metasFueraDeRitmo') { assert.ok(Array.isArray(v), k + ' debería ser array'); continue; }
     assert.strictEqual(typeof v, 'number', k + ' no es número');
     assert.ok(Number.isFinite(v), k + ' no es finito');
     assert.strictEqual(v, Math.round(v), k + ' no está redondeado');
   }
+});
+
+// ── Reserva de metas topada al ingreso ───────────────────────────────────
+// Bug real: una meta con poco margen (fecha cercana, poco ahorrado) podía
+// exigir MÁS de lo que entra en el mes. calcularAporteMetas no recibía el
+// ingreso, así que no tenía con qué acotrar — el disponible podía salir
+// negativo y la card mostraba un "te pasaste por" fabricado por la reserva,
+// no por gasto real. La reserva total de metas ahora nunca supera el 50%
+// de (ingreso estimado − gastos fijos).
+
+test('reserva de metas se topa al 50% del disponible; el disponible nunca es negativo', () => {
+  // Meta gigante (objetivo 10000, 0 ahorrado, vence en 16 días → mesesRestantes=1
+  // → planMensual=10000) frente a un ingreso de apenas 1000: sin tope, la reserva
+  // cruda sería 10000*(7/30)≈2333, mucho mayor que el ingreso entero.
+  const out = calcularSafeToSpend(
+    [ing(1000, '2026-06-03')],
+    [meta({ nombre: 'Meta gigante', monto_objetivo: 10000, fecha_limite: '2026-07-10' })],
+    { hoy: HOY }
+  );
+  const techo = 1000 * 0.5; // 50% de (ingreso − fijos), fijos=0 aquí
+  assert.ok(out.desglose.ahorroMetas <= techo + 0.5, 'la reserva no se topó: ' + out.desglose.ahorroMetas);
+  assert.ok(out.desglose.disponible >= 0, 'disponible negativo: ' + out.desglose.disponible);
+});
+
+test('regresión: caso real — S/501.76 ingreso, meta "Laptop nueva" S/2,000 al 17-ago no debe pasar de 251 de reserva', () => {
+  const hoyJulio = new Date(2026, 6, 18); // 31 días en julio; díasRestantes = 14.
+  const txs = [
+    ing(501.76, '2026-07-05'),
+    { tipo: 'gasto', ambito: 'personal', hogar_id: null, monto: 268.44, fecha: '2026-07-10', categoria_id: 'c1' },
+  ];
+  const metas = [meta({ nombre: 'Laptop nueva', monto_objetivo: 2000, monto_actual: 0, fecha_limite: '2026-08-17' })];
+  const out = calcularSafeToSpend(txs, metas, { hoy: hoyJulio });
+
+  assert.strictEqual(out.desglose.ingresoEstimado, 502);
+  assert.strictEqual(out.desglose.gastosFijos, 0);
+  assert.strictEqual(out.desglose.ahorroMetas, 251); // topado: sin tope habría sido 903
+  assert.strictEqual(out.desglose.disponible, 251);
+  assert.ok(out.desglose.disponible >= 0);
+  assert.strictEqual(out.desglose.yaGastado, 268);
+  assert.strictEqual(out.estado, 'excedido');
+  assert.strictEqual(out.exceso, 17); // antes del fix: 669 (fabricado por la reserva de 903)
+});
+
+test('meta holgada (dentro del tope) no se recorta — sin cambio de comportamiento', () => {
+  // Mismo caso que el test original 'aporte de meta prorratea...': con ingreso
+  // 2100 el tope es 1050, muy por encima de lo que esa meta exige (~40).
+  const out = calcularSafeToSpend([ing(2100, '2026-06-03')], [meta()], { hoy: HOY });
+  assert.strictEqual(out.estado, 'ok');
+  assert.strictEqual(out.diario, 294);
+  assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 0);
+});
+
+test('metasFueraDeRitmo: se nombra la meta cuando el tope realmente recorta', () => {
+  const hoyJulio = new Date(2026, 6, 18);
+  const txs = [ing(501.76, '2026-07-05')];
+  const metas = [meta({ nombre: 'Laptop nueva', monto_objetivo: 2000, monto_actual: 0, fecha_limite: '2026-08-17' })];
+  const out = calcularSafeToSpend(txs, metas, { hoy: hoyJulio });
+  assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 1);
+  assert.strictEqual(out.desglose.metasFueraDeRitmo[0].nombre, 'Laptop nueva');
+  assert.strictEqual(out.desglose.metasFueraDeRitmo[0].planMensual, 2000);
+});
+
+test('metasFueraDeRitmo: vacío cuando ninguna meta individual supera el tope, aunque la suma sí', () => {
+  // Dos metas modestas por separado (cada una bajo el tope) que en conjunto
+  // superan el 50% del ingreso: se topa la suma, pero no se señala a ninguna
+  // por nombre — evita culpar a una meta razonable de un problema de conjunto.
+  const hoyJulio = new Date(2026, 6, 18);
+  const txs = [ing(1000, '2026-07-05')];
+  const metas = [
+    meta({ id: 'm1', nombre: 'Meta A', monto_objetivo: 600, monto_actual: 0, fecha_limite: '2026-08-10' }),
+    meta({ id: 'm2', nombre: 'Meta B', monto_objetivo: 600, monto_actual: 0, fecha_limite: '2026-08-10' }),
+  ];
+  const out = calcularSafeToSpend(txs, metas, { hoy: hoyJulio });
+  assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 0);
+  assert.ok(out.desglose.ahorroMetas <= 500 + 0.5); // tope: 50% de 1000
 });
