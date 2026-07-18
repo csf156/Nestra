@@ -208,7 +208,7 @@
           (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
           '<div class="rev-grid">' +
             '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
-              '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
+              '<input type="number" inputmode="decimal" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
             '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
               '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
             '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
@@ -324,7 +324,7 @@
       var prefill = m.user_id === uid ? total : 0;
       return '<div class="rev-partes-fila" data-uid="' + esc(m.user_id) + '">' +
         '<label>' + esc(m.nombre) + '</label>' +
-        '<input type="number" min="0" step="0.01" class="rev-partes-monto" value="' + prefill + '">' +
+        '<input type="number" inputmode="decimal" min="0" step="0.01" class="rev-partes-monto" value="' + prefill + '">' +
         '</div>';
     }).join('');
   }

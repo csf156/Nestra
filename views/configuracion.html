@@ -51,7 +51,7 @@
         </div>
         <div class="cfg-input-group">
           <label class="cfg-label" for="cfgCatLimite">Límite mensual (opcional)</label>
-          <input id="cfgCatLimite" type="number" class="cfg-input" placeholder="0.00" min="0" step="0.01">
+          <input id="cfgCatLimite" type="number" inputmode="decimal" class="cfg-input" placeholder="0.00" min="0" step="0.01">
         </div>
         <div class="cfg-cat-form-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="cfgCatFormCancelar">Cancelar</button>
@@ -99,11 +99,11 @@
         </div>
         <div class="cfg-input-group">
           <label class="cfg-label" for="recMonto">Monto</label>
-          <input class="cfg-input" id="recMonto" type="number" step="0.01" min="0.01" placeholder="0.00" required>
+          <input class="cfg-input" id="recMonto" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00" required>
         </div>
         <div class="cfg-input-group">
           <label class="cfg-label" for="recDia">Día de cargo</label>
-          <input class="cfg-input" id="recDia" type="number" min="1" max="31" placeholder="1-31">
+          <input class="cfg-input" id="recDia" type="number" inputmode="numeric" min="1" max="31" placeholder="1-31">
         </div>
         <div class="cfg-input-group">
           <label class="cfg-label" for="recTipo">Tipo</label>
@@ -286,7 +286,7 @@
       </div>
       <div class="cfg-input-group">
         <label class="cfg-label" for="cfgEditLimite">Límite mensual (S/, opcional)</label>
-        <input id="cfgEditLimite" class="cfg-input" type="number" min="0" step="0.01">
+        <input id="cfgEditLimite" class="cfg-input" type="number" inputmode="decimal" min="0" step="0.01">
       </div>
       <div class="cfg-input-group">
         <label class="cfg-check" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -1843,7 +1843,7 @@
             var val = (m.aporte_esperado != null ? m.aporte_esperado : 0);
             return '<div class="cfg-input-group" data-uid="' + escHtml(m.user_id) + '">' +
               '<label class="cfg-label">' + escHtml(quien) + '</label>' +
-              '<input class="cfg-input cfg-hogar-aporte" type="number" min="0" step="0.01" value="' + escHtml(String(val)) + '">' +
+              '<input class="cfg-input cfg-hogar-aporte" type="number" inputmode="decimal" min="0" step="0.01" value="' + escHtml(String(val)) + '">' +
               '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-aporte-save">Guardar</button>' +
             '</div>';
           }).join('') +
@@ -1860,7 +1860,7 @@
             var lim = (c.limite_mensual_hogar != null ? c.limite_mensual_hogar : '');
             return '<div class="cfg-input-group" data-catid="' + escHtml(c.id) + '">' +
               '<label class="cfg-label">' + escHtml(c.nombre) + '</label>' +
-              '<input class="cfg-input cfg-hogar-limite" type="number" min="0" step="0.01" value="' + escHtml(String(lim)) + '">' +
+              '<input class="cfg-input cfg-hogar-limite" type="number" inputmode="decimal" min="0" step="0.01" value="' + escHtml(String(lim)) + '">' +
               '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-limite-save">Guardar</button>' +
             '</div>';
           }).join('');
