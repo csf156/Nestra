@@ -4,7 +4,38 @@
   .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
   .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
   .rev-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
-  .rev-card { padding: var(--space-md); }
+  .rev-card { padding: var(--space-md); position: relative; overflow: hidden; }
+  .rev-compact { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+  .rev-compact-top { display: flex; align-items: center; gap: var(--space-sm); }
+  .rev-compact-monto { margin-left: auto; font-weight: var(--font-weight-bold); }
+  .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px;
+    border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-light);
+    background: var(--bg-subtle, transparent); font-size: var(--font-size-sm); cursor: pointer; }
+  .rev-chip--sugerida { border-style: dashed; }
+  .rev-expandido { display: none; margin-top: var(--space-md); }
+  .rev-card.is-expanded .rev-expandido { display: block; }
+  .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 50; }
+  .rev-sheet-backdrop.is-open { display: block; }
+  .rev-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+    background: var(--bg-surface, #fff); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 70vh; overflow-y: auto; padding: var(--space-md);
+    transform: translateY(100%); transition: transform .2s ease; }
+  .rev-sheet.is-open { transform: translateY(0); }
+  .rev-sheet-op { display: block; width: 100%; text-align: left; padding: var(--space-sm) var(--space-md);
+    border: none; background: none; font-size: var(--font-size-md); cursor: pointer; border-radius: var(--radius-md); }
+  .rev-sheet-op:hover, .rev-sheet-op.is-sel { background: var(--bg-subtle, #f3f4f6); }
+  .rev-swipe-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
+    padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
+  .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
+  .rev-swipe-hint--descartar { right: 0; background: var(--color-danger); }
+  .rev-swipe-surface { transition: transform .15s ease; touch-action: pan-y; background: var(--bg-surface, #fff); position: relative; z-index: 1; }
+  .rev-undo-toast { position: fixed; left: 50%; bottom: calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
+    transform: translateX(-50%) translateY(200%); z-index: 60;
+    background: var(--text-primary, #111); color: var(--bg-surface, #fff);
+    padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill, 999px);
+    display: flex; align-items: center; gap: var(--space-md); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+  .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
+  .rev-undo-btn { background: none; border: none; color: var(--color-primary-300, #7dd3fc); font-weight: var(--font-weight-bold); cursor: pointer; }
   .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
   .rev-banco { text-transform: uppercase; }
   .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
@@ -44,6 +75,8 @@
   <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
+  <div class="rev-sheet-backdrop" id="revSheetBackdrop"></div>
+  <div class="rev-sheet" id="revSheet" role="dialog" aria-label="Elegir categoría"></div>
 </div>
 
 <script>
@@ -137,48 +170,102 @@
         : '<p class="rev-original rev-original-warn">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' — la conversión falló: el monto está en ' + esc(p.moneda_original) + ', corrígelo a tu moneda</p>';
     }
 
-    return '<li class="card rev-card" id="revCard' + i + '">' +
-      '<div class="rev-top">' +
-        '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
-        (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
-        (p.ultimos4 ? '<span class="badge badge-neutral">•••• ' + esc(p.ultimos4) + '</span>' : '') +
-        '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+    return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
+      '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
+      '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
+      '<div class="rev-swipe-surface">' +
+        '<div class="rev-compact" data-rev-expandir="' + i + '">' +
+          '<div class="rev-compact-top">' +
+            '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+            (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
+            '<span class="rev-compact-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</span>' +
+          '</div>' +
+          (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
+          '<div class="rev-compact-top">' +
+            '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
+              esc(nombreCat(cats, sugerida) || 'Sin categoría') +
+            '</button>' +
+            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rev-expandido">' +
+          original +
+          (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
+          '<div class="rev-grid">' +
+            '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
+              '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
+            '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
+              '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
+            '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
+              '<select id="revTipo' + i + '">' +
+                '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
+                '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
+                '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
+              '</select></div>' +
+            '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
+              '<select id="revAmbito' + i + '">' +
+                '<option value="personal" selected>Personal</option>' +
+                (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
+              '</select></div>' +
+            '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
+              '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
+          '</div>' +
+          (hayHogar ? (
+          '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
+            '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
+            '<div id="revPartesFilas' + i + '"></div>' +
+            '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
+            '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
+          '</div>') : '') +
+        '</div>' +
+        '<div class="rev-acciones">' +
+          '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
+          '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
+        '</div>' +
+        '<p class="rev-error" id="revErr' + i + '"></p>' +
       '</div>' +
-      (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
-      (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
-      original +
-      '<div class="rev-grid">' +
-        '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
-          '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
-        '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
-          '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
-        '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
-          '<select id="revTipo' + i + '">' +
-            '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
-            '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
-            '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
-          '</select></div>' +
-        '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
-          '<select id="revAmbito' + i + '">' +
-            '<option value="personal" selected>Personal</option>' +
-            (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
-          '</select></div>' +
-        '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
-          '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
-      '</div>' +
-      (hayHogar ? (
-      '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
-        '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
-        '<div id="revPartesFilas' + i + '"></div>' +
-        '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
-        '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
-      '</div>') : '') +
-      '<div class="rev-acciones">' +
-        '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
-        '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
-      '</div>' +
-      '<p class="rev-error" id="revErr' + i + '"></p>' +
     '</li>';
+  }
+
+  function nombreCat(cats, id) {
+    if (!id) return null;
+    var c = (cats || []).find(function (x) { return x.id === id; });
+    return c ? c.nombre : null;
+  }
+
+  // ── Bottom-sheet para elegir categoría desde el chip compacto ──
+  var _sheetIdx = null;
+  function abrirSheet(i) {
+    _sheetIdx = i;
+    var sel = document.getElementById('revCat' + i);
+    if (!sel) return;
+    var actual = sel.value;
+    var opts = Array.prototype.map.call(sel.options, function (o) {
+      return '<button type="button" class="rev-sheet-op' + (o.value === actual ? ' is-sel' : '') +
+        '" data-val="' + esc(o.value) + '">' + esc(o.textContent) + '</button>';
+    }).join('');
+    document.getElementById('revSheet').innerHTML = opts;
+    document.getElementById('revSheetBackdrop').classList.add('is-open');
+    document.getElementById('revSheet').classList.add('is-open');
+  }
+  function cerrarSheet() {
+    document.getElementById('revSheetBackdrop').classList.remove('is-open');
+    document.getElementById('revSheet').classList.remove('is-open');
+    _sheetIdx = null;
+  }
+  function elegirCategoria(val) {
+    if (_sheetIdx == null) return;
+    var i = _sheetIdx;
+    var sel = document.getElementById('revCat' + i);
+    if (sel) sel.value = val;
+    var chip = document.getElementById('revChip' + i);
+    // La etiqueta del chip se lee del <option> ya renderizado (evita cache-miss
+    // de _cats): siempre refleja el tipo actual del select.
+    if (chip) {
+      chip.textContent = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].textContent : 'Sin categoría';
+      chip.classList.remove('rev-chip--sugerida');
+    }
+    cerrarSheet();
   }
 
   var _filas = [];
@@ -197,6 +284,8 @@
     var texto = p.comercio || p.contraparte || '';
     var sugerida = await sugerirCategoria(texto, tipo);
     document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
+    var chip = document.getElementById('revChip' + i);
+    if (chip) { var s = document.getElementById('revCat' + i); chip.textContent = nombreCat(await catsPara(tipo), s.value) || 'Sin categoría'; }
     onAmbitoChange(i);
   }
 
@@ -388,11 +477,20 @@
       listaEl.style.display = '';
 
       listaEl.addEventListener('click', function (ev) {
+        var chipBtn = ev.target.closest('[data-rev-chip]');
+        if (chipBtn) { ev.stopPropagation(); abrirSheet(Number(chipBtn.getAttribute('data-rev-chip'))); return; }
+        var expandir = ev.target.closest('[data-rev-expandir]');
+        if (expandir && !ev.target.closest('[data-rev-chip]')) { var c = expandir.closest('.rev-card'); c.classList.toggle('is-expanded'); return; }
         var b = ev.target.closest('[data-rev-confirmar]');
         if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
         var d = ev.target.closest('[data-rev-descartar]');
         if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
       });
+      document.getElementById('revSheet').addEventListener('click', function (ev) {
+        var op = ev.target.closest('[data-val]');
+        if (op) elegirCategoria(op.getAttribute('data-val'));
+      });
+      document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
       listaEl.addEventListener('change', function (ev) {
         var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
         if (mTipo) { onTipoChange(Number(mTipo[1])); return; }
