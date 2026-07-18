@@ -1710,8 +1710,11 @@ async function descartarIngestPendiente(id) {
   await _aplicarIngestEstado(id, { estado: 'descartado', resolved_at: new Date().toISOString() });
 }
 
-// revertirIngestPendiente(id) — devuelve un pendiente a 'pendiente' (undo de
-// confirmar/descartar). Limpia el enlace de tx y resolved_at.
-async function revertirIngestPendiente(id) {
-  await _aplicarIngestEstado(id, { estado: 'pendiente', transaccion_id: null, resolved_at: null });
+// revertirIngestPendiente(id, estado) — undo de confirmar/descartar: restaura
+// el estado ORIGINAL de la fila. `estado` debe ser el que tenía antes de la
+// acción ('pendiente' o 'revisar-manual'); por defecto 'pendiente'. Revertir
+// SIEMPRE a 'pendiente' rompía el CHECK propuesta_completa al deshacer una
+// fila 'revisar-manual' (sin tipo/monto/fecha): 'pendiente' los exige.
+async function revertirIngestPendiente(id, estado) {
+  await _aplicarIngestEstado(id, { estado: estado || 'pendiente', transaccion_id: null, resolved_at: null });
 }

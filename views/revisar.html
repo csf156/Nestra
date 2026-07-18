@@ -439,7 +439,7 @@
         txIds = [tx.id];
       }
       await confirmarIngestPendiente(p.id, (txIds.length === 1 ? txIds[0] : null), { tipo: tipo, monto: monto, fecha: fecha });
-      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds });
+      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds, estadoOriginal: p.estado });
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
       btn.disabled = false;
@@ -451,7 +451,7 @@
     btn.disabled = true;
     try {
       await descartarIngestPendiente(_filas[i].id);
-      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id });
+      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
     } catch (e) {
       console.error('descartar pendiente falló:', e);
       btn.disabled = false;
@@ -510,7 +510,7 @@
           if (ctx.txIds[k]) await deleteTransaccion(ctx.txIds[k]);
         }
       }
-      await revertirIngestPendiente(ctx.pendienteId);
+      await revertirIngestPendiente(ctx.pendienteId, ctx.estadoOriginal);
       var i = Number(t.getAttribute('data-idx'));
       var card = document.getElementById('revCard' + i);
       if (card) card.style.display = '';
@@ -532,6 +532,10 @@
     var catId = document.getElementById('revCat' + i).value;
     if (!(monto > 0) || !fecha || !tipo) return false;
     if (tipo !== 'ahorro' && !catId) return false;
+    // Conversión de divisa fallida: el monto quedó en la moneda original, no en
+    // PEN — exige que el usuario lo corrija antes de confirmar (nunca one-swipe).
+    var p = _filas[i];
+    if (p && p.moneda_original && p.tasa_cambio == null) return false;
     var grupo = document.getElementById('revPartesGroup' + i);
     if (grupo && grupo.style.display !== 'none') {
       var partes = leerPartes(i).filter(function (x) { return x.monto > 0; });
