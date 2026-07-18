@@ -15,19 +15,23 @@
       <button type="button" class="graf-seg" data-ambito="hogar" aria-pressed="false">Hogar</button>
       <button type="button" class="graf-seg graf-seg--active" data-ambito="personal" aria-pressed="true">Personal</button>
     </div>
-    <!-- Granularidad: SOLO afecta al chart 1 (Evolución temporal). Los demás no
-         la necesitan: el 4 acumula a propósito, el 5 ya es por día, el resto son
-         mensuales por diseño. Ver el spec de la Tanda 3. -->
-    <div class="graf-toggle graf-toggle--gran" role="group" aria-label="Granularidad">
-      <button type="button" class="graf-seg graf-seg--active" data-gran="dias" aria-pressed="true">Días</button>
-      <button type="button" class="graf-seg" data-gran="meses" aria-pressed="false">Meses</button>
-      <button type="button" class="graf-seg" data-gran="trimestres" aria-pressed="false">Trimestres</button>
-    </div>
   </div>
 
   <div class="graf-grid">
     <section class="graf-card" id="card1">
-      <h2 class="graf-card-title">Evolución temporal</h2>
+      <!-- Granularidad: vive DENTRO de esta card porque solo afecta a este
+           gráfico. Los demás no la necesitan: el 4 acumula a propósito, el 5 ya
+           es por día, el resto son mensuales por diseño. El texto visible es la
+           inicial (D/M/T) para no robar ancho al título; el nombre completo va
+           en aria-label para que un lector de pantalla no lea letras sueltas. -->
+      <div class="graf-card-head">
+        <h2 class="graf-card-title">Evolución temporal</h2>
+        <div class="graf-toggle graf-toggle--gran" role="group" aria-label="Granularidad">
+          <button type="button" class="graf-seg graf-seg--mini graf-seg--active" data-gran="dias" aria-label="Por días" aria-pressed="true">D</button>
+          <button type="button" class="graf-seg graf-seg--mini" data-gran="meses" aria-label="Por meses" aria-pressed="false">M</button>
+          <button type="button" class="graf-seg graf-seg--mini" data-gran="trimestres" aria-label="Por trimestres" aria-pressed="false">T</button>
+        </div>
+      </div>
       <p class="graf-card-desc" id="graf1Desc">Gastos e ingresos del hogar, por día.</p>
       <div class="graf-state" data-card="1"></div>
       <div class="graf-canvas-wrap"><canvas id="chart1" aria-label="Gráfico de evolución temporal de gastos e ingresos"></canvas></div>
@@ -95,6 +99,14 @@
   .graf-toggle { display: flex; gap: 4px; background: var(--bg-light-secondary); padding: 4px; border-radius: var(--radius-md); margin-top: var(--space-md); }
   .graf-seg { flex: 1; min-height: 44px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--text-secondary); font-weight: var(--font-weight-semibold); font-size: var(--font-size-sm); cursor: pointer; transition: background 0.15s, color 0.15s; }
   .graf-seg--active { background: var(--color-primary); color: var(--bg-light); }
+
+  /* Chips de granularidad dentro de la card del chart 1: compactos y pegados a
+     la derecha del título, en vez de estirarse a todo el ancho como el toggle
+     global de ámbito. Se conserva el área táctil de 44px de alto. */
+  .graf-card-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+  .graf-card-head .graf-card-title { margin: 0; }
+  .graf-card-head .graf-toggle--gran { margin-top: 0; margin-left: auto; }
+  .graf-seg--mini { flex: 0 0 auto; min-width: 40px; padding: 0 var(--space-sm); }
 
   .graf-grid { transition: opacity 0.15s ease; }
   .graf-grid.is-loading { opacity: 0.5; }
@@ -350,6 +362,16 @@
 
     function render1(datos) {
       var gran = estado.granularidad;
+
+      // La descripción se fija ANTES de los returns por estado vacío: describe
+      // la granularidad elegida, no los datos. Si se dejaba abajo, cambiar de
+      // chip sin movimientos en el periodo dejaba el texto del chip anterior.
+      var desc = $('graf1Desc');
+      if (desc) {
+        desc.textContent = 'Gastos e ingresos, por ' +
+          (gran === 'dias' ? 'día del mes.' : gran === 'meses' ? 'mes (últimos 12).' : 'trimestre (últimos 8).');
+      }
+
       var serie;
       if (gran === 'dias') {
         if (!datos.txMes.length) { setEstado(1, 'vacio'); return; }
@@ -360,24 +382,22 @@
         serie = agruparSerie(amplia.txs, gran, { mes: estado.mes, anio: estado.anio }, amplia.n);
       }
 
-      var desc = $('graf1Desc');
-      if (desc) {
-        desc.textContent = 'Gastos e ingresos, por ' +
-          (gran === 'dias' ? 'día del mes.' : gran === 'meses' ? 'mes (últimos 12).' : 'trimestre (últimos 8).');
-      }
-
       setEstado(1, 'ok');
       charts.chart1 = new Chart($('chart1'), {
         type: 'line',
         data: {
           labels: serie.map(function (x) { return x.label; }),
           datasets: [
+            // cubicInterpolationMode 'monotone' en vez de subir `tension`: la
+            // bezier normal SOBREPASA los datos y puede dibujar la curva por
+            // debajo de 0 entre dos puntos positivos, mostrando un gasto que no
+            // existe. 'monotone' suaviza igual pero nunca sale del rango real.
             { label: 'Gastos', data: serie.map(function (x) { return x.gasto; }),
               borderColor: cssVar('--color-danger'), backgroundColor: 'transparent',
-              tension: 0.25, pointRadius: _mob() ? 0 : 3 },
+              cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
             { label: 'Ingresos', data: serie.map(function (x) { return x.ingreso; }),
               borderColor: cssVar('--color-success'), backgroundColor: 'transparent',
-              tension: 0.25, pointRadius: _mob() ? 0 : 3 },
+              cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
           ],
         },
         options: {
@@ -855,12 +875,70 @@
         return;
       }
       if (token !== cargaToken) return;
+      // Caché para recargarChart1(): el toggle de granularidad solo afecta al
+      // chart 1, así que no debe recargar los 9. Se guarda junto al ámbito con
+      // el que se pidió, para no re-renderizar con datos de otro ámbito.
+      _datosCache = datos;
+      _datosCacheAmbito = ambito;
       Object.keys(charts).forEach(function (id) { destruir(id); });
       visibles.forEach(function (n) {
         try { RENDERS[n - 1](datos); }
         catch (err) { console.error('render' + n + ' falló:', err); setEstado(n, 'error'); }
       });
       if (grid) grid.classList.remove('is-loading');
+    }
+
+    // ── Recarga acotada al chart 1 (toggle de granularidad) ────────────
+    // 'dias' se sirve del caché sin tocar la red; 'meses'/'trimestres' piden
+    // SOLO la ventana ancha de transacciones y la adosan al caché. Los otros 8
+    // gráficos no se destruyen ni parpadean.
+    var _datosCache = null;
+    var _datosCacheAmbito = null;
+    var chart1Token = 0;
+
+    async function _fetchSerieAmplia(ambito, gran) {
+      var m = estado.mes, a = estado.anio;
+      var r = rangoMesLocal(m, a);
+      var nPeriodos = gran === 'meses' ? 12 : 8;
+      var mesesAtras = gran === 'meses' ? 11 : (8 * 3 - 1);
+      var ini = { mes: m, anio: a };
+      for (var k = 0; k < mesesAtras; k++) ini = mesAnterior(ini.mes, ini.anio);
+      var txs = await getTransacciones({ fecha_desde: rangoMesLocal(ini.mes, ini.anio).desde, fecha_hasta: r.hasta });
+      txs = (txs || []).filter(function (x) {
+        return ambito === 'personal' ? x.hogar_id == null : x.hogar_id != null;
+      });
+      return { txs: txs, n: nPeriodos };
+    }
+
+    async function recargarChart1() {
+      // Sin caché todavía (chip pulsado antes de que termine la carga inicial):
+      // camino seguro, recargar todo en vez de inventar estado.
+      if (!_datosCache || _datosCacheAmbito !== estado.ambito) { recargarTodo(); return; }
+      var token = ++chart1Token;
+      var gran = estado.granularidad;
+      // 'dias' se sirve de datos.txMes (ya en caché). Para meses/trimestres hace
+      // falta la ventana ancha: se pide si no está, o si la cacheada cubre otro
+      // rango (al alternar meses↔trimestres cambia el nº de periodos).
+      var nEsperado = gran === 'meses' ? 12 : 8;
+      var faltaAmplia = gran !== 'dias' &&
+        (!_datosCache.serieAmplia || _datosCache.serieAmplia.n !== nEsperado);
+      if (faltaAmplia) {
+        setEstado(1, 'cargando');
+        try {
+          var amplia = await _fetchSerieAmplia(estado.ambito, gran);
+          if (token !== chart1Token) return;
+          _datosCache.serieAmplia = amplia;
+        } catch (err) {
+          if (token !== chart1Token) return;
+          console.error('serie amplia falló:', err);
+          setEstado(1, 'error');
+          return;
+        }
+      }
+      if (token !== chart1Token) return;
+      destruir('chart1');
+      try { render1(_datosCache); }
+      catch (err3) { console.error('render1 falló:', err3); setEstado(1, 'error'); }
     }
 
     function renderLabel() { $('grafMesLabel').textContent = nombreMes(estado.mes, estado.anio); }
@@ -888,10 +966,9 @@
       b.addEventListener('click', function () { setAmbito(b.getAttribute('data-ambito')); });
     });
 
-    // El toggle de granularidad llama a recargarTodo() igual que cambiarMes y
-    // setAmbito: es el camino que la vista ya tiene, con su guarda de carrera
-    // (cargaToken) resuelta. Recarga de más (todos los charts por un toggle que
-    // afecta a uno), pero no inventa un camino nuevo.
+    // El toggle de granularidad recarga SOLO el chart 1 (es el único que la
+    // consume). Antes llamaba a recargarTodo() y recargaba los 9: el usuario
+    // veía parpadear toda la reja por un control que afecta a un gráfico.
     function setGranularidad(nueva) {
       if (nueva === estado.granularidad) return;
       estado.granularidad = nueva;
@@ -900,7 +977,7 @@
         b.classList.toggle('graf-seg--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
-      recargarTodo();
+      recargarChart1();
     }
     Array.prototype.forEach.call(document.querySelectorAll('.graf-toggle--gran .graf-seg'), function (b) {
       b.addEventListener('click', function () { setGranularidad(b.getAttribute('data-gran')); });
