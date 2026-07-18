@@ -868,9 +868,13 @@
     })();
 
     // ── Partes del gasto compartido (Fase 6.3) ──────────────────
-    // Siempre visible para ambito=hogar && tipo=gasto (no checkbox), prefill
-    // 100% al registrante. En edición no se ofrece (no editable desde
-    // historial de todos modos si terminó con grupo_id).
+    // Visible para ambito=hogar && tipo=gasto && 2+ miembros, tanto en alta
+    // como en edición de una transacción SIN dividir (grupo_id null — un
+    // gasto ya dividido no se edita desde aquí, historial.html lo bloquea
+    // antes de abrir el editor). Nunca se ofrece si la categoría es
+    // "Dinero que prestamos" (_esPrestamo()): sin análogo en gasto
+    // compartido. Prefill 100% al usuario actual siempre, también editando —
+    // la fila original nunca tuvo reparto, no hay nada que precargar del otro.
     function _miembrosHogar() {
       const st = window.hogarState || {};
       return (st.miembros || []).map((m) => ({
@@ -917,8 +921,8 @@
       }
     }
     function _mostrarPartes() {
-      if (editTx) { partesGroup.style.display = 'none'; return; }
-      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' && _miembrosHogar().length >= 2;
+      const esHogarGasto = ambitoEl.value === 'hogar' && tipoEl.value === 'gasto' &&
+        _miembrosHogar().length >= 2 && !_esPrestamo();
       partesGroup.style.display = esHogarGasto ? 'block' : 'none';
       if (esHogarGasto && !partesFilas.children.length) _renderPartesFilas();
       _actualizarRestante();
