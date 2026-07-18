@@ -1624,61 +1624,97 @@ function subscribeHogar(hogarId, onChange) {
 // El Worker encola propuestas parseadas de los correos del banco; el usuario
 // las confirma/corrige/descarta aquí. Filas 'revisar-manual' llegan sin
 // tipo/monto/fecha (formato no reconocido): el usuario las completa.
-// Online-only a propósito: la cola vive en el servidor y revisar exige ver
-// el estado real; sin red la vista muestra error, no un espejo rancio.
+// Offline-first: la cola se espeja en IndexedDB (MIRROR_STORES) y los cambios
+// de estado (confirmar/descartar/revertir) van por la outbox con LWW por
+// updated_at, igual que las transacciones. Sin red la lista y el badge cargan
+// del espejo y las acciones se encolan.
 // ═══════════════════════════════════════════════════════════════
 
 // getIngestPendientes() — pendientes de revisión (incluye revisar-manual),
-// más recientes primero. Lanza en fallo (la vista muestra el error).
+// más recientes primero. Offline-first vía _mirroredRead.
 async function getIngestPendientes() {
-  const { data, error } = await supabase
-    .from('ingest_pendientes')
-    .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, raw_subject, created_at')
-    .in('estado', ['pendiente', 'revisar-manual'])
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
+  const rows = await _mirroredRead('ingest_pendientes', async () => {
+    const { data, error } = await supabase
+      .from('ingest_pendientes')
+      .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, transaccion_id, raw_subject, created_at, updated_at')
+      .in('estado', ['pendiente', 'revisar-manual', 'confirmado', 'descartado']);
+    if (error) throw error;
+    return data || [];
+  });
+  // El espejo guarda el set completo; filtramos/ordenamos en cliente para que
+  // el badge/undo vean estados no-pendientes sin re-fetch, igual que getTransacciones.
+  return rows
+    .filter((p) => p.estado === 'pendiente' || p.estado === 'revisar-manual')
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : (a.created_at > b.created_at ? -1 : 0)));
 }
 
 // contarIngestPendientes() — conteo para el badge del nav. 0 en error (el
 // badge es informativo; no debe romper la navegación).
 async function contarIngestPendientes() {
   try {
-    const { count, error } = await supabase
-      .from('ingest_pendientes')
-      .select('id', { count: 'exact', head: true })
-      .in('estado', ['pendiente', 'revisar-manual']);
-    if (error) throw error;
-    return count || 0;
+    const filas = await getIngestPendientes();
+    return filas.length;
   } catch (err) {
     console.error('Error en contarIngestPendientes():', err.message || err);
     return 0;
   }
 }
 
-// confirmarIngestPendiente(id, transaccionId, datos) — marca la propuesta como
-// confirmada y la enlaza a la transacción creada. `datos` {tipo, monto, fecha}
-// escribe de vuelta lo que el usuario editó: deja la cola como auditoría de lo
-// realmente confirmado y satisface el check propuesta_completa cuando la fila
-// venía de 'revisar-manual' (campos NULL). Lanza en fallo.
+// _aplicarIngestEstado(id, patch) — aplica un cambio de estado a un pendiente,
+// offline-first y con LWW. `patch` NO incluye updated_at: lo fija aquí.
+// Online: UPDATE directo + espejo. Offline / net-error: espejo optimista + outbox.
+async function _aplicarIngestEstado(id, patch) {
+  const updated_at = new Date().toISOString();
+  const full = { ...patch, updated_at };
+
+  async function _mirrorMerge() {
+    try {
+      const db = await nestraDB();
+      const row = await db.get('ingest_pendientes', id);
+      if (row) await db.put('ingest_pendientes', { ...row, ...full });
+    } catch (_) {}
+  }
+  async function _offline() {
+    await _mirrorMerge();
+    await outboxAdd('ingest_estado', { id, ...full });
+    if (typeof notifyPendingChanged === 'function') notifyPendingChanged();
+  }
+
+  if (!navigator.onLine) { await _offline(); return; }
+  try {
+    const { error } = await supabase.from('ingest_pendientes').update(full).eq('id', id);
+    if (error) throw error;
+    await _mirrorMerge();
+  } catch (err) {
+    if (_isNetworkError(err)) { await _offline(); return; }
+    console.error('Error en _aplicarIngestEstado():', err.message || err);
+    throw err;
+  }
+}
+
+// confirmarIngestPendiente(id, transaccionId, datos) — marca confirmado y enlaza
+// la tx. `datos` {tipo,monto,fecha} escribe de vuelta lo editado (audita lo
+// confirmado y satisface propuesta_completa cuando venía de 'revisar-manual').
+// transaccionId puede ser null (hogar-split offline: los ids reales los genera
+// el RPC en el servidor; el enlace se omite y la nota queda de referencia).
 async function confirmarIngestPendiente(id, transaccionId, datos = {}) {
-  const fila = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
-  if (datos.tipo != null) fila.tipo = datos.tipo;
-  if (datos.monto != null) fila.monto = datos.monto;
-  if (datos.fecha != null) fila.fecha = datos.fecha;
-  const { error } = await supabase
-    .from('ingest_pendientes')
-    .update(fila)
-    .eq('id', id);
-  if (error) throw error;
+  const patch = { estado: 'confirmado', transaccion_id: transaccionId || null, resolved_at: new Date().toISOString() };
+  if (datos.tipo != null) patch.tipo = datos.tipo;
+  if (datos.monto != null) patch.monto = datos.monto;
+  if (datos.fecha != null) patch.fecha = datos.fecha;
+  await _aplicarIngestEstado(id, patch);
 }
 
 // descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
-// Lanza en fallo.
 async function descartarIngestPendiente(id) {
-  const { error } = await supabase
-    .from('ingest_pendientes')
-    .update({ estado: 'descartado', resolved_at: new Date().toISOString() })
-    .eq('id', id);
-  if (error) throw error;
+  await _aplicarIngestEstado(id, { estado: 'descartado', resolved_at: new Date().toISOString() });
+}
+
+// revertirIngestPendiente(id, estado) — undo de confirmar/descartar: restaura
+// el estado ORIGINAL de la fila. `estado` debe ser el que tenía antes de la
+// acción ('pendiente' o 'revisar-manual'); por defecto 'pendiente'. Revertir
+// SIEMPRE a 'pendiente' rompía el CHECK propuesta_completa al deshacer una
+// fila 'revisar-manual' (sin tipo/monto/fecha): 'pendiente' los exige.
+async function revertirIngestPendiente(id, estado) {
+  await _aplicarIngestEstado(id, { estado: estado || 'pendiente', transaccion_id: null, resolved_at: null });
 }

@@ -98,7 +98,8 @@ declare
   v_cols text[][] := array[
     array['hogar_miembros','aporte_esperado','views/configuracion.html:1846'],
     array['categorias','limite_mensual_hogar','views/configuracion.html:1856, dashboard.html:713/745, alerts.js:124'],
-    array['transacciones','hogar_id','db.js:585, safe-to-spend.js:137, graficos.html:282/290']
+    array['transacciones','hogar_id','db.js:585, safe-to-spend.js:137, graficos.html:282/290'],
+    array['ingest_pendientes','updated_at','db.js _aplicarIngestEstado + sync.js op ingest_estado (LWW); si falta, el UPDATE offline no puede resolver conflictos']
   ];
   v_col text[];
   v_faltan text[] := array[]::text[];

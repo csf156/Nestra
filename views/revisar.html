@@ -4,7 +4,48 @@
   .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
   .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
   .rev-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
-  .rev-card { padding: var(--space-md); }
+  /* La card ya trae bg (--bg-light-secondary), borde y radio de .card; aquí solo
+     ajustamos padding compacto y recorte del swipe. */
+  .rev-card { padding: 0; position: relative; overflow: hidden; }
+  /* Misma superficie que .card (—bg-light) para que el rectángulo del swipe no
+     se vea más claro que el resto de cards de la app. */
+  .rev-swipe-surface { position: relative; z-index: 1; background: var(--bg-light);
+    padding: var(--space-md); transition: transform .15s ease; touch-action: pan-y; }
+  .rev-compact { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+  .rev-compact-top { display: flex; align-items: center; gap: var(--space-sm); }
+  .rev-compact-monto { margin-left: auto; font-weight: var(--font-weight-bold); color: var(--text-dark); }
+  .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px;
+    border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-light);
+    background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
+    color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; transition: background .15s ease; }
+  .rev-chip:hover { background: color-mix(in srgb, var(--text-secondary) 20%, transparent); }
+  .rev-chip--sugerida { border-style: dashed; }
+  .rev-expandido { display: none; margin-top: var(--space-md); }
+  .rev-card.is-expanded .rev-expandido { display: block; }
+  .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 50; }
+  .rev-sheet-backdrop.is-open { display: block; }
+  .rev-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+    background: var(--bg-light-secondary); color: var(--text-dark);
+    border-top: 1px solid var(--border-light); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: var(--shadow-lg); max-height: 70vh; overflow-y: auto; padding: var(--space-md);
+    transform: translateY(100%); transition: transform .2s ease; }
+  .rev-sheet.is-open { transform: translateY(0); }
+  .rev-sheet-op { display: block; width: 100%; text-align: left; padding: var(--space-sm) var(--space-md);
+    border: none; background: none; color: var(--text-dark); font-size: var(--font-size-base);
+    cursor: pointer; border-radius: var(--radius-md); }
+  .rev-sheet-op:hover, .rev-sheet-op.is-sel { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+  .rev-swipe-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
+    padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
+  .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
+  .rev-swipe-hint--descartar { right: 0; margin-left: auto; background: var(--color-danger); }
+  .rev-undo-toast { position: fixed; left: 50%; bottom: calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
+    transform: translateX(-50%) translateY(200%); z-index: 60;
+    background: var(--bg-light-secondary); color: var(--text-dark);
+    border: 1px solid var(--border-light);
+    padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill, 999px);
+    display: flex; align-items: center; gap: var(--space-md); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+  .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
+  .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
   .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
   .rev-banco { text-transform: uppercase; }
   .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
@@ -44,6 +85,12 @@
   <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
+  <div class="rev-sheet-backdrop" id="revSheetBackdrop"></div>
+  <div class="rev-sheet" id="revSheet" role="dialog" aria-label="Elegir categoría"></div>
+  <div class="rev-undo-toast" id="revUndoToast" role="status">
+    <span class="rev-undo-msg"></span>
+    <button type="button" class="rev-undo-btn" id="revUndoBtn">Deshacer</button>
+  </div>
 </div>
 
 <script>
@@ -53,6 +100,7 @@
   // Guard de versión: si el SW sirve JS viejo sin estos globales mientras la
   // vista es nueva, avisar en vez de morir en silencio (patrón de transaccion.html).
   var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
+                'revertirIngestPendiente', 'deleteTransaccion',
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
                 'validarPartesGastoHogar'].filter(function (f) {
     return typeof window[f] !== 'function';
@@ -137,48 +185,102 @@
         : '<p class="rev-original rev-original-warn">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' — la conversión falló: el monto está en ' + esc(p.moneda_original) + ', corrígelo a tu moneda</p>';
     }
 
-    return '<li class="card rev-card" id="revCard' + i + '">' +
-      '<div class="rev-top">' +
-        '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
-        (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
-        (p.ultimos4 ? '<span class="badge badge-neutral">•••• ' + esc(p.ultimos4) + '</span>' : '') +
-        '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+    return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
+      '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
+      '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
+      '<div class="rev-swipe-surface">' +
+        '<div class="rev-compact" data-rev-expandir="' + i + '">' +
+          '<div class="rev-compact-top">' +
+            '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+            (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
+            '<span class="rev-compact-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</span>' +
+          '</div>' +
+          (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
+          '<div class="rev-compact-top">' +
+            '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
+              esc(nombreCat(cats, sugerida) || 'Sin categoría') +
+            '</button>' +
+            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rev-expandido">' +
+          original +
+          (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
+          '<div class="rev-grid">' +
+            '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
+              '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
+            '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
+              '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
+            '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
+              '<select id="revTipo' + i + '">' +
+                '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
+                '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
+                '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
+              '</select></div>' +
+            '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
+              '<select id="revAmbito' + i + '">' +
+                '<option value="personal" selected>Personal</option>' +
+                (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
+              '</select></div>' +
+            '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
+              '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
+          '</div>' +
+          (hayHogar ? (
+          '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
+            '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
+            '<div id="revPartesFilas' + i + '"></div>' +
+            '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
+            '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
+          '</div>') : '') +
+        '</div>' +
+        '<div class="rev-acciones">' +
+          '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
+          '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
+        '</div>' +
+        '<p class="rev-error" id="revErr' + i + '"></p>' +
       '</div>' +
-      (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
-      (manual && p.raw_subject ? '<p class="rev-raw">Asunto: ' + esc(p.raw_subject) + '</p>' : '') +
-      original +
-      '<div class="rev-grid">' +
-        '<div class="rev-field"><label for="revMonto' + i + '">Monto</label>' +
-          '<input type="number" step="0.01" min="0.01" id="revMonto' + i + '" value="' + (p.monto != null ? esc(p.monto) : '') + '"></div>' +
-        '<div class="rev-field"><label for="revFecha' + i + '">Fecha</label>' +
-          '<input type="date" id="revFecha' + i + '" value="' + esc(p.fecha || '') + '"></div>' +
-        '<div class="rev-field"><label for="revTipo' + i + '">Tipo</label>' +
-          '<select id="revTipo' + i + '">' +
-            '<option value="gasto"' + (tipo === 'gasto' ? ' selected' : '') + '>Gasto</option>' +
-            '<option value="ingreso"' + (tipo === 'ingreso' ? ' selected' : '') + '>Ingreso</option>' +
-            '<option value="ahorro"' + (tipo === 'ahorro' ? ' selected' : '') + '>Ahorro</option>' +
-          '</select></div>' +
-        '<div class="rev-field"><label for="revAmbito' + i + '">Ámbito</label>' +
-          '<select id="revAmbito' + i + '">' +
-            '<option value="personal" selected>Personal</option>' +
-            (hayHogar ? '<option value="hogar">Hogar</option>' : '') +
-          '</select></div>' +
-        '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
-          '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
-      '</div>' +
-      (hayHogar ? (
-      '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
-        '<p class="rev-original" style="margin:0 0 6px">¿Quién puso cuánto?</p>' +
-        '<div id="revPartesFilas' + i + '"></div>' +
-        '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
-        '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
-      '</div>') : '') +
-      '<div class="rev-acciones">' +
-        '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
-        '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
-      '</div>' +
-      '<p class="rev-error" id="revErr' + i + '"></p>' +
     '</li>';
+  }
+
+  function nombreCat(cats, id) {
+    if (!id) return null;
+    var c = (cats || []).find(function (x) { return x.id === id; });
+    return c ? c.nombre : null;
+  }
+
+  // ── Bottom-sheet para elegir categoría desde el chip compacto ──
+  var _sheetIdx = null;
+  function abrirSheet(i) {
+    _sheetIdx = i;
+    var sel = document.getElementById('revCat' + i);
+    if (!sel) return;
+    var actual = sel.value;
+    var opts = Array.prototype.map.call(sel.options, function (o) {
+      return '<button type="button" class="rev-sheet-op' + (o.value === actual ? ' is-sel' : '') +
+        '" data-val="' + esc(o.value) + '">' + esc(o.textContent) + '</button>';
+    }).join('');
+    document.getElementById('revSheet').innerHTML = opts;
+    document.getElementById('revSheetBackdrop').classList.add('is-open');
+    document.getElementById('revSheet').classList.add('is-open');
+  }
+  function cerrarSheet() {
+    document.getElementById('revSheetBackdrop').classList.remove('is-open');
+    document.getElementById('revSheet').classList.remove('is-open');
+    _sheetIdx = null;
+  }
+  function elegirCategoria(val) {
+    if (_sheetIdx == null) return;
+    var i = _sheetIdx;
+    var sel = document.getElementById('revCat' + i);
+    if (sel) sel.value = val;
+    var chip = document.getElementById('revChip' + i);
+    // La etiqueta del chip se lee del <option> ya renderizado (evita cache-miss
+    // de _cats): siempre refleja el tipo actual del select.
+    if (chip) {
+      chip.textContent = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].textContent : 'Sin categoría';
+      chip.classList.remove('rev-chip--sugerida');
+    }
+    cerrarSheet();
   }
 
   var _filas = [];
@@ -197,6 +299,8 @@
     var texto = p.comercio || p.contraparte || '';
     var sugerida = await sugerirCategoria(texto, tipo);
     document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
+    var chip = document.getElementById('revChip' + i);
+    if (chip) { var s = document.getElementById('revCat' + i); chip.textContent = nombreCat(await catsPara(tipo), s.value) || 'Sin categoría'; }
     onAmbitoChange(i);
   }
 
@@ -326,14 +430,12 @@
     var nota = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
     btn.disabled = true;
     try {
-      var txId;
+      var txIds;
       if (conPartes && partes.length > 1) {
-        // 2+ pagadores → registrar_gasto_hogar (RPC); la fila propia sirve
-        // de referencia de auditoría en ingest_pendientes.
+        // 2+ pagadores → registrar_gasto_hogar (RPC); todas las filas creadas se
+        // guardan para poder revertirlas si el usuario deshace.
         var filas = await registrarGastoHogar(fecha, catId, nota, partes);
-        var uid = window.currentUser && window.currentUser.id;
-        var propia = (filas || []).filter(Boolean).find(function (f) { return f.user_id === uid; });
-        txId = propia && propia.id;
+        txIds = (filas || []).filter(Boolean).map(function (f) { return f.id; });
       } else {
         // Un solo pagador (o ambito personal/ahorro) → transacción normal,
         // igual que antes. insertTransaccion ya aprende comercio→categoría
@@ -344,10 +446,10 @@
           monto: monto, fecha: fecha,
           nota: nota,
         });
-        txId = tx && tx.id;
+        txIds = [tx.id];
       }
-      await confirmarIngestPendiente(p.id, txId, { tipo: tipo, monto: monto, fecha: fecha });
-      quitarCard(i);
+      await confirmarIngestPendiente(p.id, (txIds.length === 1 ? txIds[0] : null), { tipo: tipo, monto: monto, fecha: fecha });
+      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds, estadoOriginal: p.estado });
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
       btn.disabled = false;
@@ -359,7 +461,7 @@
     btn.disabled = true;
     try {
       await descartarIngestPendiente(_filas[i].id);
-      quitarCard(i);
+      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
     } catch (e) {
       console.error('descartar pendiente falló:', e);
       btn.disabled = false;
@@ -375,6 +477,127 @@
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
 
+  // ── Undo: la card se oculta (no se borra) y un toast permite revertir 5s ──
+  var _undoTimer = null;
+  function quitarCardConUndo(i, ctx) {
+    var card = document.getElementById('revCard' + i);
+    if (card) card.style.display = 'none';
+    if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+    mostrarToastUndo(i, ctx);
+  }
+  function mostrarToastUndo(i, ctx) {
+    // Si había un toast vivo, finalízalo (borra su card y limpia su timer) antes
+    // de reusar el único elemento de toast para la nueva acción.
+    if (_undoTimer) { clearTimeout(_undoTimer); finalizarUndo(); }
+    var t = document.getElementById('revUndoToast');
+    t.querySelector('.rev-undo-msg').textContent = ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado';
+    t.setAttribute('data-idx', i);
+    t._ctx = ctx;
+    t.classList.add('is-open');
+    _undoTimer = setTimeout(finalizarUndo, 5000);
+  }
+  function finalizarUndo() {
+    var t = document.getElementById('revUndoToast');
+    var ctx = t._ctx; t._ctx = null;
+    t.classList.remove('is-open');
+    _undoTimer = null;
+    if (!ctx) return;
+    var i = Number(t.getAttribute('data-idx'));
+    var card = document.getElementById('revCard' + i);
+    if (card) card.remove();
+    _filas[i] = null;
+    if (!_filas.some(Boolean)) renderVacio();
+  }
+  async function deshacer() {
+    if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+    var t = document.getElementById('revUndoToast');
+    var ctx = t._ctx; t._ctx = null;
+    t.classList.remove('is-open');
+    if (!ctx) return;
+    try {
+      if (ctx.accion === 'confirmar') {
+        for (var k = 0; k < (ctx.txIds || []).length; k++) {
+          if (ctx.txIds[k]) await deleteTransaccion(ctx.txIds[k]);
+        }
+      }
+      await revertirIngestPendiente(ctx.pendienteId, ctx.estadoOriginal);
+      var i = Number(t.getAttribute('data-idx'));
+      var card = document.getElementById('revCard' + i);
+      if (card) card.style.display = '';
+      if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+    } catch (e) {
+      console.error('deshacer falló:', e);
+      errGlobal.textContent = 'No se pudo deshacer. Revisa #historial.';
+      errGlobal.style.display = 'block';
+    }
+  }
+
+  // ── Swipe: confirmar (derecha) / descartar (izquierda) con gate ──
+  // Gate de completitud: swipe-confirmar solo dispara si la fila ya tiene todo
+  // lo que confirmar() exige; si falta algo, abre la card y enfoca el campo.
+  function pendienteCompleto(i) {
+    var monto = parseFloat(document.getElementById('revMonto' + i).value);
+    var fecha = document.getElementById('revFecha' + i).value;
+    var tipo = document.getElementById('revTipo' + i).value;
+    var catId = document.getElementById('revCat' + i).value;
+    if (!(monto > 0) || !fecha || !tipo) return false;
+    if (tipo !== 'ahorro' && !catId) return false;
+    // Conversión de divisa fallida: el monto quedó en la moneda original, no en
+    // PEN — exige que el usuario lo corrija antes de confirmar (nunca one-swipe).
+    var p = _filas[i];
+    if (p && p.moneda_original && p.tasa_cambio == null) return false;
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (grupo && grupo.style.display !== 'none') {
+      var partes = leerPartes(i).filter(function (x) { return x.monto > 0; });
+      if (!validarPartesGastoHogar(monto, partes).ok) return false;
+    }
+    return true;
+  }
+
+  var _sw = null;
+  function swipeStart(ev) {
+    if (ev.target.closest('input, select, textarea, button, .rev-expandido')) return;
+    var card = ev.target.closest('.rev-card');
+    if (!card || card.style.display === 'none') return;
+    var surface = card.querySelector('.rev-swipe-surface');
+    _sw = { i: Number(card.getAttribute('data-idx')), startX: ev.clientX, dx: 0, surface: surface, card: card };
+    if (surface.setPointerCapture) surface.setPointerCapture(ev.pointerId);
+  }
+  function swipeMove(ev) {
+    if (!_sw) return;
+    _sw.dx = ev.clientX - _sw.startX;
+    _sw.surface.style.transform = 'translateX(' + _sw.dx + 'px)';
+    var w = _sw.card.offsetWidth || 320;
+    var conf = _sw.card.querySelector('.rev-swipe-hint--confirm');
+    var desc = _sw.card.querySelector('.rev-swipe-hint--descartar');
+    if (conf) conf.style.opacity = _sw.dx > 0 ? Math.min(1, _sw.dx / (w * 0.4)) : 0;
+    if (desc) desc.style.opacity = _sw.dx < 0 ? Math.min(1, -_sw.dx / (w * 0.4)) : 0;
+  }
+  function swipeEnd() {
+    if (!_sw) return;
+    var s = _sw; _sw = null;
+    var w = s.card.offsetWidth || 320;
+    var umbral = w * 0.4;
+    s.surface.style.transform = '';
+    Array.prototype.forEach.call(s.card.querySelectorAll('.rev-swipe-hint'), function (h) { h.style.opacity = 0; });
+    if (s.dx > umbral) {
+      if (pendienteCompleto(s.i)) { confirmar(s.i, s.card.querySelector('[data-rev-confirmar]')); }
+      else { s.card.classList.add('is-expanded'); enfocarFaltante(s.i); }
+    } else if (s.dx < -umbral) {
+      descartar(s.i, s.card.querySelector('[data-rev-descartar]'));
+    }
+  }
+  function enfocarFaltante(i) {
+    var monto = document.getElementById('revMonto' + i);
+    if (!(parseFloat(monto.value) > 0)) { monto.focus(); return; }
+    var fecha = document.getElementById('revFecha' + i);
+    if (!fecha.value) { fecha.focus(); return; }
+    var cat = document.getElementById('revCat' + i);
+    if (document.getElementById('revTipo' + i).value !== 'ahorro' && !cat.value) { cat.focus(); return; }
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (grupo && grupo.style.display !== 'none') { var f = grupo.querySelector('.rev-partes-monto'); if (f) f.focus(); }
+  }
+
   async function init() {
     try {
       if (typeof autocatLearned === 'function') _learned = await autocatLearned();
@@ -388,11 +611,26 @@
       listaEl.style.display = '';
 
       listaEl.addEventListener('click', function (ev) {
+        var chipBtn = ev.target.closest('[data-rev-chip]');
+        if (chipBtn) { ev.stopPropagation(); abrirSheet(Number(chipBtn.getAttribute('data-rev-chip'))); return; }
+        var expandir = ev.target.closest('[data-rev-expandir]');
+        if (expandir && !ev.target.closest('[data-rev-chip]')) { var c = expandir.closest('.rev-card'); c.classList.toggle('is-expanded'); return; }
         var b = ev.target.closest('[data-rev-confirmar]');
         if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
         var d = ev.target.closest('[data-rev-descartar]');
         if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
       });
+      document.getElementById('revSheet').addEventListener('click', function (ev) {
+        var op = ev.target.closest('[data-val]');
+        if (op) elegirCategoria(op.getAttribute('data-val'));
+      });
+      document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
+      document.getElementById('revUndoBtn').addEventListener('click', deshacer);
+
+      listaEl.addEventListener('pointerdown', swipeStart);
+      listaEl.addEventListener('pointermove', swipeMove);
+      listaEl.addEventListener('pointerup', swipeEnd);
+      listaEl.addEventListener('pointercancel', function () { if (_sw) { _sw.surface.style.transform = ''; _sw = null; } });
       listaEl.addEventListener('change', function (ev) {
         var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
         if (mTipo) { onTipoChange(Number(mTipo[1])); return; }

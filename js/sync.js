@@ -101,6 +101,32 @@ async function _replayOp(op) {
     }
   }
 
+  if (op.entity === 'ingest_estado') {
+    try {
+      const { id, updated_at } = op.payload;
+      // Guardia LWW: si el servidor tiene una escritura más nueva, gana el server.
+      const { data: server, error: readErr } = await supabase
+        .from('ingest_pendientes').select('*').eq('id', id).maybeSingle();
+      if (readErr) throw readErr;
+      if (server && Date.parse(server.updated_at || 0) > Date.parse(updated_at || 0)) {
+        await mirrorPut('ingest_pendientes', server); // el server gana; re-espejar
+        return 'done';
+      }
+      const patch = { ...op.payload };
+      delete patch.id; // id va en el .eq, no en el SET
+      const { data, error } = await supabase
+        .from('ingest_pendientes').update(patch).eq('id', id).select().maybeSingle();
+      if (error) throw error;
+      if (data) await mirrorPut('ingest_pendientes', data);
+      return 'done';
+    } catch (err) {
+      if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) return 'retry';
+      console.error('Sync ingest_estado falló:', err.message || err);
+      await outboxSetStatus(op.op_id, 'error', (err && err.message) + '');
+      return 'skip';
+    }
+  }
+
   try {
     const server = await _serverRow(entity, payload.id);
     const winner = window.lwwWinner(payload, server);
