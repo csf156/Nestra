@@ -464,6 +464,68 @@
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
 
+  // ── Swipe: confirmar (derecha) / descartar (izquierda) con gate ──
+  // Gate de completitud: swipe-confirmar solo dispara si la fila ya tiene todo
+  // lo que confirmar() exige; si falta algo, abre la card y enfoca el campo.
+  function pendienteCompleto(i) {
+    var monto = parseFloat(document.getElementById('revMonto' + i).value);
+    var fecha = document.getElementById('revFecha' + i).value;
+    var tipo = document.getElementById('revTipo' + i).value;
+    var catId = document.getElementById('revCat' + i).value;
+    if (!(monto > 0) || !fecha || !tipo) return false;
+    if (tipo !== 'ahorro' && !catId) return false;
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (grupo && grupo.style.display !== 'none') {
+      var partes = leerPartes(i).filter(function (x) { return x.monto > 0; });
+      if (!validarPartesGastoHogar(monto, partes).ok) return false;
+    }
+    return true;
+  }
+
+  var _sw = null;
+  function swipeStart(ev) {
+    if (ev.target.closest('input, select, textarea, button, .rev-expandido')) return;
+    var card = ev.target.closest('.rev-card');
+    if (!card || card.style.display === 'none') return;
+    var surface = card.querySelector('.rev-swipe-surface');
+    _sw = { i: Number(card.getAttribute('data-idx')), startX: ev.clientX, dx: 0, surface: surface, card: card };
+    if (surface.setPointerCapture) surface.setPointerCapture(ev.pointerId);
+  }
+  function swipeMove(ev) {
+    if (!_sw) return;
+    _sw.dx = ev.clientX - _sw.startX;
+    _sw.surface.style.transform = 'translateX(' + _sw.dx + 'px)';
+    var w = _sw.card.offsetWidth || 320;
+    var conf = _sw.card.querySelector('.rev-swipe-hint--confirm');
+    var desc = _sw.card.querySelector('.rev-swipe-hint--descartar');
+    if (conf) conf.style.opacity = _sw.dx > 0 ? Math.min(1, _sw.dx / (w * 0.4)) : 0;
+    if (desc) desc.style.opacity = _sw.dx < 0 ? Math.min(1, -_sw.dx / (w * 0.4)) : 0;
+  }
+  function swipeEnd() {
+    if (!_sw) return;
+    var s = _sw; _sw = null;
+    var w = s.card.offsetWidth || 320;
+    var umbral = w * 0.4;
+    s.surface.style.transform = '';
+    Array.prototype.forEach.call(s.card.querySelectorAll('.rev-swipe-hint'), function (h) { h.style.opacity = 0; });
+    if (s.dx > umbral) {
+      if (pendienteCompleto(s.i)) { confirmar(s.i, s.card.querySelector('[data-rev-confirmar]')); }
+      else { s.card.classList.add('is-expanded'); enfocarFaltante(s.i); }
+    } else if (s.dx < -umbral) {
+      descartar(s.i, s.card.querySelector('[data-rev-descartar]'));
+    }
+  }
+  function enfocarFaltante(i) {
+    var monto = document.getElementById('revMonto' + i);
+    if (!(parseFloat(monto.value) > 0)) { monto.focus(); return; }
+    var fecha = document.getElementById('revFecha' + i);
+    if (!fecha.value) { fecha.focus(); return; }
+    var cat = document.getElementById('revCat' + i);
+    if (document.getElementById('revTipo' + i).value !== 'ahorro' && !cat.value) { cat.focus(); return; }
+    var grupo = document.getElementById('revPartesGroup' + i);
+    if (grupo && grupo.style.display !== 'none') { var f = grupo.querySelector('.rev-partes-monto'); if (f) f.focus(); }
+  }
+
   async function init() {
     try {
       if (typeof autocatLearned === 'function') _learned = await autocatLearned();
@@ -491,6 +553,11 @@
         if (op) elegirCategoria(op.getAttribute('data-val'));
       });
       document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
+
+      listaEl.addEventListener('pointerdown', swipeStart);
+      listaEl.addEventListener('pointermove', swipeMove);
+      listaEl.addEventListener('pointerup', swipeEnd);
+      listaEl.addEventListener('pointercancel', function () { if (_sw) { _sw.surface.style.transform = ''; _sw = null; } });
       listaEl.addEventListener('change', function (ev) {
         var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
         if (mTipo) { onTipoChange(Number(mTipo[1])); return; }
