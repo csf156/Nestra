@@ -891,7 +891,7 @@
         const prefill = m.user_id === uid ? total : 0;
         return `<div class="partes-fila" data-uid="${esc(m.user_id)}">` +
           `<label>${esc(m.nombre)}</label>` +
-          `<input type="number" min="0" step="0.01" class="partes-monto" value="${prefill}">` +
+          `<input type="number" inputmode="decimal" min="0" step="0.01" class="partes-monto" value="${prefill}">` +
           `</div>`;
       }).join('');
     }
