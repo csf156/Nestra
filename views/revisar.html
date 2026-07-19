@@ -1,7 +1,15 @@
 <style>
-  .rev { max-width: 640px; margin: 0 auto; }
+  .rev {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--space-md);
+    padding-bottom: calc(var(--space-xl) + 72px); /* hueco para el FAB global */
+  }
+  @media (min-width: 600px) {
+    .rev { padding: var(--space-lg); padding-bottom: calc(var(--space-xl) + 72px); }
+  }
   .rev-header { margin-bottom: var(--space-lg); }
-  .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
+  .rev-title { font-family: var(--font-display); font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); }
   .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
   .rev-lista { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-md); }
   /* La card ya trae bg (--bg-light-secondary), borde y radio de .card; aquí solo
@@ -12,14 +20,23 @@
   .rev-swipe-surface { position: relative; z-index: 1; background: var(--bg-light);
     padding: var(--space-md); transition: transform .15s ease; touch-action: pan-y; }
   .rev-compact { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
-  .rev-compact-top { display: flex; align-items: center; gap: var(--space-sm); }
-  .rev-compact-monto { margin-left: auto; font-weight: var(--font-weight-bold); color: var(--text-dark); }
+  /* Estado confirmado: sólido y neutro — es un dato ya resuelto. */
   .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px;
     border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-light);
     background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
-    color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; transition: background .15s ease; }
+    color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer;
+    transition: background .15s ease, border-color .15s ease; }
   .rev-chip:hover { background: color-mix(in srgb, var(--text-secondary) 20%, transparent); }
-  .rev-chip--sugerida { border-style: dashed; }
+
+  /* Estado sugerido: es una propuesta de la app, no una decisión tuya. Se marca
+     en el color de acento (oro) además del borde punteado — el dashed solo no
+     se distingue en pantalla de teléfono.
+     Sin tinte de fondo a propósito: color-primary sobre bg-light tintado al 10%
+     da 4.08:1 en tema claro (falla AA 4.5:1); sin tinte, sobre bg-light plano,
+     da 4.61:1 (pasa). Verificado con la fórmula de luminancia relativa WCAG. */
+  .rev-chip--sugerida { border-style: dashed; border-color: var(--color-primary);
+    color: var(--color-primary); background: transparent; }
+  .rev-chip--sugerida:hover { border-color: var(--accent-hover); }
   .rev-expandido { display: none; margin-top: var(--space-md); }
   .rev-card.is-expanded .rev-expandido { display: block; }
   .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 50; }
@@ -38,6 +55,24 @@
     padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
   .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
   .rev-swipe-hint--descartar { right: 0; margin-left: auto; background: var(--color-danger); }
+  /* Affordance: el swipe existe pero es invisible hasta que ya lo estás
+     haciendo. Una sola vez por carga, la PRIMERA card se desplaza y vuelve,
+     revelando un instante el borde de "Confirmar". Sin texto permanente:
+     ocuparía sitio fijo para enseñar algo que se aprende una vez. */
+  .rev-card.is-demo .rev-swipe-surface { animation: revDemoSurface 1.1s ease .45s 1 both; }
+  .rev-card.is-demo .rev-swipe-hint--confirm { animation: revDemoHint 1.1s ease .45s 1 both; }
+  @keyframes revDemoSurface {
+    0%, 100% { transform: translateX(0); }
+    35%, 55% { transform: translateX(14px); }
+  }
+  @keyframes revDemoHint {
+    0%, 100% { opacity: 0; }
+    35%, 55% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rev-card.is-demo .rev-swipe-surface,
+    .rev-card.is-demo .rev-swipe-hint--confirm { animation: none; }
+  }
   /* z-index 110 > nav (100, css/layout.css) a propósito: la nav es fixed-bottom
      en móvil (mobile-first, cambia a sidebar izquierdo recién a min-width:768px)
      y sin este offset el toast quedaba SOLAPADO bajo ella — no solo tapado:
@@ -54,9 +89,21 @@
   }
   .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
-  .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
-  .rev-banco { text-transform: uppercase; }
-  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
+  /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
+     banco dejó de ser .badge — en el resto de la app .badge significa estado. */
+  .rev-meta { display: flex; align-items: center; gap: var(--space-sm);
+    font-size: var(--font-size-xs); color: var(--text-secondary); }
+  .rev-banco { text-transform: uppercase; letter-spacing: 0.08em; }
+  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); }
+  .rev-meta .badge { margin-left: auto; }
+
+  /* El ancla visual de la card. tabular-nums para que los montos de la lista
+     alineen en columna, como en dashboard e historial. */
+  .rev-monto { margin: 2px 0 0; text-align: right;
+    font-family: var(--font-display); font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-normal); color: var(--text-dark); font-variant-numeric: tabular-nums; }
+
+  .rev-compact-foot { display: flex; align-items: center; gap: var(--space-sm); }
   .rev-comercio { font-weight: var(--font-weight-semibold); margin-bottom: 2px; overflow-wrap: anywhere; }
   .rev-original { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); }
   .rev-original.rev-original-warn { color: var(--color-warning); }
@@ -197,18 +244,18 @@
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
       '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
       '<div class="rev-swipe-surface">' +
-        '<div class="rev-compact" data-rev-expandir="' + i + '">' +
-          '<div class="rev-compact-top">' +
-            '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+        '<div class="rev-compact" data-rev-expandir="' + i + '" role="button" tabindex="0" aria-expanded="false">' +
+          '<div class="rev-meta">' +
+            '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
-            '<span class="rev-compact-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</span>' +
           '</div>' +
           (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
-          '<div class="rev-compact-top">' +
+          '<p class="rev-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</p>' +
+          '<div class="rev-compact-foot">' +
             '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
               esc(nombreCat(cats, sugerida) || 'Sin categoría') +
             '</button>' +
-            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="rev-expandido">' +
@@ -272,8 +319,16 @@
     document.getElementById('revSheet').classList.add('is-open');
   }
   function cerrarSheet() {
-    document.getElementById('revSheetBackdrop').classList.remove('is-open');
-    document.getElementById('revSheet').classList.remove('is-open');
+    // El listener de Escape vive en document y sobrevive a la navegación (la
+    // SPA re-ejecuta el <script> de la vista en cada visita, sin desmontar el
+    // anterior). Si el usuario deja el sheet abierto y navega a otra vista,
+    // un Escape ahí dispara este cerrarSheet de una instancia vieja, donde
+    // estos ids ya no existen en el DOM — sin el guard, getElementById(...).
+    // classList lanzaría TypeError sobre null en una vista que no es #revisar.
+    var backdrop = document.getElementById('revSheetBackdrop');
+    var sheet = document.getElementById('revSheet');
+    if (backdrop) backdrop.classList.remove('is-open');
+    if (sheet) sheet.classList.remove('is-open');
     _sheetIdx = null;
   }
   function elegirCategoria(val) {
@@ -567,6 +622,8 @@
     if (ev.target.closest('input, select, textarea, button, .rev-expandido')) return;
     var card = ev.target.closest('.rev-card');
     if (!card || card.style.display === 'none') return;
+    // Un gesto real siempre gana sobre la demo.
+    card.classList.remove('is-demo');
     var surface = card.querySelector('.rev-swipe-surface');
     _sw = { i: Number(card.getAttribute('data-idx')), startX: ev.clientX, dx: 0, surface: surface, card: card };
     if (surface.setPointerCapture) surface.setPointerCapture(ev.pointerId);
@@ -618,15 +675,38 @@
       listaEl.innerHTML = html;
       listaEl.style.display = '';
 
+      // Solo la primera card, y solo en esta carga de la vista.
+      var primera = listaEl.querySelector('.rev-card');
+      if (primera) {
+        primera.classList.add('is-demo');
+        primera.addEventListener('animationend', function quitar() {
+          primera.classList.remove('is-demo');
+          primera.removeEventListener('animationend', quitar);
+        });
+      }
+
       listaEl.addEventListener('click', function (ev) {
         var chipBtn = ev.target.closest('[data-rev-chip]');
         if (chipBtn) { ev.stopPropagation(); abrirSheet(Number(chipBtn.getAttribute('data-rev-chip'))); return; }
         var expandir = ev.target.closest('[data-rev-expandir]');
-        if (expandir && !ev.target.closest('[data-rev-chip]')) { var c = expandir.closest('.rev-card'); c.classList.toggle('is-expanded'); return; }
+        if (expandir && !ev.target.closest('[data-rev-chip]')) {
+          var c = expandir.closest('.rev-card');
+          var abierta = c.classList.toggle('is-expanded');
+          expandir.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+          return;
+        }
         var b = ev.target.closest('[data-rev-confirmar]');
         if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
         var d = ev.target.closest('[data-rev-descartar]');
         if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
+      });
+      // role="button" no trae activación por teclado: hay que darla a mano.
+      listaEl.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        var expandir = ev.target.closest('[data-rev-expandir]');
+        if (!expandir || ev.target.closest('[data-rev-chip]')) return;
+        ev.preventDefault();   // Espacio scrollearía la página
+        expandir.click();
       });
       document.getElementById('revSheet').addEventListener('click', function (ev) {
         var op = ev.target.closest('[data-val]');
@@ -634,6 +714,25 @@
       });
       document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
+      // El sheet solo cerraba tocando el backdrop; con teclado era una trampa.
+      // El listener de Escape se registra UNA sola vez en la vida del
+      // documento, no en cada carga de esta vista: la SPA re-ejecuta este
+      // <script> en cada visita a #revisar sin desmontar la instancia
+      // anterior (js/router.js hace innerHTML + re-ejecuta scripts), así que
+      // agregarlo aquí cada vez lo apilaría para siempre. En vez de eso, la
+      // instancia más reciente publica su cerrarSheet en window, y el único
+      // listener que existe siempre llama a la más reciente.
+      window.__revCerrarSheetActiva = function () {
+        if (_sheetIdx != null) cerrarSheet();
+      };
+      if (!window.__revEscapeListenerWired) {
+        window.__revEscapeListenerWired = true;
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape' && typeof window.__revCerrarSheetActiva === 'function') {
+            window.__revCerrarSheetActiva();
+          }
+        });
+      }
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
