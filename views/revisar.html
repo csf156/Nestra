@@ -55,6 +55,24 @@
     padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
   .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
   .rev-swipe-hint--descartar { right: 0; margin-left: auto; background: var(--color-danger); }
+  /* Affordance: el swipe existe pero es invisible hasta que ya lo estás
+     haciendo. Una sola vez por carga, la PRIMERA card se desplaza y vuelve,
+     revelando un instante el borde de "Confirmar". Sin texto permanente:
+     ocuparía sitio fijo para enseñar algo que se aprende una vez. */
+  .rev-card.is-demo .rev-swipe-surface { animation: revDemoSurface 1.1s ease .45s 1 both; }
+  .rev-card.is-demo .rev-swipe-hint--confirm { animation: revDemoHint 1.1s ease .45s 1 both; }
+  @keyframes revDemoSurface {
+    0%, 100% { transform: translateX(0); }
+    35%, 55% { transform: translateX(14px); }
+  }
+  @keyframes revDemoHint {
+    0%, 100% { opacity: 0; }
+    35%, 55% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rev-card.is-demo .rev-swipe-surface,
+    .rev-card.is-demo .rev-swipe-hint--confirm { animation: none; }
+  }
   /* z-index 110 > nav (100, css/layout.css) a propósito: la nav es fixed-bottom
      en móvil (mobile-first, cambia a sidebar izquierdo recién a min-width:768px)
      y sin este offset el toast quedaba SOLAPADO bajo ella — no solo tapado:
@@ -596,6 +614,8 @@
     if (ev.target.closest('input, select, textarea, button, .rev-expandido')) return;
     var card = ev.target.closest('.rev-card');
     if (!card || card.style.display === 'none') return;
+    // Un gesto real siempre gana sobre la demo.
+    card.classList.remove('is-demo');
     var surface = card.querySelector('.rev-swipe-surface');
     _sw = { i: Number(card.getAttribute('data-idx')), startX: ev.clientX, dx: 0, surface: surface, card: card };
     if (surface.setPointerCapture) surface.setPointerCapture(ev.pointerId);
@@ -646,6 +666,16 @@
       for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
       listaEl.innerHTML = html;
       listaEl.style.display = '';
+
+      // Solo la primera card, y solo en esta carga de la vista.
+      var primera = listaEl.querySelector('.rev-card');
+      if (primera) {
+        primera.classList.add('is-demo');
+        primera.addEventListener('animationend', function quitar() {
+          primera.classList.remove('is-demo');
+          primera.removeEventListener('animationend', quitar);
+        });
+      }
 
       listaEl.addEventListener('click', function (ev) {
         var chipBtn = ev.target.closest('[data-rev-chip]');
