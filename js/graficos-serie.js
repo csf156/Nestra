@@ -66,7 +66,8 @@ function agruparSerie(transacciones, granularidad, hasta, n, hoy) {
     // tienen datos y trazaban una línea plana en 0 hacia adelante, sin
     // sentido. Un mes pasado no entra acá (hasta.mes != hoy.mes) → completo.
     // hoy es opcional: sin él, mes entero (compat con callers/tests viejos).
-    if (hoy && hasta.anio === hoy.anio && hasta.mes === hoy.mes) {
+    if (hoy && typeof hoy.dia === 'number' && hoy.dia > 0 &&
+        hasta.anio === hoy.anio && hasta.mes === hoy.mes) {
       dias = Math.min(dias, hoy.dia);
     }
     var g = new Array(dias).fill(0), ing = new Array(dias).fill(0);

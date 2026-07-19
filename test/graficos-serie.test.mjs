@@ -39,6 +39,16 @@ test('dias: sin hoy, mes entero (regresión — no rompe a los callers viejos)',
   assert.strictEqual(r.length, 31, 'sin hoy sigue siendo el mes completo');
 });
 
+test('dias: hoy sin campo dia no revienta (guarda defensiva, no crashea)', () => {
+  // agruparSerie es API pública exportada (window + ESM), no solo un helper
+  // interno de un único caller controlado. Un hoy mal formado no debe volar
+  // en new Array(NaN) — debe degradar a "sin recorte", no crashear.
+  const hoyIncompleto = { anio: 2026, mes: 7 };
+  assert.doesNotThrow(() => agruparSerie([], 'dias', { mes: 7, anio: 2026 }, null, hoyIncompleto));
+  const r = agruparSerie([], 'dias', { mes: 7, anio: 2026 }, null, hoyIncompleto);
+  assert.strictEqual(r.length, 31, 'sin dia numérico, no recorta');
+});
+
 test('dias: una tx de fecha futura en el mes en curso queda fuera del recorte', () => {
   // Decisión deliberada (ver spec): la línea termina hoy; una fecha futura
   // pertenece a una proyección, no a la línea de hechos.
