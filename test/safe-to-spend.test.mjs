@@ -256,3 +256,53 @@ test('metasFueraDeRitmo: vacío cuando ninguna meta individual supera el tope, a
   assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 0);
   assert.ok(out.desglose.ahorroMetas <= 500 + 0.5); // tope: 50% de 1000
 });
+
+// ── Techo de reserva configurable (pctAhorro) ────────────────────────────
+// Antes estaba hardcodeado en 50%. Ahora entra como insumo explícito, igual
+// que el ingreso: la función sigue siendo pura y el % vive en el perfil.
+
+test('pctAhorro explícito cambia el techo de la reserva', () => {
+  // Meta que exige mucho más de lo que cabe, para que el techo mande siempre.
+  const metas = [meta({ monto_objetivo: 100000, fecha_limite: '2026-07-10' })];
+  const txs = [ing(1000, '2026-06-03')];
+
+  const con20 = calcularSafeToSpend(txs, metas, { hoy: HOY, pctAhorro: 20 });
+  const con50 = calcularSafeToSpend(txs, metas, { hoy: HOY, pctAhorro: 50 });
+
+  assert.strictEqual(con20.desglose.ahorroMetas, 200); // 20% de 1000
+  assert.strictEqual(con50.desglose.ahorroMetas, 500); // 50% de 1000
+});
+
+test('pctAhorro = 0 → no se reserva nada para metas (caso límite válido)', () => {
+  const metas = [meta({ monto_objetivo: 100000, fecha_limite: '2026-07-10' })];
+  const out = calcularSafeToSpend([ing(1000, '2026-06-03')], metas, { hoy: HOY, pctAhorro: 0 });
+  assert.strictEqual(out.desglose.ahorroMetas, 0);
+  assert.strictEqual(out.desglose.disponible, 1000); // ingreso − fijos(0) − metas(0)
+});
+
+test('pctAhorro ausente o inválido cae a 50 (comportamiento previo)', () => {
+  const metas = [meta({ monto_objetivo: 100000, fecha_limite: '2026-07-10' })];
+  const txs = [ing(1000, '2026-06-03')];
+  const esperado = 500; // 50% de 1000
+
+  for (const opts of [
+    { hoy: HOY },                      // ausente
+    { hoy: HOY, pctAhorro: null },
+    { hoy: HOY, pctAhorro: 'treinta' },
+    { hoy: HOY, pctAhorro: -10 },      // fuera de rango
+    { hoy: HOY, pctAhorro: 150 },      // fuera de rango
+  ]) {
+    const out = calcularSafeToSpend(txs, metas, opts);
+    assert.strictEqual(out.desglose.ahorroMetas, esperado,
+      'falló con opts=' + JSON.stringify(opts));
+  }
+});
+
+test('pctAhorro no altera una meta holgada que ya cabía bajo el techo', () => {
+  // La meta por defecto exige poco; con 2100 de ingreso cabe con cualquier pct
+  // razonable, así que bajar el techo al 20% no debe recortarla.
+  const out = calcularSafeToSpend([ing(2100, '2026-06-03')], [meta()], { hoy: HOY, pctAhorro: 20 });
+  assert.strictEqual(out.estado, 'ok');
+  assert.strictEqual(out.diario, 294);          // idéntico al test original
+  assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 0);
+});

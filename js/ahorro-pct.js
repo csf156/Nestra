@@ -11,6 +11,10 @@
   // leer del cache (que puede traer basura) como al validar lo que teclea el
   // usuario, para no duplicar la regla.
   function normalizarPct(v) {
+    // Number(null) y Number('') dan 0, que es un pct VÁLIDO — hay que descartar
+    // los "ausentes" antes de convertir. Si no, un cache vacío (getItem → null)
+    // o un perfil sin valor se leerían como 0% en vez de caer al default.
+    if (v === null || v === undefined || v === '') return null;
     var n = Number(v);
     if (!Number.isFinite(n)) return null;
     n = Math.round(n);
