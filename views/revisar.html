@@ -20,12 +20,21 @@
   .rev-swipe-surface { position: relative; z-index: 1; background: var(--bg-light);
     padding: var(--space-md); transition: transform .15s ease; touch-action: pan-y; }
   .rev-compact { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+  /* Estado confirmado: sólido y neutro — es un dato ya resuelto. */
   .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px;
     border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-light);
     background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
-    color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer; transition: background .15s ease; }
+    color: var(--text-dark); font-size: var(--font-size-sm); cursor: pointer;
+    transition: background .15s ease, border-color .15s ease; }
   .rev-chip:hover { background: color-mix(in srgb, var(--text-secondary) 20%, transparent); }
-  .rev-chip--sugerida { border-style: dashed; }
+
+  /* Estado sugerido: es una propuesta de la app, no una decisión tuya. Se marca
+     en el color de acento (oro) además del borde punteado — el dashed solo no
+     se distingue en pantalla de teléfono. */
+  .rev-chip--sugerida { border-style: dashed; border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
+  .rev-chip--sugerida:hover { background: color-mix(in srgb, var(--color-primary) 18%, transparent); }
   .rev-expandido { display: none; margin-top: var(--space-md); }
   .rev-card.is-expanded .rev-expandido { display: block; }
   .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 50; }
