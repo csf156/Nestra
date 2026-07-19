@@ -375,7 +375,9 @@
       var serie;
       if (gran === 'dias') {
         if (!datos.txMes.length) { setEstado(1, 'vacio'); return; }
-        serie = agruparSerie(datos.txMes, 'dias', { mes: estado.mes, anio: estado.anio });
+        var _d = new Date();
+        var hoyDia = { anio: _d.getFullYear(), mes: _d.getMonth() + 1, dia: _d.getDate() };
+        serie = agruparSerie(datos.txMes, 'dias', { mes: estado.mes, anio: estado.anio }, null, hoyDia);
       } else {
         var amplia = datos.serieAmplia;
         if (!amplia || !amplia.txs || !amplia.txs.length) { setEstado(1, 'vacio'); return; }
