@@ -244,7 +244,7 @@
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
       '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
       '<div class="rev-swipe-surface">' +
-        '<div class="rev-compact" data-rev-expandir="' + i + '">' +
+        '<div class="rev-compact" data-rev-expandir="' + i + '" role="button" tabindex="0" aria-expanded="false">' +
           '<div class="rev-meta">' +
             '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
             '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
@@ -681,11 +681,24 @@
         var chipBtn = ev.target.closest('[data-rev-chip]');
         if (chipBtn) { ev.stopPropagation(); abrirSheet(Number(chipBtn.getAttribute('data-rev-chip'))); return; }
         var expandir = ev.target.closest('[data-rev-expandir]');
-        if (expandir && !ev.target.closest('[data-rev-chip]')) { var c = expandir.closest('.rev-card'); c.classList.toggle('is-expanded'); return; }
+        if (expandir && !ev.target.closest('[data-rev-chip]')) {
+          var c = expandir.closest('.rev-card');
+          var abierta = c.classList.toggle('is-expanded');
+          expandir.setAttribute('aria-expanded', abierta ? 'true' : 'false');
+          return;
+        }
         var b = ev.target.closest('[data-rev-confirmar]');
         if (b) { confirmar(Number(b.getAttribute('data-rev-confirmar')), b); return; }
         var d = ev.target.closest('[data-rev-descartar]');
         if (d) { descartar(Number(d.getAttribute('data-rev-descartar')), d); }
+      });
+      // role="button" no trae activación por teclado: hay que darla a mano.
+      listaEl.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        var expandir = ev.target.closest('[data-rev-expandir]');
+        if (!expandir || ev.target.closest('[data-rev-chip]')) return;
+        ev.preventDefault();   // Espacio scrollearía la página
+        expandir.click();
       });
       document.getElementById('revSheet').addEventListener('click', function (ev) {
         var op = ev.target.closest('[data-val]');
@@ -693,6 +706,10 @@
       });
       document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
+      // El sheet solo cerraba tocando el backdrop; con teclado era una trampa.
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && _sheetIdx != null) cerrarSheet();
+      });
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
