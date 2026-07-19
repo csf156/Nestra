@@ -149,6 +149,19 @@
           <span class="cfg-pref-nombre">Moneda principal</span>
           <span class="cfg-pref-valor" id="cfgMonedaValor">—</span>
         </div>
+        <div class="cfg-pref-row">
+          <span class="cfg-pref-nombre">Ahorro para metas</span>
+          <span class="cfg-pct-wrap">
+            <input id="cfgPctAhorro" class="cfg-input cfg-pct-input" type="number"
+                   inputmode="numeric" min="0" max="80" step="1"
+                   aria-describedby="cfgPctAhorroHint">
+            <span class="cfg-pct-signo" aria-hidden="true">%</span>
+          </span>
+        </div>
+        <p class="cfg-pref-hint" id="cfgPctAhorroHint">
+          Del dinero que te queda cada mes tras los gastos fijos, cuánto se
+          reserva para tus metas. Afecta al número de «Puedes gastar hoy».
+        </p>
         <div class="cfg-pref-row" id="pushToggleRow" hidden>
           <span class="cfg-pref-nombre">Notificaciones push</span>
           <button type="button" class="cfg-toggle" id="pushToggle"
@@ -668,6 +681,11 @@
     .cfg-pref-nombre { font-weight: var(--font-weight-medium); }
     .cfg-pref-valor { font-size: var(--font-size-sm); color: var(--text-secondary); }
     .cfg-pref-select { width: auto; min-width: 7rem; }
+    .cfg-pct-wrap { display: inline-flex; align-items: center; gap: 4px; }
+    .cfg-pct-input { width: 72px; text-align: right; }
+    .cfg-pct-signo { color: var(--text-secondary); }
+    .cfg-pref-hint { color: var(--text-secondary); font-size: var(--font-size-xs);
+      margin: 0 0 var(--space-sm); }
 
     /* Toggle switch */
     .cfg-toggle {
@@ -1706,6 +1724,36 @@
           paintPush(await pushIsSubscribed());
           toggle.disabled = false;
         }
+      });
+    })();
+
+    /* ── % de ahorro para metas ─────────────────────────── */
+    (function initPctAhorro() {
+      var input = document.getElementById('cfgPctAhorro');
+      var hint = document.getElementById('cfgPctAhorroHint');
+      if (!input) return;
+      // Shell viejo sin js/ahorro-pct.js → ocultar en vez de mostrar un control muerto.
+      if (typeof getPctAhorro !== 'function' || typeof setPctAhorro !== 'function') {
+        var row = input.closest('.cfg-pref-row');
+        if (row) row.style.display = 'none';
+        if (hint) hint.style.display = 'none';
+        return;
+      }
+      input.value = getPctAhorro();
+
+      // Se guarda en 'change' (no en 'input'): en 'input' cada tecla dispararía
+      // un update y un valor a medio teclear ("3" camino de "30") se persistiría.
+      input.addEventListener('change', async function () {
+        var aplicado = await setPctAhorro(input.value);
+        if (aplicado == null) {
+          input.value = getPctAhorro();   // revertir al último válido
+          if (typeof mostrarToast === 'function') {
+            mostrarToast('Usa un número entre ' + window.PCT_AHORRO_MIN + ' y ' + window.PCT_AHORRO_MAX + '.', 3500);
+          }
+          return;
+        }
+        input.value = aplicado;
+        if (typeof mostrarToast === 'function') mostrarToast('Ahorro para metas: ' + aplicado + '%', 2500);
       });
     })();
 
