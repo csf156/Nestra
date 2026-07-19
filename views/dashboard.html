@@ -768,6 +768,7 @@
     function desgloseHTML(res, etiquetaFinal, montoFinal) {
       const d = res.desglose;
       if (!d) return '';
+      const pct = (typeof getPctAhorro === 'function') ? getPctAhorro() : 50;
       const fila = (etiqueta, monto, total) =>
         `<div class="dash-s2s-fila${total ? ' dash-s2s-fila--total' : ''}">
            <dt>${esc(etiqueta)}</dt><dd>${esc(formatMonto(monto))}</dd>
@@ -789,7 +790,7 @@
           <dl class="dash-s2s-dl">
             ${fila('Ingreso estimado del mes', d.ingresoEstimado)}
             ${fila('− Gastos fijos previstos', d.gastosFijos)}
-            ${fila('− Ahorro para tus metas', d.ahorroMetas)}
+            ${fila('− Ahorro para tus metas (tope ' + pct + '%)', d.ahorroMetas)}
             ${fila('= Disponible para el día a día', d.disponible, true)}
             ${fila('Ya gastaste', d.yaGastado)}
             ${fila(etiquetaFinal, montoFinal, true)}
@@ -799,8 +800,8 @@
             El <strong>ingreso estimado</strong> es lo que entró este mes; si tu sueldo aún no cae,
             el promedio de tus últimos meses. Los <strong>gastos fijos previstos</strong> son
             categorías en las que gastas casi todos los meses: se reserva lo que aún no has pagado.
-            El <strong>ahorro para tus metas</strong> nunca supera la mitad de lo que te queda: una
-            meta con poco margen se reserva hasta ese límite, no más.
+            El <strong>ahorro para tus metas</strong> nunca supera el ${pct}% de lo que te
+            queda; lo ajustas en Configuración → Preferencias.
           </p>
         </details>`;
     }
