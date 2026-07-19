@@ -67,7 +67,16 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   }
 
   const fijosComprometidos = calcularFijosComprometidos(personales, hoy);
-  const aporteMetasRestante = calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes);
+  const aporteMetasRestanteCrudo = calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes);
+
+  // Techo de la reserva de metas: nunca más del 50% de lo que queda tras los
+  // fijos. Sin esto, una meta con poco margen (fecha cercana, poco ahorrado)
+  // podía exigir MÁS de lo que entra en el mes — calcularAporteMetas nunca
+  // recibía el ingreso, así que no tenía con qué acotrarse, y el disponible
+  // podía salir negativo (un "te pasaste por" fabricado por la reserva, no
+  // por gasto real). Caso real: ingreso S/502, una meta exigía reservar S/903.
+  const techoMetas = Math.max(0, ingresoEstimado - fijosComprometidos) * 0.5;
+  const aporteMetasRestante = Math.min(aporteMetasRestanteCrudo, techoMetas);
 
   const numerador = ingresoEstimado - gastoAcumulado - fijosComprometidos - aporteMetasRestante;
 
@@ -77,12 +86,29 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   const ingresoR = Math.round(ingresoEstimado);
   const fijosR = Math.round(fijosComprometidos);
   const metasR = Math.round(aporteMetasRestante);
+
+  // Metas "fuera de ritmo": solo se nombran cuando el techo realmente recortó
+  // algo, y solo las que por sí solas —ya prorrateadas al ritmo de hoy— exceden
+  // el techo (no se le echa la culpa a una meta razonable de un problema de
+  // conjunto; ver test de dos metas modestas que solo se pasan al sumarse). Se
+  // compara la contribución PRORRATEADA (misma escala que techoMetas), aunque
+  // lo que se muestra es planMensual sin prorratear ("necesitarías S/2,000
+  // este mes") — es lo que el usuario puede accionar.
+  let metasFueraDeRitmo = [];
+  if (aporteMetasRestanteCrudo > techoMetas + 0.005) {
+    metasFueraDeRitmo = (metas || [])
+      .map((m) => ({ nombre: m.nombre, planMensual: _planMensualMeta(m, hoy) }))
+      .filter((x) => x.planMensual != null && x.planMensual * (diasRestantes / diasDelMes) > techoMetas)
+      .map((x) => ({ nombre: x.nombre, planMensual: Math.round(x.planMensual) }));
+  }
+
   const desglose = {
     ingresoEstimado: ingresoR,
     gastosFijos: fijosR,
     ahorroMetas: metasR,
     disponible: ingresoR - fijosR - metasR,
     yaGastado: Math.round(gastoAcumulado),
+    metasFueraDeRitmo,
   };
 
   if (numerador < 0) {
@@ -155,25 +181,39 @@ function calcularFijosComprometidos(personales, hoy) {
   return total;
 }
 
+// _planMensualMeta(meta, hoy) — cuánto exige la meta POR MES para llegar a
+// tiempo, sin prorratear por días restantes, o null si no aplica (hogar,
+// fondo de emergencia, no en curso, sin objetivo/fecha, ya cubierta o
+// vencida). Compartida por calcularAporteMetas (que sí prorratea, para no
+// duplicar las mismas guardas) y por el detector de metas fuera de ritmo.
+function _planMensualMeta(m, hoy) {
+  if (m.hogar_id != null) return null;
+  if (m.estado !== 'en_curso') return null;
+  if (m.es_fondo_emergencia) return null;
+  const objetivo = Number(m.monto_objetivo) || 0;
+  const actual = Number(m.monto_actual) || 0;
+  if (objetivo <= 0) return null;
+  if (!m.fecha_limite) return null;
+  const restante = objetivo - actual;
+  if (restante <= 0) return null;
+  const diasHastaLimite = Math.floor((parseFechaISO(m.fecha_limite) - hoy) / 86400000);
+  if (!(diasHastaLimite > 0)) return null; // vencido, NaN o fecha inválida → no prorratear
+  const mesesRestantes = Math.max(1, Math.ceil(diasHastaLimite / 30));
+  return restante / mesesRestantes;
+}
+
 // calcularAporteMetas — reserva la cuota de ahorro pendiente del mes. Por cada meta
 // personal en curso (no fondo emergencia) con objetivo>0 y fecha_limite futura:
 // planMensual = (objetivo−actual)/mesesRestantes; reserva planMensual×(díasRest/díasMes).
+// Sin techo propio: quien llama (calcularSafeToSpend) acota el total contra el
+// ingreso. Se mantiene así — sin cambiar su firma ni su retorno (un número) —
+// porque graficos.html también la usa para la proyección de metas, donde no
+// aplica el mismo techo del hero del dashboard.
 function calcularAporteMetas(metas, hoy, diasRestantes, diasDelMes) {
   let total = 0;
   for (const m of (metas || [])) {
-    if (m.hogar_id != null) continue;
-    if (m.estado !== 'en_curso') continue;
-    if (m.es_fondo_emergencia) continue;
-    const objetivo = Number(m.monto_objetivo) || 0;
-    const actual = Number(m.monto_actual) || 0;
-    if (objetivo <= 0) continue;
-    if (!m.fecha_limite) continue;
-    const restante = objetivo - actual;
-    if (restante <= 0) continue;
-    const diasHastaLimite = Math.floor((parseFechaISO(m.fecha_limite) - hoy) / 86400000);
-    if (!(diasHastaLimite > 0)) continue; // vencido, NaN o fecha inválida → no prorratear
-    const mesesRestantes = Math.max(1, Math.ceil(diasHastaLimite / 30));
-    const planMensual = restante / mesesRestantes;
+    const planMensual = _planMensualMeta(m, hoy);
+    if (planMensual == null) continue;
     total += planMensual * (diasRestantes / diasDelMes);
   }
   return total;

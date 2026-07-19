@@ -195,6 +195,11 @@
   .dash-s2s-fila--total { border-top: 1px solid rgba(255,255,255,0.35); margin-top: 4px; padding-top: 6px; }
   .dash-s2s-fila--total dt { opacity: 1; font-weight: var(--font-weight-semibold); }
   .dash-s2s-nota { margin: var(--space-sm) 0 0; font-size: var(--font-size-xs); opacity: 0.88; }
+  /* Mismo blanco/gradiente que el resto del hero (no un color de alerta aparte:
+     el desglose ya vive dentro de la card de "excedido" o de "ok", y un rojo
+     extra ahí compite con esa semántica) — se distingue por peso y fondo. */
+  .dash-s2s-nota--aviso { padding: 6px var(--space-sm); border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.14); opacity: 1; font-weight: var(--font-weight-medium); }
   @media (prefers-reduced-motion: reduce) { .dash-s2s-desglose > summary::after { transition: none; } }
 
   .dash-microahorro { margin: var(--space-md) 0; padding: var(--space-md); border-radius: var(--radius-lg); border: 1px solid var(--border-light); background: color-mix(in srgb, var(--color-success) 8%, transparent); display:flex; flex-direction:column; gap: var(--space-sm); }
@@ -767,6 +772,17 @@
         `<div class="dash-s2s-fila${total ? ' dash-s2s-fila--total' : ''}">
            <dt>${esc(etiqueta)}</dt><dd>${esc(formatMonto(monto))}</dd>
          </div>`;
+      // Aviso de metas fuera de ritmo: solo aparece cuando el techo de la
+      // reserva (50% de ingreso − fijos) recortó de verdad a alguna meta —
+      // sin esto, "Ahorro para tus metas" podía mostrar un número topado sin
+      // decir que la meta detrás ya no es alcanzable a este ritmo.
+      const fueraDeRitmo = (d.metasFueraDeRitmo || []);
+      const avisoMetas = fueraDeRitmo.length ? `
+          <p class="dash-s2s-nota dash-s2s-nota--aviso">
+            ${fueraDeRitmo.map((m) =>
+              `<strong>${esc(m.nombre)}</strong> va fuera de ritmo: necesitarías ${esc(formatMonto(m.planMensual))} este mes`
+            ).join('; ')}.
+          </p>` : '';
       return `
         <details class="dash-s2s-desglose">
           <summary>Ver cómo se calcula</summary>
@@ -778,10 +794,13 @@
             ${fila('Ya gastaste', d.yaGastado)}
             ${fila(etiquetaFinal, montoFinal, true)}
           </dl>
+          ${avisoMetas}
           <p class="dash-s2s-nota">
             El <strong>ingreso estimado</strong> es lo que entró este mes; si tu sueldo aún no cae,
             el promedio de tus últimos meses. Los <strong>gastos fijos previstos</strong> son
             categorías en las que gastas casi todos los meses: se reserva lo que aún no has pagado.
+            El <strong>ahorro para tus metas</strong> nunca supera la mitad de lo que te queda: una
+            meta con poco margen se reserva hasta ese límite, no más.
           </p>
         </details>`;
     }
