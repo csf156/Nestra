@@ -158,10 +158,11 @@
         <span id="globalFabLabel" style="display:none;"></span>
     </button>
 
-    <!-- Supabase SDK (jsDelivr CDN) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.0"
-            integrity="sha384-p3ppjAbdEPObbT9B8J3Jc/6aBp2Gl54cFACgyZjDVLaR3+KwIc+eeU9V6vqHa/Ml"
-            crossorigin="anonymous"></script>
+    <!-- Supabase SDK — vendorizado (era CDN jsDelivr con SRI; jsDelivr minifica
+         al vuelo y advierte "Do NOT use SRI with dynamic files": el hash podía
+         dejar de coincidir y bloquear el script en silencio, cortando el login
+         (ReferenceError: supabase is not defined). Ver 2026-07-18. -->
+    <script src="js/vendor/supabase-js-2.108.0.js"></script>
 
     <!-- IndexedDB (idb vendorizado) -->
     <script src="js/vendor/idb-umd.js"></script>
@@ -176,12 +177,8 @@
     <script src="js/iconos.js"></script>
     <script src="js/ui.js"></script>
     <script type="module" src="js/sparkline.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
-            integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
-            crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"
-            integrity="sha384-Sse/HDqcypGpyTDpvZOJNnG0TT3feGQUkF9H+mnRvic+LjR+K1NhTt8f51KIQ3v3"
-            crossorigin="anonymous"></script>
+    <script src="js/vendor/xlsx-0.18.5.full.min.js"></script>
+    <script src="js/vendor/chart-4.4.6.umd.min.js"></script>
     <script src="js/export.js"></script>
     <!-- PWA / offline: comparador LWW (módulo: expone window.lwwWinner) + capa IndexedDB -->
     <script type="module" src="js/sync-lww.js"></script>

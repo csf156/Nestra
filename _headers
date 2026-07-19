@@ -12,10 +12,15 @@
 #   * object-src 'none' / base-uri 'self' -> sin plugins ni secuestro de <base>.
 #   * frame-ancestors 'none' -> sin clickjacking (no se puede embeber la PWA).
 # Orígenes externos legítimos (grepeados del código):
-#   script  cdn.jsdelivr.net  -> @supabase/supabase-js (con SRI en index.html)
 #   connect ombnhxueclqfeyjzhroz.supabase.co  -> REST/Auth/Storage (https) + Realtime (wss)
+#
+# script-src YA NO incluye cdn.jsdelivr.net (retirado 2026-07-18): supabase-js,
+# xlsx y chart.js se vendorizaron en js/vendor/ — el SRI sobre el CDN estaba
+# roto por diseño (jsDelivr minifica al vuelo y advierte contra usar SRI ahí),
+# y un hash desincronizado bloqueaba el script en silencio, cortando el login
+# ("supabase is not defined"). Sin CDN, script-src queda estrictamente 'self'.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ombnhxueclqfeyjzhroz.supabase.co wss://ombnhxueclqfeyjzhroz.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://ombnhxueclqfeyjzhroz.supabase.co wss://ombnhxueclqfeyjzhroz.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
