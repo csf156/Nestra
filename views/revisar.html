@@ -715,9 +715,24 @@
       document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
       // El sheet solo cerraba tocando el backdrop; con teclado era una trampa.
-      document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Escape' && _sheetIdx != null) cerrarSheet();
-      });
+      // El listener de Escape se registra UNA sola vez en la vida del
+      // documento, no en cada carga de esta vista: la SPA re-ejecuta este
+      // <script> en cada visita a #revisar sin desmontar la instancia
+      // anterior (js/router.js hace innerHTML + re-ejecuta scripts), así que
+      // agregarlo aquí cada vez lo apilaría para siempre. En vez de eso, la
+      // instancia más reciente publica su cerrarSheet en window, y el único
+      // listener que existe siempre llama a la más reciente.
+      window.__revCerrarSheetActiva = function () {
+        if (_sheetIdx != null) cerrarSheet();
+      };
+      if (!window.__revEscapeListenerWired) {
+        window.__revEscapeListenerWired = true;
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape' && typeof window.__revCerrarSheetActiva === 'function') {
+            window.__revCerrarSheetActiva();
+          }
+        });
+      }
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
