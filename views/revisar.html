@@ -1,5 +1,13 @@
 <style>
-  .rev { max-width: 640px; margin: 0 auto; }
+  .rev {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--space-md);
+    padding-bottom: calc(var(--space-xl) + 72px); /* hueco para el FAB global */
+  }
+  @media (min-width: 600px) {
+    .rev { padding: var(--space-lg); padding-bottom: calc(var(--space-xl) + 72px); }
+  }
   .rev-header { margin-bottom: var(--space-lg); }
   .rev-title { font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); }
   .rev-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
