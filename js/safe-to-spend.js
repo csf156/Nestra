@@ -34,7 +34,9 @@ function mediana(nums) {
   return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
 }
 
-// calcularSafeToSpend(transacciones, metas, { hoy }) — número hero personal.
+// calcularSafeToSpend(transacciones, metas, { hoy, pctAhorro }) — número hero
+// personal. `pctAhorro` es el % del disponible que se reserva para metas
+// (profiles.pct_ahorro_objetivo); ausente o inválido → 50.
 // Devuelve null (no mostrar) | {estado:'ok',diario,restanteMes,diasRestantes,desglose}
 // | {estado:'excedido',exceso,diasRestantes,desglose}.
 //
@@ -75,7 +77,18 @@ function calcularSafeToSpend(transacciones, metas, opts) {
   // recibía el ingreso, así que no tenía con qué acotrarse, y el disponible
   // podía salir negativo (un "te pasaste por" fabricado por la reserva, no
   // por gasto real). Caso real: ingreso S/502, una meta exigía reservar S/903.
-  const techoMetas = Math.max(0, ingresoEstimado - fijosComprometidos) * 0.5;
+  // El % lo define el usuario en Preferencias (profiles.pct_ahorro_objetivo).
+  // Entra como insumo explícito para que la función siga siendo pura. Ausente o
+  // inválido → 50, que es el valor que estuvo hardcodeado aquí hasta 2026-07-18.
+  // Ojo: Number(null) y Number('') dan 0, que es un pct VÁLIDO. Hay que
+  // descartar los "ausentes" antes de convertir, o un perfil sin valor se
+  // leería como "no reserves nada" en vez de caer al default.
+  const PCT_DEFAULT = 50;
+  const pctCrudo = opts && opts.pctAhorro;
+  let pct = (pctCrudo === null || pctCrudo === undefined || pctCrudo === '')
+    ? NaN : Number(pctCrudo);
+  if (!Number.isFinite(pct) || pct < 0 || pct > 100) pct = PCT_DEFAULT;
+  const techoMetas = Math.max(0, ingresoEstimado - fijosComprometidos) * (pct / 100);
   const aporteMetasRestante = Math.min(aporteMetasRestanteCrudo, techoMetas);
 
   const numerador = ingresoEstimado - gastoAcumulado - fijosComprometidos - aporteMetasRestante;
@@ -226,7 +239,9 @@ async function cargarSafeToSpend() {
       window.getMetas(),
     ]);
     const hoy = new Date();
-    return calcularSafeToSpend(transacciones || [], metas || [], { hoy });
+    const pctAhorro = (typeof window !== 'undefined' && typeof window.getPctAhorro === 'function')
+      ? window.getPctAhorro() : undefined;
+    return calcularSafeToSpend(transacciones || [], metas || [], { hoy, pctAhorro });
   } catch (err) {
     console.error('Error en cargarSafeToSpend():', err && (err.message || err));
     return null;

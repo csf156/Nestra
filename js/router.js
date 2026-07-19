@@ -31,6 +31,7 @@ async function mostrarOnboardingSiHaceFalta() {
   }
   if (!perfil) return false;
   if (typeof cacheMonedaDesdePerfil === 'function') cacheMonedaDesdePerfil(perfil);
+  if (typeof cachePctAhorroDesdePerfil === 'function') cachePctAhorroDesdePerfil(perfil);
   if (perfil.onboarding_completado) {
     try { localStorage.setItem('nestra-onboarding-done', '1'); } catch (e) {}
     return false;

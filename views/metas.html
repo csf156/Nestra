@@ -6,6 +6,24 @@
     </div>
   </header>
 
+  <details class="metas-explica">
+    <summary>¿Cómo se reparte mi ahorro?</summary>
+    <div class="metas-explica-body">
+      <p>Cuando registras un ahorro, se reparte entre tus metas en curso. Cada
+         meta recibe una parte según su <strong>peso</strong>, y el peso sube cuando:</p>
+      <ul>
+        <li>el <strong>horizonte</strong> es corto (corto pesa más que mediano, y mediano más que largo);</li>
+        <li>la <strong>fecha límite</strong> está cerca (menos de 30 días pesa más; menos de 7, todavía más);</li>
+        <li>la meta va <strong>atrasada</strong> respecto a su objetivo.</li>
+      </ul>
+      <p>Si a una meta le falta menos de lo que le tocaría, solo recibe lo que le
+         falta. Lo que sobra va a tu <strong>fondo de emergencia</strong>, que
+         también participa del reparto.</p>
+      <p class="metas-explica-nota">La <strong>categoría</strong> de la meta no
+         afecta el reparto: es solo una etiqueta para organizarte.</p>
+    </div>
+  </details>
+
   <section class="metas-activas" id="metasActivas" aria-live="polite"></section>
 
   <details class="metas-completadas" id="metasCompletadas">
@@ -112,6 +130,19 @@
   .metas-header { margin-bottom: var(--space-lg); }
   .metas-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
   .metas-sub { color: var(--text-secondary); font-size: var(--font-size-sm); margin: 2px 0 0; }
+
+  .metas-explica { margin: 0 0 var(--space-lg); border: 1px solid var(--border-light);
+    border-radius: var(--radius-md); background: var(--bg-light-secondary); }
+  .metas-explica > summary { cursor: pointer; padding: var(--space-sm) var(--space-md);
+    color: var(--text-dark); font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold); min-height: 44px;
+    display: flex; align-items: center; }
+  .metas-explica-body { padding: 0 var(--space-md) var(--space-md);
+    color: var(--text-secondary); font-size: var(--font-size-sm); }
+  .metas-explica-body p { margin: 0 0 var(--space-sm); }
+  .metas-explica-body ul { margin: 0 0 var(--space-sm); padding-left: var(--space-lg); }
+  .metas-explica-body li { margin-bottom: 4px; }
+  .metas-explica-nota { color: var(--text-dark); }
 
   .metas-activas { display: flex; flex-direction: column; gap: var(--space-md); }
   .metas-vacio { color: var(--text-secondary); text-align: center; padding: var(--space-xl) var(--space-md); }
