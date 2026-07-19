@@ -774,9 +774,10 @@
            <dt>${esc(etiqueta)}</dt><dd>${esc(formatMonto(monto))}</dd>
          </div>`;
       // Aviso de metas fuera de ritmo: solo aparece cuando el techo de la
-      // reserva (50% de ingreso − fijos) recortó de verdad a alguna meta —
-      // sin esto, "Ahorro para tus metas" podía mostrar un número topado sin
-      // decir que la meta detrás ya no es alcanzable a este ritmo.
+      // reserva (el % del perfil sobre ingreso − fijos) recortó de verdad a
+      // alguna meta — sin esto, "Ahorro para tus metas" podía mostrar un
+      // número topado sin decir que la meta detrás ya no es alcanzable a
+      // este ritmo.
       const fueraDeRitmo = (d.metasFueraDeRitmo || []);
       const avisoMetas = fueraDeRitmo.length ? `
           <p class="dash-s2s-nota dash-s2s-nota--aviso">
