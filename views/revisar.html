@@ -38,12 +38,20 @@
     padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
   .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
   .rev-swipe-hint--descartar { right: 0; margin-left: auto; background: var(--color-danger); }
+  /* z-index 110 > nav (100, css/layout.css) a propósito: la nav es fixed-bottom
+     en móvil (mobile-first, cambia a sidebar izquierdo recién a min-width:768px)
+     y sin este offset el toast quedaba SOLAPADO bajo ella — no solo tapado:
+     el botón "Deshacer" recibía los clicks de un nav-link de abajo en vez de
+     los suyos. Verificado con elementFromPoint, no solo con clases CSS. */
   .rev-undo-toast { position: fixed; left: 50%; bottom: calc(var(--space-lg) + env(safe-area-inset-bottom, 0));
-    transform: translateX(-50%) translateY(200%); z-index: 60;
+    transform: translateX(-50%) translateY(200%); z-index: 110;
     background: var(--bg-light-secondary); color: var(--text-dark);
     border: 1px solid var(--border-light);
     padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill, 999px);
     display: flex; align-items: center; gap: var(--space-md); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+  @media (max-width: 767px) {
+    .rev-undo-toast { bottom: calc(60px + env(safe-area-inset-bottom, 0) + var(--space-md)); }
+  }
   .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
   .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
@@ -494,7 +502,7 @@
     t.setAttribute('data-idx', i);
     t._ctx = ctx;
     t.classList.add('is-open');
-    _undoTimer = setTimeout(finalizarUndo, 5000);
+    _undoTimer = setTimeout(finalizarUndo, 7000); // 7s: leer + ubicar + tocar en móvil
   }
   function finalizarUndo() {
     var t = document.getElementById('revUndoToast');
