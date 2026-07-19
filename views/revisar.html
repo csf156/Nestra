@@ -20,8 +20,6 @@
   .rev-swipe-surface { position: relative; z-index: 1; background: var(--bg-light);
     padding: var(--space-md); transition: transform .15s ease; touch-action: pan-y; }
   .rev-compact { display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
-  .rev-compact-top { display: flex; align-items: center; gap: var(--space-sm); }
-  .rev-compact-monto { margin-left: auto; font-weight: var(--font-weight-bold); color: var(--text-dark); }
   .rev-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px;
     border-radius: var(--radius-pill, 999px); border: 1px solid var(--border-light);
     background: color-mix(in srgb, var(--text-secondary) 12%, transparent);
@@ -62,9 +60,21 @@
   }
   .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
-  .rev-top { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
-  .rev-banco { text-transform: uppercase; }
-  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); margin-left: auto; }
+  /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
+     banco dejó de ser .badge — en el resto de la app .badge significa estado. */
+  .rev-meta { display: flex; align-items: center; gap: var(--space-sm);
+    font-size: var(--font-size-xs); color: var(--text-secondary); }
+  .rev-banco { text-transform: uppercase; letter-spacing: 0.08em; }
+  .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); }
+  .rev-meta .badge { margin-left: auto; }
+
+  /* El ancla visual de la card. tabular-nums para que los montos de la lista
+     alineen en columna, como en dashboard e historial. */
+  .rev-monto { margin: 2px 0 0; text-align: right;
+    font-family: var(--font-display); font-size: var(--font-size-2xl);
+    font-weight: 400; color: var(--text-dark); font-variant-numeric: tabular-nums; }
+
+  .rev-compact-foot { display: flex; align-items: center; gap: var(--space-sm); }
   .rev-comercio { font-weight: var(--font-weight-semibold); margin-bottom: 2px; overflow-wrap: anywhere; }
   .rev-original { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); }
   .rev-original.rev-original-warn { color: var(--color-warning); }
@@ -206,17 +216,17 @@
       '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
       '<div class="rev-swipe-surface">' +
         '<div class="rev-compact" data-rev-expandir="' + i + '">' +
-          '<div class="rev-compact-top">' +
-            '<span class="badge badge-neutral rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+          '<div class="rev-meta">' +
+            '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
+            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
-            '<span class="rev-compact-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</span>' +
           '</div>' +
           (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
-          '<div class="rev-compact-top">' +
+          '<p class="rev-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</p>' +
+          '<div class="rev-compact-foot">' +
             '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
               esc(nombreCat(cats, sugerida) || 'Sin categoría') +
             '</button>' +
-            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="rev-expandido">' +
