@@ -19,6 +19,36 @@ test('dias: respeta el largo del mes', () => {
   assert.strictEqual(agruparSerie([], 'dias', { mes: 7, anio: 2026 }).length, 31);
 });
 
+test('dias: corta en hoy cuando la ventana es el mes en curso', () => {
+  // Hoy = 19 jul 2026; julio tiene 31 días pero la serie debe llegar solo a 19.
+  const hoy = { anio: 2026, mes: 7, dia: 19 };
+  const r = agruparSerie([], 'dias', { mes: 7, anio: 2026 }, null, hoy);
+  assert.strictEqual(r.length, 19, 'la serie del mes en curso termina hoy');
+  assert.strictEqual(r[18].label, '19', 'el último punto es el día 19');
+});
+
+test('dias: un mes pasado se muestra completo aunque se pase hoy', () => {
+  // Viendo junio (mes pasado) con hoy en julio: junio entero, 30 días.
+  const hoy = { anio: 2026, mes: 7, dia: 19 };
+  const r = agruparSerie([], 'dias', { mes: 6, anio: 2026 }, null, hoy);
+  assert.strictEqual(r.length, 30, 'un mes pasado no se recorta');
+});
+
+test('dias: sin hoy, mes entero (regresión — no rompe a los callers viejos)', () => {
+  const r = agruparSerie([], 'dias', { mes: 7, anio: 2026 });
+  assert.strictEqual(r.length, 31, 'sin hoy sigue siendo el mes completo');
+});
+
+test('dias: una tx de fecha futura en el mes en curso queda fuera del recorte', () => {
+  // Decisión deliberada (ver spec): la línea termina hoy; una fecha futura
+  // pertenece a una proyección, no a la línea de hechos.
+  const hoy = { anio: 2026, mes: 7, dia: 19 };
+  const r = agruparSerie(
+    [{ tipo: 'gasto', fecha: '2026-07-25', monto: 500 }], 'dias', { mes: 7, anio: 2026 }, null, hoy);
+  assert.strictEqual(r.length, 19, 'no se extiende hasta el día 25');
+  assert.strictEqual(r.reduce((a, x) => a + x.gasto, 0), 0, 'el gasto del día 25 no aparece');
+});
+
 test('dias: ignora las filas de otro mes', () => {
   const r = agruparSerie([g('2026-06-30', 999), g('2026-07-05', 5)], 'dias', { mes: 7, anio: 2026 });
   assert.strictEqual(r.reduce((a, x) => a + x.gasto, 0), 5);
