@@ -49,16 +49,26 @@ function _periodos(granularidad, hasta, n) {
   return out;
 }
 
-// agruparSerie(transacciones, granularidad, hasta, n) → [{ label, gasto, ingreso }]
+// agruparSerie(transacciones, granularidad, hasta, n, hoy) → [{ label, gasto, ingreso }]
 //   granularidad: 'dias' | 'meses' | 'trimestres'
 //   hasta: { mes, anio } — el último periodo de la ventana (el del navegador).
 //   n: cuántos periodos (12 meses / 8 trimestres). Se ignora en 'dias', donde
 //      la ventana es el mes entero de `hasta`.
+//   hoy: { mes, anio, dia } opcional — si `hasta` es el mes en curso, la serie
+//        diaria se recorta al día de hoy en vez de emitir el mes completo.
+//        Solo aplica a 'dias'. Sin él, mes entero (compat con callers viejos).
 // Solo cuentan tipo 'gasto' e 'ingreso'; el ahorro no es ni una cosa ni la otra.
 // Los periodos sin datos salen en 0: se dibujan, no se saltan.
-function agruparSerie(transacciones, granularidad, hasta, n) {
+function agruparSerie(transacciones, granularidad, hasta, n, hoy) {
   if (granularidad === 'dias') {
     var dias = new Date(Date.UTC(hasta.anio, hasta.mes, 0)).getUTCDate();
+    // Si la ventana es el mes en curso, corta en hoy: los días futuros no
+    // tienen datos y trazaban una línea plana en 0 hacia adelante, sin
+    // sentido. Un mes pasado no entra acá (hasta.mes != hoy.mes) → completo.
+    // hoy es opcional: sin él, mes entero (compat con callers/tests viejos).
+    if (hoy && hasta.anio === hoy.anio && hasta.mes === hoy.mes) {
+      dias = Math.min(dias, hoy.dia);
+    }
     var g = new Array(dias).fill(0), ing = new Array(dias).fill(0);
     (transacciones || []).forEach(function (t) {
       var s = String(t.fecha).split('T')[0];
