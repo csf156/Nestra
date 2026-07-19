@@ -319,8 +319,16 @@
     document.getElementById('revSheet').classList.add('is-open');
   }
   function cerrarSheet() {
-    document.getElementById('revSheetBackdrop').classList.remove('is-open');
-    document.getElementById('revSheet').classList.remove('is-open');
+    // El listener de Escape vive en document y sobrevive a la navegación (la
+    // SPA re-ejecuta el <script> de la vista en cada visita, sin desmontar el
+    // anterior). Si el usuario deja el sheet abierto y navega a otra vista,
+    // un Escape ahí dispara este cerrarSheet de una instancia vieja, donde
+    // estos ids ya no existen en el DOM — sin el guard, getElementById(...).
+    // classList lanzaría TypeError sobre null en una vista que no es #revisar.
+    var backdrop = document.getElementById('revSheetBackdrop');
+    var sheet = document.getElementById('revSheet');
+    if (backdrop) backdrop.classList.remove('is-open');
+    if (sheet) sheet.classList.remove('is-open');
     _sheetIdx = null;
   }
   function elegirCategoria(val) {
