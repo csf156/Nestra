@@ -31,9 +31,17 @@ Cinco desviaciones verificadas contra el resto del repo:
    pero no está definida en ningún CSS. Por eso no hay padding heredado que salve
    a `.rev`. **Fuera de alcance de este trabajo** — ver "No-objetivos".
 
-3. **El `h1` no usa la fuente de display.** `.rev-title` es Outfit con
-   `--font-size-xl`; `css/base.css:116` pone todo `h1, h2` en Playfair Display, y
-   dashboard, historial, login y onboarding lo respetan.
+3. **El `h1` no usa la fuente de display ni el peso real de los títulos de
+   página.** `.rev-title` es Outfit con `--font-size-xl`. `css/base.css:116` pone
+   la familia base (`h1, h2 { font-family: var(--font-display); font-weight: 400 }`),
+   pero **todo título de página real la pisa a `--font-weight-bold`** (600):
+   `.dash-saludo` (`views/dashboard.html:133-140`), `.hist-title`
+   (`views/historial.html:164-166`), `.metas-title` (`views/metas.html:131`),
+   `.graf-title` (`views/graficos.html:118`). El 400 de la regla base solo se ve
+   en la práctica en `h1` sin override explícito (p. ej. el `h1.sr-only` invisible
+   de `login.html:3`, que no cuenta como referencia visual) — no en ningún título
+   de página visible del repo. La paridad real con el resto de vistas es
+   `--font-weight-bold`, no el 400 heredado.
 
 4. **El monto no usa `tabular-nums`.** dashboard, historial y configuración sí
    (`font-variant-numeric: tabular-nums`). Sin esto los montos no alinean al

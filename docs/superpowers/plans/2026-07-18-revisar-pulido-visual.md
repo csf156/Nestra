@@ -145,10 +145,10 @@ En `views/revisar.html`, reemplaza la línea 4:
 por:
 
 ```css
-  .rev-title { font-family: var(--font-display); font-size: var(--font-size-2xl); font-weight: 400; }
+  .rev-title { font-family: var(--font-display); font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); }
 ```
 
-Por qué `font-weight: 400` y no `bold`: `css/base.css:116` pone todo `h1, h2` en Playfair con peso 400, y dashboard/historial/login lo respetan. Además `--font-weight-bold` vale 600 en este repo (`css/base.css:45`), no 700 — pedir "bold" no da el contraste que uno esperaría.
+Por qué `--font-weight-bold` y no el `400` de la regla base de `css/base.css:116`: ese 400 solo se ve en la práctica en un `h1` sin override — todo título de página real lo pisa a bold: `.dash-saludo` (`views/dashboard.html:133-140`), `.hist-title` (`views/historial.html:164-166`), `.metas-title` (`views/metas.html:131`), `.graf-title` (`views/graficos.html:118`). Paridad real con el resto de vistas = bold. (Nota: `--font-weight-bold` vale 600 en este repo, no 700 — igual que `--font-weight-semibold` — pero eso no cambia la instrucción: el punto es usar la misma variable que las otras vistas, no un peso distinto en valor absoluto.)
 
 - [ ] **Step 2: Verificar**
 
