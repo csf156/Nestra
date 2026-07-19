@@ -83,11 +83,14 @@
     background: var(--bg-light-secondary); color: var(--text-dark);
     border: 1px solid var(--border-light);
     padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill, 999px);
-    display: flex; align-items: center; gap: var(--space-md); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+    display: flex; align-items: center; gap: var(--space-md);
+    visibility: hidden;
+    transition: transform .2s ease, visibility 0s linear .2s; box-shadow: var(--shadow-lg); }
   @media (max-width: 767px) {
     .rev-undo-toast { bottom: calc(60px + env(safe-area-inset-bottom, 0) + var(--space-md)); }
   }
-  .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0); }
+  .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0);
+    visibility: visible; transition: transform .2s ease, visibility 0s; }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
   /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
      banco dejó de ser .badge — en el resto de la app .badge significa estado. */
