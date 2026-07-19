@@ -30,11 +30,13 @@
 
   /* Estado sugerido: es una propuesta de la app, no una decisión tuya. Se marca
      en el color de acento (oro) además del borde punteado — el dashed solo no
-     se distingue en pantalla de teléfono. */
+     se distingue en pantalla de teléfono.
+     Sin tinte de fondo a propósito: color-primary sobre bg-light tintado al 10%
+     da 4.08:1 en tema claro (falla AA 4.5:1); sin tinte, sobre bg-light plano,
+     da 4.61:1 (pasa). Verificado con la fórmula de luminancia relativa WCAG. */
   .rev-chip--sugerida { border-style: dashed; border-color: var(--color-primary);
-    color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 10%, transparent); }
-  .rev-chip--sugerida:hover { background: color-mix(in srgb, var(--color-primary) 18%, transparent); }
+    color: var(--color-primary); background: transparent; }
+  .rev-chip--sugerida:hover { border-color: var(--accent-hover); }
   .rev-expandido { display: none; margin-top: var(--space-md); }
   .rev-card.is-expanded .rev-expandido { display: block; }
   .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 50; }
