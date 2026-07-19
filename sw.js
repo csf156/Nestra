@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v34';
+const SHELL_VERSION = 'v35';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -57,6 +57,9 @@ precaching.precacheAndRoute([
   { url: 'js/searchable-select.js', revision: SHELL_VERSION },
   { url: 'js/share-target.js', revision: SHELL_VERSION },
   { url: 'js/vendor/idb-umd.js', revision: SHELL_VERSION },
+  { url: 'js/vendor/supabase-js-2.108.0.js', revision: SHELL_VERSION },
+  { url: 'js/vendor/xlsx-0.18.5.full.min.js', revision: SHELL_VERSION },
+  { url: 'js/vendor/chart-4.4.6.umd.min.js', revision: SHELL_VERSION },
   { url: 'manifest.json', revision: SHELL_VERSION },
   { url: 'assets/nestra_logo.png', revision: SHELL_VERSION },
   { url: 'assets/nestra_logo_dark.png', revision: SHELL_VERSION },
@@ -83,17 +86,9 @@ routing.registerRoute(
   })
 );
 
-// CDNs de terceros usados por el shell (supabase-js, xlsx, chart.js): cache-first.
-routing.registerRoute(
-  ({ url }) => url.origin === 'https://cdn.jsdelivr.net',
-  new strategies.CacheFirst({
-    cacheName: 'nestra-cdn',
-    plugins: [
-      new cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
-      new expiration.ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 }),
-    ],
-  })
-);
+// supabase-js, xlsx y chart.js se vendorizaron el 2026-07-18 (ya no dependen
+// de jsdelivr en runtime — ver js/vendor/*). La ruta CacheFirst para ese CDN
+// se retiró: sin scripts sirviéndose de ahí, quedaba muerta.
 
 // Supabase REST (lecturas GET): network-first con fallback a cache.
 routing.registerRoute(
