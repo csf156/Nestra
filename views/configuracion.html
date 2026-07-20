@@ -162,6 +162,28 @@
           Del dinero que te queda cada mes tras los gastos fijos, cuánto se
           reserva para tus metas. Afecta al número de «Puedes gastar hoy».
         </p>
+        <div class="cfg-pref-row" id="cfgPctFondoPersonalRow">
+          <span class="cfg-pref-nombre">Aporte al fondo personal</span>
+          <span class="cfg-pct-wrap">
+            <input id="cfgPctFondoPersonal" class="cfg-input cfg-pct-input" type="number"
+                   inputmode="numeric" min="0" max="50" step="1"
+                   aria-describedby="cfgPctFondoHint">
+            <span class="cfg-pct-signo" aria-hidden="true">%</span>
+          </span>
+        </div>
+        <div class="cfg-pref-row" id="cfgPctFondoHogarRow" hidden>
+          <span class="cfg-pref-nombre">Aporte al fondo del hogar</span>
+          <span class="cfg-pct-wrap">
+            <input id="cfgPctFondoHogar" class="cfg-input cfg-pct-input" type="number"
+                   inputmode="numeric" min="0" max="50" step="1"
+                   aria-describedby="cfgPctFondoHint">
+            <span class="cfg-pct-signo" aria-hidden="true">%</span>
+          </span>
+        </div>
+        <p class="cfg-pref-hint" id="cfgPctFondoHint">
+          De cada ahorro general, cuánto va al fondo de emergencia. El resto se
+          reparte entre tus metas. (Sin metas, el fondo recibe todo.)
+        </p>
         <div class="cfg-pref-row" id="pushToggleRow" hidden>
           <span class="cfg-pref-nombre">Notificaciones push</span>
           <button type="button" class="cfg-toggle" id="pushToggle"
@@ -1755,6 +1777,42 @@
         input.value = aplicado;
         if (typeof mostrarToast === 'function') mostrarToast('Ahorro para metas: ' + aplicado + '%', 2500);
       });
+    })();
+
+    /* ── % del fondo de emergencia ──────────────────────── */
+    (function initPctFondo() {
+      if (typeof getPctFondo !== 'function' || typeof setPctFondo !== 'function') {
+        var pr = document.getElementById('cfgPctFondoPersonalRow');
+        var hr = document.getElementById('cfgPctFondoHogarRow');
+        var hint = document.getElementById('cfgPctFondoHint');
+        if (pr) pr.hidden = true; if (hr) hr.hidden = true; if (hint) hint.hidden = true;
+        return;
+      }
+      var inP = document.getElementById('cfgPctFondoPersonal');
+      var inH = document.getElementById('cfgPctFondoHogar');
+      var rowH = document.getElementById('cfgPctFondoHogarRow');
+      var enHogar = (typeof tieneHogar === 'function') && tieneHogar();
+      if (rowH) rowH.hidden = !enHogar;
+
+      function cargar() {
+        getPctFondo('personal').then(function (v) { inP.value = v; }).catch(function () {});
+        if (enHogar) getPctFondo('hogar').then(function (v) { inH.value = v; }).catch(function () {});
+      }
+      cargar();
+
+      function guardar(ambito, input) {
+        return async function () {
+          var n = Math.round(Number(input.value));
+          if (!Number.isFinite(n) || n < 0 || n > 50) {
+            getPctFondo(ambito).then(function (v) { input.value = v; }); // revertir
+            return;
+          }
+          try { await setPctFondo(ambito, n); }
+          catch (e) { getPctFondo(ambito).then(function (v) { input.value = v; }); }
+        };
+      }
+      inP.addEventListener('change', guardar('personal', inP));
+      if (enHogar) inH.addEventListener('change', guardar('hogar', inH));
     })();
 
     /* ── Plantillas rápidas ─────────────────────────────── */
