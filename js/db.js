@@ -165,7 +165,7 @@ async function insertTransaccion(datos) {
     const { data, error } = await supabase
       .from('transacciones').insert(fila).select().single();
     if (error) throw error;
-    if (data.tipo === 'ahorro') await _distribuirAhorroTx(data);
+    await _distribuirAhorroTx(data);   // no-op salvo que sea un ahorro repartible
     await mirrorPut('transacciones', data);
     if (typeof autocatLearnTokens === 'function' && typeof tokenize === 'function' && data.nota && data.categoria_id) {
       await autocatLearnTokens(tokenize(data.nota), data.categoria_id);
@@ -186,17 +186,36 @@ async function insertTransaccion(datos) {
   }
 }
 
-// _distribuirAhorroTx(tx) — si la transacción es de tipo 'ahorro', invoca el
-// RPC distribuir_ahorro (reparte entre metas del ámbito + fondo). Los aportes
-// directos ya asignan su monto a mano; nunca se reparten. Best-effort (no lanza).
+// _distribuirAhorroTx(tx) — reparte un ahorro entre metas + fondo vía el RPC
+// distribuir_ahorro. Usado por el camino online (insertTransaccion) y por el
+// sync (ahorro creado offline, que se reparte al reconectar).
+// Idempotente: si la tx ya tiene aportes, no reparte de nuevo — el sync puede
+// reintentar un op cuyo upsert ya disparó el reparto, y un segundo RPC
+// duplicaría los aportes.
+// Devuelve 'done' | 'retry' | 'skip':
+//   'done'  → repartido, ya estaba repartido, o no aplica (no es ahorro / aporte directo)
+//   'retry' → error de red (RPC o conteo); el llamador de sync reintenta luego
+//   'skip'  → error real; se loguea y no se reintenta (la tx igual quedó guardada)
 async function _distribuirAhorroTx(tx) {
   try {
-    if (!tx || tx.tipo !== 'ahorro') return;
-    if (tx.es_aporte_directo) return;
+    if (typeof esAhorroRepartible === 'function' ? !esAhorroRepartible(tx)
+        : !(tx && tx.tipo === 'ahorro' && !tx.es_aporte_directo)) {
+      return 'done';
+    }
+    const { count, error: eCount } = await supabase
+      .from('aportes_meta')
+      .select('id', { count: 'exact', head: true })
+      .eq('transaccion_id', tx.id);
+    if (eCount) throw eCount;
+    if (count > 0) return 'done';   // ya repartido: no duplicar
+
     const { error } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: tx.id });
     if (error) throw error;
+    return 'done';
   } catch (err) {
+    if (_isNetworkError(err) || !navigator.onLine) return 'retry';
     console.error('Aviso: no se pudo repartir el ahorro entre metas:', err.message || err);
+    return 'skip';
   }
 }
 
