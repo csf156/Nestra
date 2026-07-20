@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v36';
+const SHELL_VERSION = 'v37';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -48,6 +48,7 @@ precaching.precacheAndRoute([
   { url: 'js/sidebar.js', revision: SHELL_VERSION },
   { url: 'js/nestra-db.js', revision: SHELL_VERSION },
   { url: 'js/sync-lww.js', revision: SHELL_VERSION },
+  { url: 'js/reparto-sync.js', revision: SHELL_VERSION },
   { url: 'js/sync.js', revision: SHELL_VERSION },
   { url: 'js/pwa.js', revision: SHELL_VERSION },
   { url: 'js/push.js', revision: SHELL_VERSION },
