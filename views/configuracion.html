@@ -1800,19 +1800,38 @@
       }
       cargar();
 
-      function guardar(ambito, input) {
+      // '' es "campo vacío", no un 0% real: Number('') da 0 y se guardaría sin
+      // querer (mismo cuidado que normalizarPct en ahorro-pct.js). Se descarta
+      // ANTES de convertir a número, no después.
+      function normalizarPctFondo(v) {
+        if (v === null || v === undefined || v === '') return null;
+        var n = Number(v);
+        if (!Number.isFinite(n)) return null;
+        n = Math.round(n);
+        if (n < 0 || n > 50) return null;
+        return n;
+      }
+
+      function guardar(ambito, input, etiqueta) {
         return async function () {
-          var n = Math.round(Number(input.value));
-          if (!Number.isFinite(n) || n < 0 || n > 50) {
+          var n = normalizarPctFondo(input.value);
+          if (n == null) {
             getPctFondo(ambito).then(function (v) { input.value = v; }); // revertir
+            if (typeof mostrarToast === 'function') mostrarToast('Usa un número entre 0 y 50.', 3500);
             return;
           }
-          try { await setPctFondo(ambito, n); }
-          catch (e) { getPctFondo(ambito).then(function (v) { input.value = v; }); }
+          try {
+            await setPctFondo(ambito, n);
+            input.value = n;
+            if (typeof mostrarToast === 'function') mostrarToast(etiqueta + ': ' + n + '%', 2500);
+          } catch (e) {
+            getPctFondo(ambito).then(function (v) { input.value = v; }); // revertir
+            if (typeof mostrarToast === 'function') mostrarToast('No se pudo guardar. Reintenta.', 3500);
+          }
         };
       }
-      inP.addEventListener('change', guardar('personal', inP));
-      if (enHogar) inH.addEventListener('change', guardar('hogar', inH));
+      inP.addEventListener('change', guardar('personal', inP, 'Aporte al fondo personal'));
+      if (enHogar) inH.addEventListener('change', guardar('hogar', inH, 'Aporte al fondo del hogar'));
     })();
 
     /* ── Plantillas rápidas ─────────────────────────────── */
