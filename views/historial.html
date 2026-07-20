@@ -18,6 +18,7 @@
     <button type="button" class="hist-chip hist-chip--active" data-grupo="todo" data-valor="todo" aria-pressed="true">Todo</button>
     <button type="button" class="hist-chip" data-grupo="tipo" data-valor="gasto" aria-pressed="false">Gastos</button>
     <button type="button" class="hist-chip" data-grupo="tipo" data-valor="ingreso" aria-pressed="false">Ingresos</button>
+    <button type="button" class="hist-chip" data-grupo="tipo" data-valor="ahorro" aria-pressed="false">Ahorro</button>
     <span class="hist-chip-sep" aria-hidden="true"></span>
     <button type="button" class="hist-chip" data-grupo="ambito" data-valor="hogar" aria-pressed="false">Hogar</button>
     <button type="button" class="hist-chip" data-grupo="ambito" data-valor="personal" aria-pressed="false">Personal</button>
@@ -987,7 +988,9 @@
     function renderActivos() {
       var cont = $('histActivos');
       var tags = [];
-      if (estado.tipo)   tags.push(estado.tipo === 'gasto' ? 'Gastos' : 'Ingresos');
+      if (estado.tipo) {
+        tags.push(estado.tipo === 'gasto' ? 'Gastos' : estado.tipo === 'ingreso' ? 'Ingresos' : 'Ahorro');
+      }
       if (estado.ambito) tags.push(estado.ambito === 'hogar' ? 'Hogar' : 'Personal');
       if (estado.categoria_id) {
         var sel = $('histCategoria');
