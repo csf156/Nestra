@@ -952,16 +952,19 @@
     }
     $('grafMesPrev').addEventListener('click', function () { cambiarMes(-1); });
     $('grafMesNext').addEventListener('click', function () { cambiarMes(1); });
-    function setAmbito(nuevo) {
-      if (nuevo === estado.ambito) return;
-      estado.ambito = nuevo;
+    function aplicarAmbitoUI(ambito) {
       var grafRoot = document.querySelector('.graf');
-      if (grafRoot) grafRoot.classList.toggle('graf--personal', nuevo === 'personal');
+      if (grafRoot) grafRoot.classList.toggle('graf--personal', ambito === 'personal');
       Array.prototype.forEach.call(document.querySelectorAll('.graf-toggle:not(.graf-toggle--gran) .graf-seg'), function (b) {
-        var on = b.getAttribute('data-ambito') === nuevo;
+        var on = b.getAttribute('data-ambito') === ambito;
         b.classList.toggle('graf-seg--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+    }
+    function setAmbito(nuevo) {
+      if (nuevo === estado.ambito) return;
+      estado.ambito = nuevo;
+      aplicarAmbitoUI(nuevo);
       recargarTodo();
     }
     Array.prototype.forEach.call(document.querySelectorAll('.graf-toggle:not(.graf-toggle--gran) .graf-seg'), function (b) {
@@ -1003,6 +1006,7 @@
       return;
     }
     Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    aplicarAmbitoUI(estado.ambito);
     renderLabel();
     recargarTodo();
   })();
