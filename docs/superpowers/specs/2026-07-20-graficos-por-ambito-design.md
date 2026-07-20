@@ -34,7 +34,8 @@ un click. Esto por sí solo arregla "Aporte real vs. esperado aparece en persona
 | 3 | Aporte real vs. esperado | **Oculto** (init fix) | Se muestra (sin cambio) |
 | 6 | Flujo de caja | **Se muestra** (fórmula nueva) | **Oculto** |
 | 7 | Comparativa mes a mes | Gasto personal | **Solo gasto de hogar** |
-| 4,5,8,9 | — | Auditar que ya respetan el ámbito | idem |
+| 9 | Proyección de saldo | **Se muestra** | **Oculto** (personal-only) |
+| 4,5,8 | — | Auditar que ya respetan el ámbito | idem |
 
 ### Chart 1 — Evolución temporal (hogar → Gastos + Ahorro)
 
@@ -91,13 +92,14 @@ Implica:
   del mes (hoy solo trae personales vía `soloPersonal`) para poder calcular "mi
   parte". Traer `txHogarMes` y pasarlo a `datos` (o precalcular
   `miAporteGastoHogar` en `cargarDatos`).
-- `visiblesPara`: mover 6 de la lista de hogar a la de personal →
-  `personal = [1,2,4,5,6,7,8,9]`, `hogar = [1,2,3,4,5,7,8,9]`.
+- `visiblesPara`: mover 6 (y 9, ver auditoría) a personal-only. Resultado final
+  combinando 6 y 9: `personal = [1,2,4,5,6,7,8,9]`, `hogar = [1,2,3,4,5,7,8]`.
 - CSS de ocultamiento: hoy `.graf--personal #card3, .graf--personal #card6
-  { display:none }`. Pasa a: `.graf--personal #card3 { display:none }` (ocultar 3
-  en personal) y ocultar 6 en hogar — p. ej. `.graf:not(.graf--personal) #card6
-  { display:none }` o una clase `.graf--hogar`. Elegir el enfoque que quede más
-  simple y consistente en la implementación.
+  { display:none }`. Pasa a ocultar el **3 en personal** y los **6 y 9 en hogar**.
+  Enfoque recomendado por simetría: `.graf--personal #card3 { display:none }` +
+  `.graf:not(.graf--personal) #card6, .graf:not(.graf--personal) #card9
+  { display:none }`. Con el init fix, `.graf--personal` está siempre presente en
+  personal, así que `.graf:not(.graf--personal)` = hogar de forma fiable.
 - La descripción de la card 6 se actualiza a la semántica personal.
 
 ### Chart 7 — Comparativa mes a mes (acotar al ámbito)
@@ -119,9 +121,10 @@ Verificar uno por uno en la implementación que usan datos del ámbito seleccion
 - 5 (Mapa de calor): usa `datos.txMes` (ya acotado por ámbito en `cargarDatos`).
   Confirmar.
 - 8 (Proyección de metas): usa `datos.metas` (metas del ámbito). Confirmar.
-- 9 (Proyección de saldo): solo corre en el mes en curso; usa `datos.txMes`,
-  `recurrentes`, `metas`. Confirmar que su alcance es coherente con el ámbito
-  (probablemente personal-relevante; revisar si tiene sentido en hogar).
+- 9 (Proyección de saldo): **personal-only** (decisión del usuario — la proyección
+  de saldo solo tiene sentido en lo personal). Igual que el chart 6: quitar 9 de
+  `visiblesPara('hogar')` y ocultar `#card9` en hogar por CSS. Queda en
+  `personal = [1,2,4,5,6,7,8,9]`, `hogar = [1,2,3,4,5,7,8]`.
 
 Cualquier desajuste que aparezca en la auditoría se documenta y se corrige o se
 deja anotado según su tamaño.
