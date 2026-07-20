@@ -37,20 +37,19 @@
   .rev-chip--sugerida { border-style: dashed; border-color: var(--color-primary);
     color: var(--color-primary); background: transparent; }
   .rev-chip--sugerida:hover { border-color: var(--accent-hover); }
+
+  /* Estado sin categoría: nada se decidió ni se sugirió — se lee como "falta
+     esto", primo del --sugerida (mismo patrón borde punteado + texto en color,
+     sin tinte de fondo) pero en warning en vez de primary para no confundirse
+     con "hay una propuesta". Mismo criterio de verificación que arriba (fórmula
+     de luminancia relativa WCAG, contraste = (L1+0.05)/(L2+0.05)):
+     color-warning sobre bg-light plano da 5.98:1 en tema claro y 10.90:1 en
+     oscuro — pasa AA (4.5:1) con margen en ambos. */
+  .rev-chip--sin-cat { border-style: dashed; border-color: var(--color-warning);
+    color: var(--color-warning); background: transparent; }
+  .rev-chip--sin-cat:hover { border-color: var(--color-warning); }
   .rev-expandido { display: none; margin-top: var(--space-md); }
   .rev-card.is-expanded .rev-expandido { display: block; }
-  .rev-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 50; }
-  .rev-sheet-backdrop.is-open { display: block; }
-  .rev-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
-    background: var(--bg-light-secondary); color: var(--text-dark);
-    border-top: 1px solid var(--border-light); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    box-shadow: var(--shadow-lg); max-height: 70vh; overflow-y: auto; padding: var(--space-md);
-    transform: translateY(100%); transition: transform .2s ease; }
-  .rev-sheet.is-open { transform: translateY(0); }
-  .rev-sheet-op { display: block; width: 100%; text-align: left; padding: var(--space-sm) var(--space-md);
-    border: none; background: none; color: var(--text-dark); font-size: var(--font-size-base);
-    cursor: pointer; border-radius: var(--radius-md); }
-  .rev-sheet-op:hover, .rev-sheet-op.is-sel { background: color-mix(in srgb, var(--color-primary) 14%, transparent); }
   .rev-swipe-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
     padding: 0 var(--space-lg); font-weight: var(--font-weight-semibold); color: #fff; opacity: 0; }
   .rev-swipe-hint--confirm { left: 0; background: var(--color-success); }
@@ -115,8 +114,15 @@
   .rev-grid .rev-field-full { grid-column: 1 / -1; }
   .rev-field label { display: block; font-size: var(--font-size-xs); color: var(--text-secondary); margin-bottom: 2px; }
   .rev-field input, .rev-field select { width: 100%; }
-  .rev-acciones { display: flex; gap: var(--space-sm); }
-  .rev-acciones .btn { flex: 1; }
+  .rev-acciones { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); }
+  .rev-acciones .btn-primary { flex: 1; min-height: 44px; }
+  /* Descartar es destructivo pero de-enfatizado: ghost + tinte danger tenue en
+     vez de btn-secondary (mismo peso visual que Confirmar era justo el problema
+     — mis-tap fácil hacia una acción irreversible). Reusa .btn-ghost (ya en
+     css/components.css) como base y solo tiñe el texto; no ocupa todo el ancho. */
+  .rev-acciones .btn-ghost-danger { flex: 0 0 auto; min-height: 44px; color: var(--color-danger); }
+  .rev-acciones .btn-ghost-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent); color: var(--color-danger); }
   .rev-error { color: var(--color-danger); font-size: var(--font-size-sm); margin-top: var(--space-sm); display: none; }
   .rev-loading { display: flex; flex-direction: column; gap: var(--space-md); }
   .rev-partes { border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); margin-bottom: var(--space-sm); }
@@ -143,8 +149,6 @@
   <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
-  <div class="rev-sheet-backdrop" id="revSheetBackdrop"></div>
-  <div class="rev-sheet" id="revSheet" role="dialog" aria-label="Elegir categoría"></div>
   <div class="rev-undo-toast" id="revUndoToast" role="status">
     <span class="rev-undo-msg"></span>
     <button type="button" class="rev-undo-btn" id="revUndoBtn">Deshacer</button>
@@ -176,6 +180,17 @@
   }
   function fmt(n) {
     return (typeof formatMonto === 'function') ? formatMonto(Number(n)) : 'S/ ' + Number(n).toFixed(2);
+  }
+  // js/format.js trae formatFecha()/formatFechaCorta(), pero ambas dan DD/MM —
+  // acá queremos "20 jul 2026" (fecha de un correo, no de un campo de form),
+  // así que no reusamos ese helper y formateamos inline con Intl.
+  function fmtFechaCorreo(iso) {
+    if (!iso) return '';
+    try {
+      return new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+    } catch (e) {
+      return String(iso).slice(0, 10);
+    }
   }
 
   if (faltan.length) {
@@ -243,6 +258,8 @@
         : '<p class="rev-original rev-original-warn">' + esc(p.moneda_original) + ' ' + esc(p.monto_original) + ' — la conversión falló: el monto está en ' + esc(p.moneda_original) + ', corrígelo a tu moneda</p>';
     }
 
+    var sinCat = !sugerida;
+
     return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
       '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
@@ -250,13 +267,13 @@
         '<div class="rev-compact" data-rev-expandir="' + i + '" role="button" tabindex="0" aria-expanded="false">' +
           '<div class="rev-meta">' +
             '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
-            '<span class="rev-fecha-correo">' + esc((p.created_at || '').slice(0, 10)) + '</span>' +
+            '<span class="rev-fecha-correo">' + esc(fmtFechaCorreo(p.created_at)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
           '</div>' +
           (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
           '<p class="rev-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</p>' +
           '<div class="rev-compact-foot">' +
-            '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
+            '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + (sinCat ? ' rev-chip--sin-cat' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
               esc(nombreCat(cats, sugerida) || 'Sin categoría') +
             '</button>' +
           '</div>' +
@@ -282,6 +299,8 @@
               '</select></div>' +
             '<div class="rev-field rev-field-full" id="revCatWrap' + i + '"><label for="revCat' + i + '">Categoría</label>' +
               '<select id="revCat' + i + '">' + opcionesCategoria(cats, sugerida) + '</select></div>' +
+            '<div class="rev-field rev-field-full"><label for="revNota' + i + '">Nota <span class="label-opcional">(opcional)</span></label>' +
+              '<textarea id="revNota' + i + '" rows="2" placeholder="Descripción libre..."></textarea></div>' +
           '</div>' +
           (hayHogar ? (
           '<div id="revPartesGroup' + i + '" class="rev-partes" style="display:none">' +
@@ -290,12 +309,12 @@
             '<p id="revPartesRestante' + i + '" class="rev-partes-restante"></p>' +
             '<p class="rev-error" id="revPartesErr' + i + '"></p>' +
           '</div>') : '') +
+          '<div class="rev-acciones">' +
+            '<button type="button" class="btn btn-ghost-danger" data-rev-descartar="' + i + '">Descartar</button>' +
+            '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
+          '</div>' +
+          '<p class="rev-error" id="revErr' + i + '"></p>' +
         '</div>' +
-        '<div class="rev-acciones">' +
-          '<button type="button" class="btn btn-secondary" data-rev-descartar="' + i + '">Descartar</button>' +
-          '<button type="button" class="btn btn-primary" data-rev-confirmar="' + i + '">Confirmar</button>' +
-        '</div>' +
-        '<p class="rev-error" id="revErr' + i + '"></p>' +
       '</div>' +
     '</li>';
   }
@@ -306,47 +325,20 @@
     return c ? c.nombre : null;
   }
 
-  // ── Bottom-sheet para elegir categoría desde el chip compacto ──
-  var _sheetIdx = null;
-  function abrirSheet(i) {
-    _sheetIdx = i;
+  // Refresca texto + clases del chip de categoría a partir del <select> real —
+  // la única fuente de verdad ahora que no hay bottom-sheet. sugerida=true solo
+  // cuando el llamador sabe que el valor actual vino de la sugerencia
+  // automática (no de una elección manual); si no se pasa, se infiere "sin
+  // categoría" a partir de si el select tiene algo elegido.
+  function refrescarChip(i, sugerida) {
     var sel = document.getElementById('revCat' + i);
-    if (!sel) return;
-    var actual = sel.value;
-    var opts = Array.prototype.map.call(sel.options, function (o) {
-      return '<button type="button" class="rev-sheet-op' + (o.value === actual ? ' is-sel' : '') +
-        '" data-val="' + esc(o.value) + '">' + esc(o.textContent) + '</button>';
-    }).join('');
-    document.getElementById('revSheet').innerHTML = opts;
-    document.getElementById('revSheetBackdrop').classList.add('is-open');
-    document.getElementById('revSheet').classList.add('is-open');
-  }
-  function cerrarSheet() {
-    // El listener de Escape vive en document y sobrevive a la navegación (la
-    // SPA re-ejecuta el <script> de la vista en cada visita, sin desmontar el
-    // anterior). Si el usuario deja el sheet abierto y navega a otra vista,
-    // un Escape ahí dispara este cerrarSheet de una instancia vieja, donde
-    // estos ids ya no existen en el DOM — sin el guard, getElementById(...).
-    // classList lanzaría TypeError sobre null en una vista que no es #revisar.
-    var backdrop = document.getElementById('revSheetBackdrop');
-    var sheet = document.getElementById('revSheet');
-    if (backdrop) backdrop.classList.remove('is-open');
-    if (sheet) sheet.classList.remove('is-open');
-    _sheetIdx = null;
-  }
-  function elegirCategoria(val) {
-    if (_sheetIdx == null) return;
-    var i = _sheetIdx;
-    var sel = document.getElementById('revCat' + i);
-    if (sel) sel.value = val;
     var chip = document.getElementById('revChip' + i);
-    // La etiqueta del chip se lee del <option> ya renderizado (evita cache-miss
-    // de _cats): siempre refleja el tipo actual del select.
-    if (chip) {
-      chip.textContent = (sel && sel.selectedIndex >= 0) ? sel.options[sel.selectedIndex].textContent : 'Sin categoría';
-      chip.classList.remove('rev-chip--sugerida');
-    }
-    cerrarSheet();
+    if (!chip) return;
+    var seleccionada = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].textContent : null;
+    var sinCat = !(sel && sel.value);
+    chip.textContent = (sel && sel.value) ? seleccionada : 'Sin categoría';
+    chip.classList.toggle('rev-chip--sugerida', !!sugerida);
+    chip.classList.toggle('rev-chip--sin-cat', sinCat);
   }
 
   var _filas = [];
@@ -365,8 +357,7 @@
     var texto = p.comercio || p.contraparte || '';
     var sugerida = await sugerirCategoria(texto, tipo);
     document.getElementById('revCat' + i).innerHTML = opcionesCategoria(await catsPara(tipo), sugerida);
-    var chip = document.getElementById('revChip' + i);
-    if (chip) { var s = document.getElementById('revCat' + i); chip.textContent = nombreCat(await catsPara(tipo), s.value) || 'Sin categoría'; }
+    refrescarChip(i, !!sugerida);
     onAmbitoChange(i);
   }
 
@@ -493,7 +484,10 @@
       }
     }
 
-    var nota = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
+    var base = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
+    var userNotaEl = document.getElementById('revNota' + i);
+    var userNota = userNotaEl ? userNotaEl.value.trim() : '';
+    var nota = userNota ? base + ' — ' + userNota : base;
     btn.disabled = true;
     try {
       var txIds;
@@ -543,43 +537,55 @@
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
 
-  // ── Undo: la card se oculta (no se borra) y un toast permite revertir 5s ──
-  var _undoTimer = null;
+  // ── Undo: cada card se oculta (no se borra) y entra a una cola LIFO; cada
+  // item tiene su propio timer de 7s independiente. El toast es una sola
+  // superficie visual pero ya no representa un solo item — representa la cola.
+  var _undoQueue = []; // [{ i, ctx, timerId }], más reciente al final
+
   function quitarCardConUndo(i, ctx) {
     var card = document.getElementById('revCard' + i);
     if (card) card.style.display = 'none';
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
-    mostrarToastUndo(i, ctx);
+    var item = { i: i, ctx: ctx, timerId: null };
+    item.timerId = setTimeout(function () { finalizarItem(item); }, 7000); // 7s: leer + ubicar + tocar en móvil
+    _undoQueue.push(item);
+    renderToast();
   }
-  function mostrarToastUndo(i, ctx) {
-    // Si había un toast vivo, finalízalo (borra su card y limpia su timer) antes
-    // de reusar el único elemento de toast para la nueva acción.
-    if (_undoTimer) { clearTimeout(_undoTimer); finalizarUndo(); }
+  // Redibuja el toast según cuántos items quedan en la cola. 1 item: mismo
+  // copy que antes ("Confirmado"/"Descartado"); 2+: conteo agregado.
+  function renderToast() {
     var t = document.getElementById('revUndoToast');
-    t.querySelector('.rev-undo-msg').textContent = ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado';
-    t.setAttribute('data-idx', i);
-    t._ctx = ctx;
+    var n = _undoQueue.length;
+    if (n === 0) { t.classList.remove('is-open'); return; }
+    var msg = t.querySelector('.rev-undo-msg');
+    msg.textContent = (n === 1)
+      ? (_undoQueue[0].ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado')
+      : (n + ' movimientos revisados');
     t.classList.add('is-open');
-    _undoTimer = setTimeout(finalizarUndo, 7000); // 7s: leer + ubicar + tocar en móvil
   }
-  function finalizarUndo() {
-    var t = document.getElementById('revUndoToast');
-    var ctx = t._ctx; t._ctx = null;
-    t.classList.remove('is-open');
-    _undoTimer = null;
-    if (!ctx) return;
-    var i = Number(t.getAttribute('data-idx'));
-    var card = document.getElementById('revCard' + i);
+  // Se dispara cuando el timer PROPIO de `item` vence. No toca los demás items
+  // de la cola — cada uno vive y muere en su propio momento.
+  function finalizarItem(item) {
+    var idx = _undoQueue.indexOf(item);
+    if (idx !== -1) _undoQueue.splice(idx, 1);
+    var card = document.getElementById('revCard' + item.i);
     if (card) card.remove();
-    _filas[i] = null;
+    _filas[item.i] = null;
+    if (_undoQueue.length === 0) {
+      document.getElementById('revUndoToast').classList.remove('is-open');
+    } else {
+      renderToast();
+    }
     if (!_filas.some(Boolean)) renderVacio();
+    if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
+  // "Deshacer" siempre opera sobre el ÚLTIMO item en entrar (LIFO): es el que
+  // el usuario acaba de tocar, no necesariamente el que está por vencer.
   async function deshacer() {
-    if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
-    var t = document.getElementById('revUndoToast');
-    var ctx = t._ctx; t._ctx = null;
-    t.classList.remove('is-open');
-    if (!ctx) return;
+    var item = _undoQueue.pop();
+    if (!item) return;
+    clearTimeout(item.timerId);
+    var ctx = item.ctx;
     try {
       if (ctx.accion === 'confirmar') {
         for (var k = 0; k < (ctx.txIds || []).length; k++) {
@@ -587,11 +593,16 @@
         }
       }
       await revertirIngestPendiente(ctx.pendienteId, ctx.estadoOriginal);
-      var i = Number(t.getAttribute('data-idx'));
-      var card = document.getElementById('revCard' + i);
+      var card = document.getElementById('revCard' + item.i);
       if (card) card.style.display = '';
       if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+      renderToast(); // sigue abierto con el conteo nuevo, o cierra si quedó en 0
     } catch (e) {
+      // El item ya salió de la cola (pop) y su timer ya está cancelado, así que
+      // no se autofinalizará. A propósito NO lo regresamos a la cola ni
+      // restauramos la card: es el mismo comportamiento simple de antes (mostrar
+      // el error y que el usuario revise #historial), solo que ahora un fallo
+      // en un item no afecta a los demás items que sigan en la cola.
       console.error('deshacer falló:', e);
       errGlobal.textContent = 'No se pudo deshacer. Revisa #historial.';
       errGlobal.style.display = 'block';
@@ -678,8 +689,17 @@
       listaEl.innerHTML = html;
       listaEl.style.display = '';
 
-      // Solo la primera card, y solo en esta carga de la vista.
-      var primera = listaEl.querySelector('.rev-card');
+      // Demo de swipe: solo en la primera card elegible, y solo en esta carga
+      // de la vista. Una fila 'revisar-manual' no puede completarse con un
+      // solo gesto (pendienteCompleto la bloquea por falta de categoría/fecha),
+      // así que enseñar el swipe ahí sería engañoso — se busca la primera
+      // fila de _filas que no sea de ese estado. Si ninguna califica, no se
+      // muestra demo en nadie (no se fuerza sobre una manual).
+      var idxDemo = -1;
+      for (var di = 0; di < _filas.length; di++) {
+        if (_filas[di] && _filas[di].estado !== 'revisar-manual') { idxDemo = di; break; }
+      }
+      var primera = idxDemo >= 0 ? document.getElementById('revCard' + idxDemo) : null;
       if (primera) {
         primera.classList.add('is-demo');
         primera.addEventListener('animationend', function quitar() {
@@ -690,9 +710,23 @@
 
       listaEl.addEventListener('click', function (ev) {
         var chipBtn = ev.target.closest('[data-rev-chip]');
-        if (chipBtn) { ev.stopPropagation(); abrirSheet(Number(chipBtn.getAttribute('data-rev-chip'))); return; }
+        if (chipBtn) {
+          // Ya no hay bottom-sheet: el chip solo lleva a editar la categoría en
+          // el <select> del form expandido — expande la card y le da foco.
+          ev.stopPropagation();
+          var i = Number(chipBtn.getAttribute('data-rev-chip'));
+          var chipCard = chipBtn.closest('.rev-card');
+          if (chipCard) {
+            chipCard.classList.add('is-expanded');
+            var expandirDeChip = chipCard.querySelector('[data-rev-expandir]');
+            if (expandirDeChip) expandirDeChip.setAttribute('aria-expanded', 'true');
+          }
+          var selCat = document.getElementById('revCat' + i);
+          if (selCat) selCat.focus();
+          return;
+        }
         var expandir = ev.target.closest('[data-rev-expandir]');
-        if (expandir && !ev.target.closest('[data-rev-chip]')) {
+        if (expandir) {
           var c = expandir.closest('.rev-card');
           var abierta = c.classList.toggle('is-expanded');
           expandir.setAttribute('aria-expanded', abierta ? 'true' : 'false');
@@ -711,31 +745,7 @@
         ev.preventDefault();   // Espacio scrollearía la página
         expandir.click();
       });
-      document.getElementById('revSheet').addEventListener('click', function (ev) {
-        var op = ev.target.closest('[data-val]');
-        if (op) elegirCategoria(op.getAttribute('data-val'));
-      });
-      document.getElementById('revSheetBackdrop').addEventListener('click', cerrarSheet);
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
-      // El sheet solo cerraba tocando el backdrop; con teclado era una trampa.
-      // El listener de Escape se registra UNA sola vez en la vida del
-      // documento, no en cada carga de esta vista: la SPA re-ejecuta este
-      // <script> en cada visita a #revisar sin desmontar la instancia
-      // anterior (js/router.js hace innerHTML + re-ejecuta scripts), así que
-      // agregarlo aquí cada vez lo apilaría para siempre. En vez de eso, la
-      // instancia más reciente publica su cerrarSheet en window, y el único
-      // listener que existe siempre llama a la más reciente.
-      window.__revCerrarSheetActiva = function () {
-        if (_sheetIdx != null) cerrarSheet();
-      };
-      if (!window.__revEscapeListenerWired) {
-        window.__revEscapeListenerWired = true;
-        document.addEventListener('keydown', function (ev) {
-          if (ev.key === 'Escape' && typeof window.__revCerrarSheetActiva === 'function') {
-            window.__revCerrarSheetActiva();
-          }
-        });
-      }
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
@@ -745,7 +755,11 @@
         var mTipo = ev.target.id && ev.target.id.match(/^revTipo(\d+)$/);
         if (mTipo) { onTipoChange(Number(mTipo[1])); return; }
         var mAmbito = ev.target.id && ev.target.id.match(/^revAmbito(\d+)$/);
-        if (mAmbito) onAmbitoChange(Number(mAmbito[1]));
+        if (mAmbito) { onAmbitoChange(Number(mAmbito[1])); return; }
+        // El usuario eligió categoría a mano en el select — ya no viene de la
+        // sugerencia automática, así que el chip pierde el estado --sugerida.
+        var mCat = ev.target.id && ev.target.id.match(/^revCat(\d+)$/);
+        if (mCat) refrescarChip(Number(mCat[1]), false);
       });
       listaEl.addEventListener('input', function (ev) {
         var mMonto = ev.target.id && ev.target.id.match(/^revMonto(\d+)$/);
