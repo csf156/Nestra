@@ -12,12 +12,17 @@ alter table public.metas
 -- 2. Recrear la vista con la columna nueva (conserva security_invoker=true del
 --    fix de RLS del 2026-07-19: sin él, el progreso de metas de hogar volvería a
 --    mostrar solo los aportes propios).
+-- pct_fondo_emergencia va AL FINAL de la lista: CREATE OR REPLACE VIEW solo
+-- permite añadir columnas nuevas al final del column list (una columna nueva
+-- en medio hace que Postgres interprete que se está renombrando la columna
+-- existente que queda desplazada — falla con 42P16).
 create or replace view public.metas_con_progreso
   with (security_invoker = true) as
   select m.id, m.nombre, m.tipo, m.horizonte, m.ambito, m.hogar_id, m.user_id,
          m.monto_objetivo, m.fecha_inicio, m.fecha_limite, m.estado, m.nota,
-         m.importancia, m.es_fondo_emergencia, m.pct_fondo_emergencia,
-         coalesce(sum(a.monto), 0::numeric) as monto_actual
+         m.importancia, m.es_fondo_emergencia,
+         coalesce(sum(a.monto), 0::numeric) as monto_actual,
+         m.pct_fondo_emergencia
   from public.metas m
   left join public.aportes_meta a on a.meta_id = m.id
   group by m.id, m.nombre, m.tipo, m.horizonte, m.ambito, m.hogar_id, m.user_id,
