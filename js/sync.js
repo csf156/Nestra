@@ -132,6 +132,19 @@ async function _replayOp(op) {
     const winner = window.lwwWinner(payload, server);
     if (winner === 'server') {
       if (server) await mirrorPut(entity, server);
+      // El trigger de updated_at solo dispara en UPDATE, no en INSERT
+      // (supabase/migrations/20260621_updated_at_lww.sql): tras el upsert de
+      // más abajo, el server queda con el MISMO updated_at que mandó el
+      // cliente. Si esta op se reintenta (p.ej. porque el reparto de la
+      // vuelta anterior dio 'retry' por un corte de red puntual), el empate
+      // hace que lwwWinner devuelva 'server' — y sin este bloque, esa rama
+      // saltaba directo a 'done' sin pasar nunca por el reparto de abajo,
+      // perdiéndolo en silencio para siempre. _distribuirAhorroTx es
+      // idempotente (Task 2), así que llamarlo aquí también es seguro.
+      if (server && entity === 'transacciones') {
+        const rep = await _distribuirAhorroTx(server);
+        if (rep === 'retry') return 'retry';
+      }
       return 'done';
     }
     const { data, error } = await supabase.from(entity).upsert(payload, { onConflict: 'id' }).select().single();
@@ -139,8 +152,10 @@ async function _replayOp(op) {
     await mirrorPut(entity, data);
     // Ahorro creado offline: al sincronizar, dispara el reparto entre metas +
     // fondo (idempotente; _distribuirAhorroTx salta si ya tiene aportes). Un
-    // 'retry' deja la op pendiente para el próximo disparo; un 'skip' no
-    // bloquea la tx (ya quedó guardada).
+    // 'retry' deja la op pendiente para el próximo disparo — y si esa
+    // siguiente vuelta cae en la rama 'server' de arriba (empate de
+    // updated_at tras un INSERT), el reparto se reintenta ahí también. Un
+    // 'skip' no bloquea la tx (ya quedó guardada).
     if (entity === 'transacciones') {
       const rep = await _distribuirAhorroTx(data);
       if (rep === 'retry') return 'retry';
