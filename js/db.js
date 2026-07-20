@@ -724,6 +724,23 @@ async function getMetas(ambito = null) {
   return ambito ? rows.filter((m) => m.ambito === ambito) : rows;
 }
 
+// getPctFondo(ambito) — % del ahorro que va al fondo del ámbito. Lee la fila del
+// fondo desde metas_con_progreso (getMetas). Default 10 si falta. ambito:
+// 'personal' | 'hogar'. Returns: número 0–50.
+async function getPctFondo(ambito) {
+  const metas = await getMetas(ambito);
+  const fondo = (metas || []).find((m) => m.es_fondo_emergencia && m.ambito === ambito);
+  const v = fondo && fondo.pct_fondo_emergencia;
+  return (v == null || isNaN(Number(v))) ? 10 : Number(v);
+}
+
+// setPctFondo(ambito, pct) — persiste el % vía el RPC set_pct_fondo (SECURITY
+// DEFINER; ambos miembros del hogar pueden el del hogar). Lanza en fallo.
+async function setPctFondo(ambito, pct) {
+  const { error } = await supabase.rpc('set_pct_fondo', { p_ambito: ambito, p_pct: pct });
+  if (error) throw error;
+}
+
 // getAportesDeMeta(meta_id) — aportes recibidos por una meta, con su transacción
 // de origen embebida (auditoría / desglose). Returns: array o [].
 async function getAportesDeMeta(meta_id) {
