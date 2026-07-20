@@ -137,6 +137,14 @@ async function _replayOp(op) {
     const { data, error } = await supabase.from(entity).upsert(payload, { onConflict: 'id' }).select().single();
     if (error) throw error;
     await mirrorPut(entity, data);
+    // Ahorro creado offline: al sincronizar, dispara el reparto entre metas +
+    // fondo (idempotente; _distribuirAhorroTx salta si ya tiene aportes). Un
+    // 'retry' deja la op pendiente para el próximo disparo; un 'skip' no
+    // bloquea la tx (ya quedó guardada).
+    if (entity === 'transacciones') {
+      const rep = await _distribuirAhorroTx(data);
+      if (rep === 'retry') return 'retry';
+    }
     return 'done';
   } catch (err) {
     if (!navigator.onLine || /failed to fetch|networkerror|load failed/i.test((err && err.message) + '')) {
