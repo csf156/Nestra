@@ -373,7 +373,8 @@
       // chip sin movimientos en el periodo dejaba el texto del chip anterior.
       var desc = $('graf1Desc');
       if (desc) {
-        desc.textContent = 'Gastos e ingresos, por ' +
+        var quePar = estado.ambito === 'hogar' ? 'Gastos y ahorro' : 'Gastos e ingresos';
+        desc.textContent = quePar + ', por ' +
           (gran === 'dias' ? 'día del mes.' : gran === 'meses' ? 'mes (últimos 12).' : 'trimestre (últimos 8).');
       }
 
@@ -390,6 +391,14 @@
       }
 
       setEstado(1, 'ok');
+      var esHogar = estado.ambito === 'hogar';
+      var segundaSerie = esHogar
+        ? { label: 'Ahorro', data: serie.map(function (x) { return x.ahorro; }),
+            borderColor: cssVar('--color-info'), backgroundColor: 'transparent',
+            cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 }
+        : { label: 'Ingresos', data: serie.map(function (x) { return x.ingreso; }),
+            borderColor: cssVar('--color-success'), backgroundColor: 'transparent',
+            cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 };
       charts.chart1 = new Chart($('chart1'), {
         type: 'line',
         data: {
@@ -402,9 +411,7 @@
             { label: 'Gastos', data: serie.map(function (x) { return x.gasto; }),
               borderColor: cssVar('--color-danger'), backgroundColor: 'transparent',
               cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
-            { label: 'Ingresos', data: serie.map(function (x) { return x.ingreso; }),
-              borderColor: cssVar('--color-success'), backgroundColor: 'transparent',
-              cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
+            segundaSerie,
           ],
         },
         options: {
