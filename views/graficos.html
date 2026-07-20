@@ -66,7 +66,7 @@
     </section>
     <section class="graf-card" id="card6">
       <h2 class="graf-card-title">Flujo de caja</h2>
-      <p class="graf-card-desc">Ingresos, gastos y balance del mes (hogar + personal).</p>
+      <p class="graf-card-desc">Tus ingresos, gastos (incluida tu parte del hogar) y balance del mes.</p>
       <div class="graf-state" data-card="6"></div>
       <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
     </section>
@@ -112,7 +112,12 @@
   .graf-grid.is-loading { opacity: 0.5; }
   @media (prefers-reduced-motion: reduce) { .graf-grid, .graf-seg { transition: none; } }
 
-  .graf--personal #card3, .graf--personal #card6 { display: none; }
+  /* 3 (aporte real vs esperado) es hogar-only; 6 (flujo de caja) y 9 (proyección
+     de saldo) son personal-only. Con el fix del init, .graf--personal siempre
+     está en personal, así que .graf:not(.graf--personal) = hogar de forma fiable. */
+  .graf--personal #card3 { display: none; }
+  .graf:not(.graf--personal) #card6,
+  .graf:not(.graf--personal) #card9 { display: none; }
 
   .graf-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-lg); }
   .graf-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-dark); margin: 0; }
@@ -322,11 +327,17 @@
           .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
-        // [3] libre: aquí iba getAportesPorMiembro. El chart 3 ahora se calcula
-        // desde txMes con aporteRealPorMiembro. Se deja el hueco en vez de
-        // renumerar: los índices de abajo son posicionales y moverlos en
-        // silencio le daría al chart 4 los datos del 7.
-        null,
+        // [3]: antes era un hueco deliberado ("aquí iba getAportesPorMiembro;
+        // el chart 3 ahora se calcula desde txMes con aporteRealPorMiembro, se
+        // deja el índice en vez de renumerar para no correr los de abajo").
+        // Ahora ocupa ese mismo slot txs de hogar del mes ANTERIOR, para las
+        // categorías de hogar de chart 7. Va en el Promise.all, no como await
+        // suelto después, para no sumar una ronda de red secuencial más al
+        // camino crítico — mismo motivo por el que la rama personal, unas
+        // líneas arriba, trae su mes anterior en paralelo vía resPers[1] en
+        // vez de un await aparte. Los índices [4] y [5] de abajo NO se mueven.
+        getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta })
+          .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         Promise.all(meses6.map(function (x) { return getAhorrosHogar(x.mes, x.anio); })),
         getMetas(),
       ]);
@@ -340,10 +351,17 @@
           fecha_desde: serieAmplia.desde, fecha_hasta: serieAmplia.hasta })
         ).filter(function (x) { return x.hogar_id != null; });
       }
+      // Categorías del gasto de HOGAR (no la mezcla personal+hogar de
+      // getResumenMensual): chart 2 y 7 deben mostrar solo el hogar en esta
+      // vista. resHog[0]/resHog[3] ya vienen filtrados a hogar_id != null y
+      // ya se pidieron en el Promise.all de arriba — sin await extra aquí.
+      var porCatHogarMes = derivarPorCategoria(resHog[0] || []);
+      var porCatHogarAnt = derivarPorCategoria(resHog[3] || []);
+
       return {
         txMes: resHog[0] || [],
-        resumen: resHog[1],
-        resumenAnterior: resHog[2],
+        resumen: Object.assign({}, resHog[1], { porCategoria: porCatHogarMes }),
+        resumenAnterior: Object.assign({}, resHog[2], { porCategoria: porCatHogarAnt }),
         categoriasGasto: categoriasGasto || [],
         // Miembros con su aporte_esperado. hogarState ya los trae (db.js:1464 los
         // selecciona) y el router lo prima al iniciar sesión (Tanda 1), así que no
@@ -368,7 +386,8 @@
       // chip sin movimientos en el periodo dejaba el texto del chip anterior.
       var desc = $('graf1Desc');
       if (desc) {
-        desc.textContent = 'Gastos e ingresos, por ' +
+        var quePar = estado.ambito === 'hogar' ? 'Gastos y ahorro' : 'Gastos e ingresos';
+        desc.textContent = quePar + ', por ' +
           (gran === 'dias' ? 'día del mes.' : gran === 'meses' ? 'mes (últimos 12).' : 'trimestre (últimos 8).');
       }
 
@@ -385,6 +404,14 @@
       }
 
       setEstado(1, 'ok');
+      var esHogar = estado.ambito === 'hogar';
+      var segundaSerie = esHogar
+        ? { label: 'Ahorro', data: serie.map(function (x) { return x.ahorro; }),
+            borderColor: cssVar('--color-info'), backgroundColor: 'transparent',
+            cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 }
+        : { label: 'Ingresos', data: serie.map(function (x) { return x.ingreso; }),
+            borderColor: cssVar('--color-success'), backgroundColor: 'transparent',
+            cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 };
       charts.chart1 = new Chart($('chart1'), {
         type: 'line',
         data: {
@@ -397,9 +424,7 @@
             { label: 'Gastos', data: serie.map(function (x) { return x.gasto; }),
               borderColor: cssVar('--color-danger'), backgroundColor: 'transparent',
               cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
-            { label: 'Ingresos', data: serie.map(function (x) { return x.ingreso; }),
-              borderColor: cssVar('--color-success'), backgroundColor: 'transparent',
-              cubicInterpolationMode: 'monotone', pointRadius: _mob() ? 0 : 3 },
+            segundaSerie,
           ],
         },
         options: {
@@ -586,13 +611,18 @@
 
       setEstado(5, 'ok');
     }
+    // render6 — Flujo de caja PERSONAL (antes era hogar-only y mezclaba datos;
+    // el hogar no tiene ingresos, así que un flujo de caja no le aplica).
     function render6(datos) {
-      var resumen = datos.resumen;
-      // Alcance consistente: ingresos y gastos del mes visibles (hogar + personal).
-      // El hogar ya no tiene ingresos propios (Fase 6.3) — solo el personal aporta.
-      var ingresos = resumen.personal.ingresos || 0;
-      var gastos   = (resumen.hogar.gastos || 0) + (resumen.personal.gastos || 0);
-      var balance  = ingresos - gastos;
+      // Flujo de caja PERSONAL: ingresos vs gastos, donde "gastos" ya incluye
+      // mi aporte a gastos de hogar — getBalancePersonal (js/db.js) suma TODO
+      // gasto del usuario sin filtrar por ámbito, así que no hace falta sumar
+      // nada aparte. Solo corre en ámbito personal (visiblesPara); el hogar
+      // no tiene ingresos, así que un flujo de caja no aplica ahí.
+      var bal = (datos.resumen && datos.resumen.hogar) || {};
+      var ingresos = bal.ingresos || 0;
+      var gastos = bal.gastos || 0;
+      var balance = bal.balance != null ? bal.balance : (ingresos - gastos);
       if (ingresos <= 0 && gastos <= 0) { setEstado(6, 'vacio'); return; }
 
       // Barras ancladas en 0 (sin columnas flotantes): Ingresos, Gastos, Balance.
@@ -856,7 +886,7 @@
     var RENDERS = [render1, render2, render3, render4, render5, render6, render7, render8, render9];
 
     function visiblesPara(ambito) {
-      return ambito === 'personal' ? [1, 2, 4, 5, 7, 8, 9] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      return ambito === 'personal' ? [1, 2, 4, 5, 6, 7, 8, 9] : [1, 2, 3, 4, 5, 7, 8];
     }
 
     async function recargarTodo() {
@@ -952,16 +982,19 @@
     }
     $('grafMesPrev').addEventListener('click', function () { cambiarMes(-1); });
     $('grafMesNext').addEventListener('click', function () { cambiarMes(1); });
-    function setAmbito(nuevo) {
-      if (nuevo === estado.ambito) return;
-      estado.ambito = nuevo;
+    function aplicarAmbitoUI(ambito) {
       var grafRoot = document.querySelector('.graf');
-      if (grafRoot) grafRoot.classList.toggle('graf--personal', nuevo === 'personal');
+      if (grafRoot) grafRoot.classList.toggle('graf--personal', ambito === 'personal');
       Array.prototype.forEach.call(document.querySelectorAll('.graf-toggle:not(.graf-toggle--gran) .graf-seg'), function (b) {
-        var on = b.getAttribute('data-ambito') === nuevo;
+        var on = b.getAttribute('data-ambito') === ambito;
         b.classList.toggle('graf-seg--active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+    }
+    function setAmbito(nuevo) {
+      if (nuevo === estado.ambito) return;
+      estado.ambito = nuevo;
+      aplicarAmbitoUI(nuevo);
       recargarTodo();
     }
     Array.prototype.forEach.call(document.querySelectorAll('.graf-toggle:not(.graf-toggle--gran) .graf-seg'), function (b) {
@@ -1003,6 +1036,7 @@
       return;
     }
     Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    aplicarAmbitoUI(estado.ambito);
     renderLabel();
     recargarTodo();
   })();
