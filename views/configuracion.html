@@ -1791,14 +1791,28 @@
       var inP = document.getElementById('cfgPctFondoPersonal');
       var inH = document.getElementById('cfgPctFondoHogar');
       var rowH = document.getElementById('cfgPctFondoHogarRow');
-      var enHogar = (typeof tieneHogar === 'function') && tieneHogar();
-      if (rowH) rowH.hidden = !enHogar;
+      var enHogar = false;
+      var listenerHogarPuesto = false;
 
       function cargar() {
         getPctFondo('personal').then(function (v) { inP.value = v; }).catch(function () {});
         if (enHogar) getPctFondo('hogar').then(function (v) { inH.value = v; }).catch(function () {});
       }
-      cargar();
+
+      // Re-evalúa membresía de hogar: cubre crear/unirse/salir de un hogar SIN
+      // recargar la vista (mismo patrón que initHogarConfig, línea ~1984, que
+      // escucha el mismo evento para su propio re-render).
+      function refrescarHogar() {
+        enHogar = (typeof tieneHogar === 'function') && tieneHogar();
+        if (rowH) rowH.hidden = !enHogar;
+        if (enHogar && !listenerHogarPuesto) {
+          inH.addEventListener('change', guardar('hogar', inH, 'Aporte al fondo del hogar'));
+          listenerHogarPuesto = true;
+        }
+        cargar();
+      }
+      refrescarHogar();
+      window.addEventListener('hogar:changed', refrescarHogar);
 
       // '' es "campo vacío", no un 0% real: Number('') da 0 y se guardaría sin
       // querer (mismo cuidado que normalizarPct en ahorro-pct.js). Se descarta
@@ -1831,7 +1845,8 @@
         };
       }
       inP.addEventListener('change', guardar('personal', inP, 'Aporte al fondo personal'));
-      if (enHogar) inH.addEventListener('change', guardar('hogar', inH, 'Aporte al fondo del hogar'));
+      // El listener de inH se adjunta dentro de refrescarHogar() (una sola vez,
+      // vía listenerHogarPuesto) cuando el usuario SÍ pertenece a un hogar.
     })();
 
     /* ── Plantillas rápidas ─────────────────────────────── */
