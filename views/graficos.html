@@ -327,11 +327,17 @@
           .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         getResumenMensual(m, a),
         getResumenMensual(ant.mes, ant.anio),
-        // [3] libre: aquí iba getAportesPorMiembro. El chart 3 ahora se calcula
-        // desde txMes con aporteRealPorMiembro. Se deja el hueco en vez de
-        // renumerar: los índices de abajo son posicionales y moverlos en
-        // silencio le daría al chart 4 los datos del 7.
-        null,
+        // [3]: antes era un hueco deliberado ("aquí iba getAportesPorMiembro;
+        // el chart 3 ahora se calcula desde txMes con aporteRealPorMiembro, se
+        // deja el índice en vez de renumerar para no correr los de abajo").
+        // Ahora ocupa ese mismo slot txs de hogar del mes ANTERIOR, para las
+        // categorías de hogar de chart 7. Va en el Promise.all, no como await
+        // suelto después, para no sumar una ronda de red secuencial más al
+        // camino crítico — mismo motivo por el que la rama personal, unas
+        // líneas arriba, trae su mes anterior en paralelo vía resPers[1] en
+        // vez de un await aparte. Los índices [4] y [5] de abajo NO se mueven.
+        getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta })
+          .then(function (a) { return (a || []).filter(function (x) { return x.hogar_id != null; }); }),
         Promise.all(meses6.map(function (x) { return getAhorrosHogar(x.mes, x.anio); })),
         getMetas(),
       ]);
@@ -346,11 +352,11 @@
         ).filter(function (x) { return x.hogar_id != null; });
       }
       // Categorías del gasto de HOGAR (no la mezcla personal+hogar de
-      // getResumenMensual): chart 2 y 7 deben mostrar solo el hogar en esta vista.
-      var porCatHogarMes = derivarPorCategoria(resHog[0] || []);   // resHog[0] = txMes de hogar
-      var txHogarAnt = (await getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }))
-        .filter(function (x) { return x.hogar_id != null; });
-      var porCatHogarAnt = derivarPorCategoria(txHogarAnt);
+      // getResumenMensual): chart 2 y 7 deben mostrar solo el hogar en esta
+      // vista. resHog[0]/resHog[3] ya vienen filtrados a hogar_id != null y
+      // ya se pidieron en el Promise.all de arriba — sin await extra aquí.
+      var porCatHogarMes = derivarPorCategoria(resHog[0] || []);
+      var porCatHogarAnt = derivarPorCategoria(resHog[3] || []);
 
       return {
         txMes: resHog[0] || [],
