@@ -189,13 +189,19 @@ async function insertTransaccion(datos) {
 // _distribuirAhorroTx(tx) — reparte un ahorro entre metas + fondo vía el RPC
 // distribuir_ahorro. Usado por el camino online (insertTransaccion) y por el
 // sync (ahorro creado offline, que se reparte al reconectar).
-// Idempotente: si la tx ya tiene aportes, no reparte de nuevo — el sync puede
-// reintentar un op cuyo upsert ya disparó el reparto, y un segundo RPC
-// duplicaría los aportes.
+// Idempotente en el caso normal: si la tx ya tiene aportes, no reparte de
+// nuevo — el sync puede reintentar un op cuyo upsert ya disparó el reparto.
+// OJO: el guard "leer count → si 0, llamar RPC" NO es atómico y
+// distribuir_ahorro no tiene protección propia contra re-ejecución (ver
+// supabase/migrations/20260715_fase6_3_economia_hogar.sql:73-77) — dos
+// pestañas del mismo usuario sincronizando la misma tx casi al mismo tiempo
+// podrían, en teoría, duplicar el reparto. Riesgo aceptado por ahora (app de
+// 2 usuarios, uso típico single-tab); una defensa real exigiría un
+// constraint en la base, fuera de alcance de este cambio de solo cliente.
 // Devuelve 'done' | 'retry' | 'skip':
 //   'done'  → repartido, ya estaba repartido, o no aplica (no es ahorro / aporte directo)
-//   'retry' → error de red (RPC o conteo); el llamador de sync reintenta luego
-//   'skip'  → error real; se loguea y no se reintenta (la tx igual quedó guardada)
+//   'retry' → error de red, o count inesperado (null); el llamador de sync reintenta luego
+//   'skip'  → error real (RPC); se loguea y no se reintenta (la tx igual quedó guardada)
 async function _distribuirAhorroTx(tx) {
   try {
     if (typeof esAhorroRepartible === 'function' ? !esAhorroRepartible(tx)
@@ -207,13 +213,17 @@ async function _distribuirAhorroTx(tx) {
       .select('id', { count: 'exact', head: true })
       .eq('transaccion_id', tx.id);
     if (eCount) throw eCount;
+    // count null (no debería pasar con head:true+count:'exact' sin error,
+    // pero si pasara sin poblar eCount) se trata como transitorio: reintentar
+    // luego, en vez de arriesgarse a repartir sobre un conteo no confiable.
+    if (count == null) return 'retry';
     if (count > 0) return 'done';   // ya repartido: no duplicar
 
     const { error } = await supabase.rpc('distribuir_ahorro', { p_transaccion_id: tx.id });
     if (error) throw error;
     return 'done';
   } catch (err) {
-    if (_isNetworkError(err) || !navigator.onLine) return 'retry';
+    if (_isNetworkError(err)) return 'retry';   // _isNetworkError ya cubre !navigator.onLine
     console.error('Aviso: no se pudo repartir el ahorro entre metas:', err.message || err);
     return 'skip';
   }
