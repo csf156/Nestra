@@ -172,6 +172,33 @@ begin
   end if;
 end $$;
 
+-- ── RLS de aportes_meta: lectura de hogar compartida ─────────────────
+-- El progreso de metas de HOGAR se suma vía metas_con_progreso
+-- (security_invoker). Si la RLS de aportes_meta vuelve a restringir SELECT a
+-- solo auth.uid()=user_id, cada miembro ve solo SU fracción del progreso (bug
+-- arreglado el 2026-07-19, migración 20260719_aportes_meta_rls_hogar.sql).
+-- Este check vigila que la policy de SELECT siga ampliada a los co-miembros
+-- del hogar (referencia auth_hogar_id). Las policies de escritura siguen
+-- restringidas al dueño a propósito; no se verifican aquí.
+do $$
+declare
+  v_select_qual text;
+begin
+  select pg_get_expr(pol.polqual, pol.polrelid) into v_select_qual
+  from pg_policy pol
+  where pol.polrelid = 'public.aportes_meta'::regclass
+    and pol.polcmd in ('r','*')   -- SELECT o ALL
+  limit 1;
+
+  if v_select_qual is null then
+    raise exception 'FALLO: aportes_meta no tiene policy de SELECT (ni ALL)';
+  end if;
+
+  if v_select_qual not like '%auth_hogar_id%' then
+    raise exception 'FALLO: la RLS de SELECT de aportes_meta no incluye a los co-miembros del hogar (falta auth_hogar_id) — el progreso de metas de hogar volvería a mostrar solo los aportes propios';
+  end if;
+end $$;
+
 -- ── Diferido a Fase 6.3 (informativo, NO falla el test) ──────────────
 -- hogares.reparto y set_reparto_hogar se retiraron deliberadamente de la
 -- migración de Fase 6.2 el 2026-07-14 (commit c9bddb8) porque la Fase 6.3
