@@ -345,10 +345,17 @@
           fecha_desde: serieAmplia.desde, fecha_hasta: serieAmplia.hasta })
         ).filter(function (x) { return x.hogar_id != null; });
       }
+      // Categorías del gasto de HOGAR (no la mezcla personal+hogar de
+      // getResumenMensual): chart 2 y 7 deben mostrar solo el hogar en esta vista.
+      var porCatHogarMes = derivarPorCategoria(resHog[0] || []);   // resHog[0] = txMes de hogar
+      var txHogarAnt = (await getTransacciones({ fecha_desde: rAnt.desde, fecha_hasta: rAnt.hasta }))
+        .filter(function (x) { return x.hogar_id != null; });
+      var porCatHogarAnt = derivarPorCategoria(txHogarAnt);
+
       return {
         txMes: resHog[0] || [],
-        resumen: resHog[1],
-        resumenAnterior: resHog[2],
+        resumen: Object.assign({}, resHog[1], { porCategoria: porCatHogarMes }),
+        resumenAnterior: Object.assign({}, resHog[2], { porCategoria: porCatHogarAnt }),
         categoriasGasto: categoriasGasto || [],
         // Miembros con su aporte_esperado. hogarState ya los trae (db.js:1464 los
         // selecciona) y el router lo prima al iniciar sesión (Tanda 1), así que no
