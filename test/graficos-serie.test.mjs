@@ -98,12 +98,31 @@ test('periodos sin datos salen en 0, no se saltan', () => {
   assert.ok(r.slice(0, 11).every((x) => x.gasto === 0));
 });
 
-test('separa gasto e ingreso; ignora ahorro', () => {
+test('separa gasto, ingreso y ahorro', () => {
   const r = agruparSerie(
     [g('2026-07-01', 10), i('2026-07-01', 30), { tipo: 'ahorro', fecha: '2026-07-01', monto: 999 }],
     'dias', { mes: 7, anio: 2026 });
   assert.strictEqual(r[0].gasto, 10);
   assert.strictEqual(r[0].ingreso, 30);
+  assert.strictEqual(r[0].ahorro, 999);
+});
+
+test('dias: agrupa ahorro además de gasto e ingreso', () => {
+  const r = agruparSerie(
+    [g('2026-07-01', 10), i('2026-07-01', 30), { tipo: 'ahorro', fecha: '2026-07-01', monto: 50 }],
+    'dias', { mes: 7, anio: 2026 });
+  assert.strictEqual(r[0].gasto, 10);
+  assert.strictEqual(r[0].ingreso, 30);
+  assert.strictEqual(r[0].ahorro, 50);
+});
+test('meses: agrupa ahorro en el bucket correcto', () => {
+  const r = agruparSerie(
+    [{ tipo: 'ahorro', fecha: '2026-01-05', monto: 25 }], 'meses', { mes: 1, anio: 2026 }, 12);
+  assert.strictEqual(r[11].ahorro, 25);
+});
+test('sin ahorro, el campo ahorro es 0', () => {
+  const r = agruparSerie([g('2026-07-01', 10)], 'dias', { mes: 7, anio: 2026 });
+  assert.strictEqual(r[0].ahorro, 0);
 });
 
 test('lista vacia o null no rompe', () => {

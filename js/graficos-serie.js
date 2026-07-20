@@ -49,7 +49,7 @@ function _periodos(granularidad, hasta, n) {
   return out;
 }
 
-// agruparSerie(transacciones, granularidad, hasta, n, hoy) → [{ label, gasto, ingreso }]
+// agruparSerie(transacciones, granularidad, hasta, n, hoy) → [{ label, gasto, ingreso, ahorro }]
 //   granularidad: 'dias' | 'meses' | 'trimestres'
 //   hasta: { mes, anio } — el último periodo de la ventana (el del navegador).
 //   n: cuántos periodos (12 meses / 8 trimestres). Se ignora en 'dias', donde
@@ -57,7 +57,7 @@ function _periodos(granularidad, hasta, n) {
 //   hoy: { mes, anio, dia } opcional — si `hasta` es el mes en curso, la serie
 //        diaria se recorta al día de hoy en vez de emitir el mes completo.
 //        Solo aplica a 'dias'. Sin él, mes entero (compat con callers viejos).
-// Solo cuentan tipo 'gasto' e 'ingreso'; el ahorro no es ni una cosa ni la otra.
+// Cuentan tipo 'gasto', 'ingreso' y 'ahorro', cada uno en su propio campo.
 // Los periodos sin datos salen en 0: se dibujan, no se saltan.
 function agruparSerie(transacciones, granularidad, hasta, n, hoy) {
   if (granularidad === 'dias') {
@@ -70,7 +70,7 @@ function agruparSerie(transacciones, granularidad, hasta, n, hoy) {
         hasta.anio === hoy.anio && hasta.mes === hoy.mes) {
       dias = Math.min(dias, hoy.dia);
     }
-    var g = new Array(dias).fill(0), ing = new Array(dias).fill(0);
+    var g = new Array(dias).fill(0), ing = new Array(dias).fill(0), aho = new Array(dias).fill(0);
     (transacciones || []).forEach(function (t) {
       var s = String(t.fecha).split('T')[0];
       if (parseInt(s.slice(0, 4), 10) !== hasta.anio) return;
@@ -79,25 +79,30 @@ function agruparSerie(transacciones, granularidad, hasta, n, hoy) {
       if (d < 0 || d >= dias) return;
       if (t.tipo === 'gasto') g[d] += Number(t.monto) || 0;
       else if (t.tipo === 'ingreso') ing[d] += Number(t.monto) || 0;
+      else if (t.tipo === 'ahorro') aho[d] += Number(t.monto) || 0;
     });
     return g.map(function (v, k) {
-      return { label: String(k + 1), gasto: Math.round(v * 100) / 100, ingreso: Math.round(ing[k] * 100) / 100 };
+      return { label: String(k + 1), gasto: Math.round(v * 100) / 100,
+               ingreso: Math.round(ing[k] * 100) / 100, ahorro: Math.round(aho[k] * 100) / 100 };
     });
   }
 
   var periodos = _periodos(granularidad, hasta, n);
   var idx = {};
   periodos.forEach(function (p, k) { idx[p.clave] = k; });
-  var gs = new Array(periodos.length).fill(0), is = new Array(periodos.length).fill(0);
+  var gs = new Array(periodos.length).fill(0), is = new Array(periodos.length).fill(0),
+      ahs = new Array(periodos.length).fill(0);
   (transacciones || []).forEach(function (t) {
-    if (t.tipo !== 'gasto' && t.tipo !== 'ingreso') return;
+    if (t.tipo !== 'gasto' && t.tipo !== 'ingreso' && t.tipo !== 'ahorro') return;
     var k = idx[_bucketDe(t.fecha, granularidad)];
     if (k === undefined) return;   // fuera de la ventana
     if (t.tipo === 'gasto') gs[k] += Number(t.monto) || 0;
-    else is[k] += Number(t.monto) || 0;
+    else if (t.tipo === 'ingreso') is[k] += Number(t.monto) || 0;
+    else ahs[k] += Number(t.monto) || 0;
   });
   return periodos.map(function (p, k) {
-    return { label: p.label, gasto: Math.round(gs[k] * 100) / 100, ingreso: Math.round(is[k] * 100) / 100 };
+    return { label: p.label, gasto: Math.round(gs[k] * 100) / 100,
+             ingreso: Math.round(is[k] * 100) / 100, ahorro: Math.round(ahs[k] * 100) / 100 };
   });
 }
 
