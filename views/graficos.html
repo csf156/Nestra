@@ -66,7 +66,7 @@
     </section>
     <section class="graf-card" id="card6">
       <h2 class="graf-card-title">Flujo de caja</h2>
-      <p class="graf-card-desc">Ingresos, gastos y balance del mes (hogar + personal).</p>
+      <p class="graf-card-desc">Tus ingresos, gastos (incluida tu parte del hogar) y balance del mes.</p>
       <div class="graf-state" data-card="6"></div>
       <div class="graf-canvas-wrap"><canvas id="chart6" aria-label="Flujo de caja mensual"></canvas></div>
     </section>
@@ -611,13 +611,18 @@
 
       setEstado(5, 'ok');
     }
+    // render6 — Flujo de caja PERSONAL (antes era hogar-only y mezclaba datos;
+    // el hogar no tiene ingresos, así que un flujo de caja no le aplica).
     function render6(datos) {
-      var resumen = datos.resumen;
-      // Alcance consistente: ingresos y gastos del mes visibles (hogar + personal).
-      // El hogar ya no tiene ingresos propios (Fase 6.3) — solo el personal aporta.
-      var ingresos = resumen.personal.ingresos || 0;
-      var gastos   = (resumen.hogar.gastos || 0) + (resumen.personal.gastos || 0);
-      var balance  = ingresos - gastos;
+      // Flujo de caja PERSONAL: ingresos vs gastos, donde "gastos" ya incluye
+      // mi aporte a gastos de hogar — getBalancePersonal (js/db.js) suma TODO
+      // gasto del usuario sin filtrar por ámbito, así que no hace falta sumar
+      // nada aparte. Solo corre en ámbito personal (visiblesPara); el hogar
+      // no tiene ingresos, así que un flujo de caja no aplica ahí.
+      var bal = (datos.resumen && datos.resumen.hogar) || {};
+      var ingresos = bal.ingresos || 0;
+      var gastos = bal.gastos || 0;
+      var balance = bal.balance != null ? bal.balance : (ingresos - gastos);
       if (ingresos <= 0 && gastos <= 0) { setEstado(6, 'vacio'); return; }
 
       // Barras ancladas en 0 (sin columnas flotantes): Ingresos, Gastos, Balance.
