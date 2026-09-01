@@ -992,15 +992,22 @@
       });
       // Cerrar al tocar fuera o con Escape. El componente ya cierra su propia
       // lista al clic exterior; esto cierra además el popover que la contiene.
-      document.addEventListener('click', function (ev) {
-        var pop = document.getElementById('revCatPop');
-        if (!pop || pop.hidden) return;
-        if (pop.contains(ev.target) || ev.target.closest('[data-rev-chip]')) return;
-        cerrarBuscadorCategoria();
-      });
-      document.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Escape') cerrarBuscadorCategoria();
-      });
+      // router.js re-ejecuta el <script> de la vista en cada navegación
+      // (executeScripts). Sin esta guarda, cada visita a #revisar deja dos
+      // listeners más colgados de document, y cada closure retiene el _filas
+      // de esa visita (~92 filas con la cola real).
+      if (!window._revCatPopBound) {
+        window._revCatPopBound = true;
+        document.addEventListener('click', function (ev) {
+          var pop = document.getElementById('revCatPop');
+          if (!pop || pop.hidden) return;
+          if (pop.contains(ev.target) || ev.target.closest('[data-rev-chip]')) return;
+          cerrarBuscadorCategoria();
+        });
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape') cerrarBuscadorCategoria();
+        });
+      }
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
