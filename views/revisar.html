@@ -91,6 +91,13 @@
   .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0);
     visibility: visible; transition: transform .2s ease, visibility 0s; }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
+  .rev-lote-bar { position: sticky; bottom: 0; z-index: 5;
+    display: flex; gap: .5rem; align-items: center; justify-content: space-between;
+    padding: .75rem 1rem; background: var(--bg-light-secondary);
+    border-top: 1px solid var(--border-light); }
+  .rev-lote-bar[hidden] { display: none; }
+  .rev-lote-resumen { font-size: .9rem; }
+  .rev-check { margin-right: .5rem; }
   /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
      banco dejó de ser .badge — en el resto de la app .badge significa estado. */
   .rev-meta { display: flex; align-items: center; gap: var(--space-sm);
@@ -147,6 +154,13 @@
   </div>
 
   <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
+  <div class="rev-lote-bar" id="revLoteBar" hidden>
+    <span class="rev-lote-resumen" id="revLoteResumen">0 seleccionadas</span>
+    <span>
+      <button type="button" class="btn btn-ghost" id="revLoteTodas">Marcar sugeridas</button>
+      <button type="button" class="btn btn-primary" id="revLoteConfirmar" disabled>Confirmar</button>
+    </span>
+  </div>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
   <div class="rev-undo-toast" id="revUndoToast" role="status">
@@ -164,7 +178,8 @@
   var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
                 'revertirIngestPendiente', 'deleteTransaccion',
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
-                'validarPartesGastoHogar'].filter(function (f) {
+                'validarPartesGastoHogar', 'confirmarLoteIngest', 'loteable',
+                'resumenLote', 'notaDePendiente'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -259,6 +274,9 @@
     }
 
     var sinCat = !sugerida;
+    var checkHTML = manual ? '' :
+      '<input type="checkbox" class="rev-check" data-rev-check="' + i + '" ' +
+      'aria-label="Seleccionar para confirmar en lote">';
 
     return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
@@ -266,6 +284,7 @@
       '<div class="rev-swipe-surface">' +
         '<div class="rev-compact" data-rev-expandir="' + i + '" role="button" tabindex="0" aria-expanded="false">' +
           '<div class="rev-meta">' +
+            checkHTML +
             '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
             '<span class="rev-fecha-correo">' + esc(fmtFechaCorreo(p.created_at)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
@@ -484,7 +503,7 @@
       }
     }
 
-    var base = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
+    var base = notaDePendiente(p, BANCO_LABEL);
     var userNotaEl = document.getElementById('revNota' + i);
     var userNota = userNotaEl ? userNotaEl.value.trim() : '';
     var nota = userNota ? base + ' — ' + userNota : base;
@@ -535,6 +554,87 @@
     _filas[i] = null;
     if (!_filas.some(Boolean)) renderVacio();
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+  }
+
+  // ── Modo lote: seleccionar varias filas y confirmarlas de una pasada ──
+  // Categoría resuelta de la fila i: la que el usuario dejó en el select
+  // (que ya viene prefilleado con la sugerencia de autocat).
+  function catDeFila(i) {
+    var el = document.getElementById('revCat' + i);
+    return el ? (el.value || null) : null;
+  }
+
+  function indicesSeleccionados() {
+    var out = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-rev-check]:checked'),
+      function (el) { out.push(Number(el.getAttribute('data-rev-check'))); });
+    return out;
+  }
+
+  // La barra se muestra si hay al menos una card seleccionable. Sin esto el
+  // botón "Marcar sugeridas" quedaría dentro de un contenedor oculto y sería
+  // inalcanzable: el usuario no tendría cómo hacer la primera selección.
+  function pintarBarraLote() {
+    var bar = document.getElementById('revLoteBar');
+    if (!bar) return;
+    if (!document.querySelector('[data-rev-check]')) { bar.hidden = true; return; }
+    var idx = indicesSeleccionados();
+    var filas = idx.map(function (i) { return _filas[i]; }).filter(Boolean);
+    var r = resumenLote(filas);
+    document.getElementById('revLoteResumen').textContent =
+      r.n === 0 ? '0 seleccionadas' : (r.n + ' seleccionadas · ' + fmt(r.total));
+    document.getElementById('revLoteConfirmar').disabled = r.n === 0;
+    bar.hidden = false;
+  }
+
+  // "Marcar sugeridas": marca todas las filas que loteable() acepta con la
+  // categoría que hoy tiene su select.
+  function marcarSugeridas() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-rev-check]'),
+      function (el) {
+        var i = Number(el.getAttribute('data-rev-check'));
+        el.checked = loteable(_filas[i], catDeFila(i));
+      });
+    pintarBarraLote();
+  }
+
+  async function confirmarLote(btn) {
+    var idx = indicesSeleccionados();
+    var items = [];
+    idx.forEach(function (i) {
+      var f = _filas[i];
+      var cat = catDeFila(i);
+      if (!loteable(f, cat)) return;   // defensa: no confiar solo en el checkbox
+      items.push({ fila: f, categoria_id: cat, nota: notaDePendiente(f, BANCO_LABEL) });
+    });
+    if (!items.length) return;
+    btn.disabled = true;
+    try {
+      var res = await confirmarLoteIngest(items);
+      var okIds = {};
+      res.forEach(function (r) { if (r.ok) okIds[r.id] = true; });
+      // Quitar de la lista solo las que entraron; las fallidas quedan visibles.
+      for (var i = _filas.length - 1; i >= 0; i--) {
+        if (_filas[i] && okIds[_filas[i].id]) quitarCard(i);
+      }
+      // Repintar ANTES del aviso: pintarBarraLote escribe en el mismo elemento
+      // y borraría el resultado si corriera después.
+      pintarBarraLote();
+      var fallidas = res.length - Object.keys(okIds).length;
+      mostrarToastLote(Object.keys(okIds).length, fallidas);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function mostrarToastLote(ok, fallidas) {
+    var el = document.getElementById('revLoteResumen');
+    if (!el) return;
+    el.textContent = fallidas
+      ? (ok + ' confirmadas · ' + fallidas + ' fallaron, reintenta')
+      : (ok + ' confirmadas');
   }
 
   // ── Undo: cada card se oculta (no se borra) y entra a una cola LIFO; cada
@@ -688,6 +788,7 @@
       for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
       listaEl.innerHTML = html;
       listaEl.style.display = '';
+      pintarBarraLote();
 
       // Demo de swipe: solo en la primera card elegible, y solo en esta carga
       // de la vista. Una fila 'revisar-manual' no puede completarse con un
@@ -709,6 +810,14 @@
       }
 
       listaEl.addEventListener('click', function (ev) {
+        var chk = ev.target.closest('[data-rev-check]');
+        if (chk) {
+          // Marcar no debe expandir la card: .rev-meta vive dentro del
+          // [data-rev-expandir], así que hay que cortar acá.
+          ev.stopPropagation();
+          pintarBarraLote();
+          return;
+        }
         var chipBtn = ev.target.closest('[data-rev-chip]');
         if (chipBtn) {
           // Ya no hay bottom-sheet: el chip solo lleva a editar la categoría en
@@ -746,6 +855,12 @@
         expandir.click();
       });
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
+      // La barra de lote NO está dentro de #revLista: sus clicks nunca llegarían
+      // al delegado de la lista, así que necesita listeners propios.
+      document.getElementById('revLoteTodas').addEventListener('click', marcarSugeridas);
+      document.getElementById('revLoteConfirmar').addEventListener('click', function (ev) {
+        confirmarLote(ev.currentTarget);
+      });
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);
