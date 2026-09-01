@@ -58,6 +58,25 @@ test('sin liquidez → sin-margen', () => {
   assert.equal(r.tope, 0);
 });
 
+test('sin ingresos registrados y sin respaldo → sin-datos, no sin-margen', () => {
+  const r = calcularRango(50, metricas({ ingresos: 0, gastos: 0 }), CAT);
+  assert.equal(r.nivel, 'sin-datos');
+  assert.match(r.razon, /ingreso/i);
+});
+
+test('ingreso estimado del mes anterior → la razón lo declara', () => {
+  const m = metricas({ ingresos: 1200, gastos: 0, ingresoEstimado: true });
+  const r = calcularRango(50, m, CAT);
+  assert.notEqual(r.nivel, 'sin-datos');
+  assert.match(r.razon, /estimad/i);
+});
+
+test('gastarse el margen sigue dando sin-margen, no sin-datos', () => {
+  // Hay ingreso real: el margen se agotó de verdad.
+  const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // 900-800-200-100 < 0
+  assert.equal(r.nivel, 'sin-margen');
+});
+
 test('planMeta: reparte el monto en 3 meses y calcula fecha', () => {
   const p = planMeta(380, 200, HOY); // HOY = 2026-07-01
   assert.equal(p.faltante, 180);       // 380 - 200

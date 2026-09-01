@@ -20,23 +20,34 @@ function calcularRango(monto, m, categoria) {
   var comodo = ritmoRapido ? Math.round(topeRaw * 0.7) : tope;
 
   if (tope <= 0) {
+    // Distinguir "no hay dato" de "te lo gastaste". Sin ingreso registrado ni
+    // respaldo del mes anterior, la liquidez sale 0 por falta de información,
+    // no por exceso de gasto: decirle "no te queda margen" el día 1 del mes es
+    // un número falso (bug reportado el 2026-09-01).
+    if (!(m.ingresos > 0)) {
+      return { nivel: 'sin-datos', comodo: 0, tope: 0, sugerido: 0,
+        razon: 'Todavía no registras ingresos este mes, así que no puedo calcular tu margen. Anota tu ingreso y vuelve a preguntar.' };
+    }
     return { nivel: 'sin-margen', comodo: 0, tope: 0, sugerido: 0,
       razon: 'Este mes no te queda margen en ' + categoria.nombre + '. Revisa tus gastos o espera al próximo ciclo.' };
   }
+  // Cuando el margen se apoya en el ingreso del mes pasado (aún no hay ingreso
+  // este mes), decirlo: el número es utilizable pero no es un hecho.
+  var nota = m.ingresoEstimado ? ' Es un estimado con tu ingreso del mes pasado.' : '';
   if (!(monto > 0)) {
     return { nivel: 'consulta', comodo: comodo, tope: tope, sugerido: tope,
-      razon: 'Puedes gastar tranquilo hasta ' + comodo + '; tu tope este mes es ' + tope + '.' };
+      razon: 'Puedes gastar tranquilo hasta ' + comodo + '; tu tope este mes es ' + tope + '.' + nota };
   }
   if (monto <= comodo) {
     return { nivel: 'recomendable', comodo: comodo, tope: tope, sugerido: tope,
-      razon: 'Te alcanza sin apuros en ' + categoria.nombre + '.' };
+      razon: 'Te alcanza sin apuros en ' + categoria.nombre + '.' + nota };
   }
   if (monto <= tope) {
     return { nivel: 'cautela', comodo: comodo, tope: tope, sugerido: tope,
-      razon: 'Cabe, pero ajustado: pasas tu zona cómoda (' + comodo + ').' };
+      razon: 'Cabe, pero ajustado: pasas tu zona cómoda (' + comodo + ').' + nota };
   }
   return { nivel: 'no', comodo: comodo, tope: tope, sugerido: tope,
-    razon: 'Superarías tu tope de este mes (' + tope + ').' };
+    razon: 'Superarías tu tope de este mes (' + tope + ').' + nota };
 }
 
 // planMeta(monto, tope, hoy) — plan de ahorro para una compra que no cabe.

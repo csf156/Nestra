@@ -186,16 +186,21 @@
       var rSem = _rangoSemana();
       var diasMes = new Date(hoy.anio, hoy.mes, 0).getDate();
 
+      var mesAnt = hoy.mes === 1 ? 12 : hoy.mes - 1;
+      var anioAnt = hoy.mes === 1 ? hoy.anio - 1 : hoy.anio;
+
       var res = await Promise.all([
         getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
         getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
         getBalancePersonal(hoy.mes, hoy.anio), // Fase 6.3: liquidez siempre contra el bolsillo del que pregunta, sea cual sea el ámbito de la categoría
         getMetas(ambito),
         getRecurrentes(),
+        getBalancePersonal(mesAnt, anioAnt),   // respaldo: el mes en curso puede no tener ingresos aún
       ]);
       var gastoMes = res[0], gastoSemana = res[1], balance = res[2];
       var metasPend = (res[3] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
       var recs = res[4] || [];
+      var balanceAnt = res[5];
 
       var colchon = 0, metaCritica = null;
       metasPend.forEach(function (mt) {
@@ -221,7 +226,10 @@
       return {
         metricas: {
           limite: cat.limite_mensual == null ? null : Number(cat.limite_mensual),
-          gastoMes: gastoMes, ingresos: balance.ingresos, gastos: balance.gastos,
+          gastoMes: gastoMes,
+          ingresos: balance.ingresos > 0 ? balance.ingresos : (balanceAnt.ingresos || 0),
+          ingresoEstimado: !(balance.ingresos > 0) && (balanceAnt.ingresos || 0) > 0,
+          gastos: balance.gastos,
           recurrentesPendientes: recurrentesPendientes, colchonMetas: Math.round(colchon),
           gastoSemana: gastoSemana, diasSemana: rSem.diasTranscurridos, diasMes: diasMes,
         },
@@ -276,8 +284,8 @@
 
     function renderBrujula(v, monto, datos, cat) {
       var box = $('decVeredicto');
-      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro' };
-      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen' };
+      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro', 'sin-datos': 'veredicto-peligro' };
+      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen', 'sin-datos': 'Sin datos aún' };
       box.className = 'dec-veredicto ' + (CLASE[v.nivel] || '');
       box.setAttribute('data-nivel', v.nivel);
 
@@ -302,7 +310,7 @@
         var offline = !navigator.onLine;
         html += '<button type="button" class="btn btn-primary" id="decCrearMeta"' + (offline ? ' disabled' : '') + '>Crear meta</button>' +
                 (offline ? '<span class="dec-offline">Necesitas conexión para esto.</span>' : '');
-      } else if (v.nivel !== 'sin-margen') {
+      } else if (v.nivel !== 'sin-margen' && v.nivel !== 'sin-datos') {
         html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar gasto</button>';
       }
       html += '</div>';
