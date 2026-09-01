@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { calcularRango, planMeta, costoOportunidad, sugerirMicroahorro } from '../js/brujula.js';
+import { calcularRango, planMeta, costoOportunidad, sugerirMicroahorro, ingresoReferencia } from '../js/brujula.js';
 
 const HOY = new Date(2026, 6, 1); // 2026-07-01
 
@@ -56,6 +56,25 @@ test('sin liquidez → sin-margen', () => {
   const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // liquidez = 900-800-200-100 = -200 → 0
   assert.equal(r.nivel, 'sin-margen');
   assert.equal(r.tope, 0);
+});
+
+test('sin ingresos registrados y sin respaldo → sin-datos, no sin-margen', () => {
+  const r = calcularRango(50, metricas({ ingresos: 0, gastos: 0 }), CAT);
+  assert.equal(r.nivel, 'sin-datos');
+  assert.match(r.razon, /ingreso/i);
+});
+
+test('ingreso estimado del mes anterior → la razón lo declara', () => {
+  const m = metricas({ ingresos: 1200, gastos: 0, ingresoEstimado: true });
+  const r = calcularRango(50, m, CAT);
+  assert.notEqual(r.nivel, 'sin-datos');
+  assert.match(r.razon, /estimad/i);
+});
+
+test('gastarse el margen sigue dando sin-margen, no sin-datos', () => {
+  // Hay ingreso real: el margen se agotó de verdad.
+  const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // 900-800-200-100 < 0
+  assert.equal(r.nivel, 'sin-margen');
 });
 
 test('planMeta: reparte el monto en 3 meses y calcula fecha', () => {
@@ -117,4 +136,29 @@ test('sugerirMicroahorro: sin liquidez → null', () => {
 test('sugerirMicroahorro: sin metas en curso → null', () => {
   const metas = [{ id: 'b', nombre: 'X', monto_actual: 1000, monto_objetivo: 1000, estado: 'cumplida', fecha_limite: '2026-08-01' }];
   assert.equal(sugerirMicroahorro(metas, 500, HOY), null);
+});
+
+test('ingresoReferencia: con ingreso del mes en curso, no estima', () => {
+  const r = ingresoReferencia(1500, [1217.98, 986.26, 373.48]);
+  assert.equal(r.monto, 1500);
+  assert.equal(r.estimado, false);
+});
+
+test('ingresoReferencia: sin ingreso este mes, promedia los previos', () => {
+  const r = ingresoReferencia(0, [1217.98, 986.26, 373.48]);
+  assert.equal(r.monto, 859);   // 2577.72 / 3, redondeado
+  assert.equal(r.estimado, true);
+});
+
+test('ingresoReferencia: los meses en cero no diluyen el promedio', () => {
+  // Un mes sin ingreso registrado casi siempre significa "no usé la app",
+  // no "no gané nada": incluirlo hundiría el estimado por un dato ausente.
+  const r = ingresoReferencia(0, [1200, 0, 800]);
+  assert.equal(r.monto, 1000);
+  assert.equal(r.estimado, true);
+});
+
+test('ingresoReferencia: sin histórico usable → 0 y sin estimar', () => {
+  assert.deepEqual(ingresoReferencia(0, [0, 0, 0]), { monto: 0, estimado: false });
+  assert.deepEqual(ingresoReferencia(0, []), { monto: 0, estimado: false });
 });

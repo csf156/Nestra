@@ -186,16 +186,29 @@
       var rSem = _rangoSemana();
       var diasMes = new Date(hoy.anio, hoy.mes, 0).getDate();
 
+      // Tres meses completos hacia atrás, para el ingreso de referencia.
+      var previos = [];
+      for (var k = 1; k <= 3; k++) {
+        var mAnt = hoy.mes - k, aAnt = hoy.anio;
+        while (mAnt < 1) { mAnt += 12; aAnt -= 1; }
+        previos.push({ mes: mAnt, anio: aAnt });
+      }
+
       var res = await Promise.all([
         getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
         getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
         getBalancePersonal(hoy.mes, hoy.anio), // Fase 6.3: liquidez siempre contra el bolsillo del que pregunta, sea cual sea el ámbito de la categoría
         getMetas(ambito),
         getRecurrentes(),
+        getBalancePersonal(previos[0].mes, previos[0].anio),
+        getBalancePersonal(previos[1].mes, previos[1].anio),
+        getBalancePersonal(previos[2].mes, previos[2].anio),
       ]);
       var gastoMes = res[0], gastoSemana = res[1], balance = res[2];
       var metasPend = (res[3] || []).filter(function (x) { return Number(x.monto_actual) < Number(x.monto_objetivo); });
       var recs = res[4] || [];
+      var ingresosPrevios = [res[5], res[6], res[7]].map(function (b) { return (b && b.ingresos) || 0; });
+      var ref = ingresoReferencia(balance.ingresos, ingresosPrevios);
 
       var colchon = 0, metaCritica = null;
       metasPend.forEach(function (mt) {
@@ -221,7 +234,10 @@
       return {
         metricas: {
           limite: cat.limite_mensual == null ? null : Number(cat.limite_mensual),
-          gastoMes: gastoMes, ingresos: balance.ingresos, gastos: balance.gastos,
+          gastoMes: gastoMes,
+          ingresos: ref.monto,
+          ingresoEstimado: ref.estimado,
+          gastos: balance.gastos,
           recurrentesPendientes: recurrentesPendientes, colchonMetas: Math.round(colchon),
           gastoSemana: gastoSemana, diasSemana: rSem.diasTranscurridos, diasMes: diasMes,
         },
@@ -276,8 +292,8 @@
 
     function renderBrujula(v, monto, datos, cat) {
       var box = $('decVeredicto');
-      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro' };
-      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen' };
+      var CLASE = { consulta: 'veredicto-ok', recomendable: 'veredicto-ok', cautela: 'veredicto-alerta', no: 'veredicto-peligro', 'sin-margen': 'veredicto-peligro', 'sin-datos': 'veredicto-peligro' };
+      var TIT = { consulta: 'Puedes gastar en ' + cat.nombre, recomendable: 'Adelante', cautela: 'Con cautela', no: 'No cabe este mes', 'sin-margen': 'Sin margen', 'sin-datos': 'Sin datos aún' };
       box.className = 'dec-veredicto ' + (CLASE[v.nivel] || '');
       box.setAttribute('data-nivel', v.nivel);
 
@@ -302,7 +318,7 @@
         var offline = !navigator.onLine;
         html += '<button type="button" class="btn btn-primary" id="decCrearMeta"' + (offline ? ' disabled' : '') + '>Crear meta</button>' +
                 (offline ? '<span class="dec-offline">Necesitas conexión para esto.</span>' : '');
-      } else if (v.nivel !== 'sin-margen') {
+      } else if (v.nivel !== 'sin-margen' && v.nivel !== 'sin-datos') {
         html += '<button type="button" class="btn-ghost" id="decRegistrar">Registrar gasto</button>';
       }
       html += '</div>';

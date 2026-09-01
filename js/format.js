@@ -14,9 +14,12 @@ function formatMonto(numero) {
   var dec = (typeof monedaDecimales === 'function') ? monedaDecimales() : 2;
   const num = Number(numero);
   if (numero === null || numero === undefined || Number.isNaN(num)) {
-    return sym + " 0" + (dec ? "." + "0".repeat(dec) : "");
+    return sym + "\u00A00" + (dec ? "." + "0".repeat(dec) : "");
   }
-  return sym + " " + num.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  // Espacio NO-ROMPIBLE: con un espacio normal el navegador parte la línea
+  // entre el símbolo y la cifra en los tamaños grandes (hero del dashboard a
+  // 2.6rem). Esto es lo que la cabecera de este archivo siempre prometió.
+  return sym + "\u00A0" + num.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 // formatFecha() — convierte ISO a "DD/MM/YYYY" sin usar new Date (evita bug de timezone)

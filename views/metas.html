@@ -172,6 +172,7 @@
   .meta-acciones .btn-small--primary { background: var(--color-primary); color: #0a0a0a; border-color: var(--color-primary); }
   .meta-acciones .btn-small--danger { color: var(--color-danger); }
   .meta-nota-info { margin-top: var(--space-sm); font-size: var(--font-size-xs); color: var(--text-secondary); }
+  .meta-aliento { margin: var(--space-xs) 0 0; font-size: var(--font-size-sm); color: var(--text-secondary); }
 
   .metas-completadas { margin-top: var(--space-xl); border-top: 1px solid var(--border-light); padding-top: var(--space-md); }
   .metas-comp-sum { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-sm); }
@@ -334,6 +335,11 @@
         var act = Number(m.monto_actual) || 0;
         var pct = obj > 0 ? Math.min(100, Math.round(act / obj * 100)) : 0;
         var plazoCls = vis === 'vencida' ? ' meta-plazo--vencida' : (vis === 'urgente' ? ' meta-plazo--urgente' : '');
+        var rescate = vis !== 'vencida' ? '' :
+          '<p class="meta-aliento">' + esc(mensajeAliento(m)) + '</p>';
+        var btnPlazo = vis !== 'vencida' ? '' :
+          '<button type="button" class="btn-small btn-small--primary" ' +
+          'data-act="replazo" data-id="' + m.id + '">Darme más tiempo</button>';
         var aporte = m.tipo === 'ahorro'
           ? '<button type="button" class="btn-small btn-small--primary" data-act="aporte" data-id="' + m.id + '">Registrar aporte</button>'
           : '<span class="meta-nota-info">El progreso se actualiza con tus movimientos.</span>';
@@ -355,7 +361,8 @@
             ? '<div class="meta-cifras"><span class="signature-num">' + formatMonto(act) + ' / ' + formatMonto(obj) + '</span><span class="meta-pct">' + pct + '%</span></div>'
             : '<div class="meta-cifras"><span class="signature-num">' + formatMonto(act) + '</span><span class="meta-pct">acumulado · Sin objetivo</span></div>') +
           '<p class="meta-plazo' + plazoCls + '">' + textoPlazo(dias) + (m.fecha_limite ? ' · ' + m.fecha_limite : '') + '</p>' +
-          '<div class="meta-acciones">' + aporte +
+          rescate +
+          '<div class="meta-acciones">' + btnPlazo + aporte +
             (m.es_fondo_emergencia ? '' :
               '<button type="button" class="btn-small btn-small--danger" data-act="eliminar" data-id="' + m.id + '">Eliminar</button>') +
           '</div></article>';
@@ -382,7 +389,33 @@
       if (act === 'aporte') registrarAporte(id);
       else if (act === 'confirmar') confirmarLograda(id);
       else if (act === 'eliminar') eliminarMeta(id);
+      else if (act === 'replazo') replazo(id);
     });
+
+    // replazo(id) — "Darme más tiempo": reprograma la fecha límite de una
+    // meta vencida. updateMeta acepta cualquier campo (js/db.js:834). El
+    // estado vuelve a 'en_curso': si la fila quedó marcada 'vencida' en la
+    // base, moverle la fecha sin resetear el estado la dejaría roja con una
+    // fecha futura.
+    async function replazo(id) {
+      var meta = _metaPorId(id);
+      if (!meta) return;
+      var hoyISO = _hoyISO();
+      var sugerida = nuevaFechaSugerida(hoyISO);
+      var elegida = window.prompt(
+        'Nueva fecha límite para "' + meta.nombre + '" (YYYY-MM-DD):', sugerida || '');
+      if (!elegida) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(elegida)) { mostrarToast('Formato de fecha inválido.'); return; }
+      if (elegida <= hoyISO) { mostrarToast('La fecha nueva tiene que ser futura.'); return; }
+      try {
+        await updateMeta(id, { fecha_limite: elegida, estado: 'en_curso' });
+        await cargar();
+        mostrarToast('Nuevo plazo: ' + elegida);
+      } catch (e) {
+        console.error('replazo falló:', e);
+        mostrarToast('No se pudo cambiar la fecha. Reintenta.');
+      }
+    }
 
     var aportePendiente = null;
     function registrarAporte(id) {
