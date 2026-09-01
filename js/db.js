@@ -1751,6 +1751,39 @@ async function confirmarIngestPendiente(id, transaccionId, datos = {}) {
   await _aplicarIngestEstado(id, patch);
 }
 
+// confirmarLoteIngest(items) — confirma N pendientes de una pasada.
+// items: [{ fila, categoria_id, nota }]. Siempre ambito 'personal' y sin
+// reparto de hogar: un gasto compartido necesita partes por miembro y eso
+// exige abrir la card (ver plan 2026-09-01, Etapa A).
+// SECUENCIAL a propósito: las acciones offline van a la outbox y el orden
+// importa. Nunca lanza por una fila: devuelve el resultado de cada una para
+// que la UI quite las que sí entraron y deje visibles las que fallaron.
+// Returns: [{ id, ok, transaccionId?, error? }]
+async function confirmarLoteIngest(items) {
+  const out = [];
+  for (const it of (items || [])) {
+    const f = it.fila;
+    try {
+      const tx = await insertTransaccion({
+        tipo: f.tipo,
+        ambito: 'personal',
+        categoria_id: it.categoria_id,
+        monto: Number(f.monto),
+        fecha: f.fecha,
+        nota: it.nota,
+      });
+      await confirmarIngestPendiente(f.id, tx.id, {
+        tipo: f.tipo, monto: Number(f.monto), fecha: f.fecha,
+      });
+      out.push({ id: f.id, ok: true, transaccionId: tx.id });
+    } catch (err) {
+      console.error('confirmarLoteIngest() falló en ' + f.id + ':', err.message || err);
+      out.push({ id: f.id, ok: false, error: err.message || String(err) });
+    }
+  }
+  return out;
+}
+
 // descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
 async function descartarIngestPendiente(id) {
   await _aplicarIngestEstado(id, { estado: 'descartado', resolved_at: new Date().toISOString() });
