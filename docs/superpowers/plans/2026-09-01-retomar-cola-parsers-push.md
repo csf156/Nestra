@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Devolver el ciclo de ingesta a un estado sostenible: vaciar la cola de 100 pendientes en minutos (A), dejar de generar `revisar-manual` por formatos de Yape y BBVA-QR que hoy no se parsean (B), y hacer que la suscripción push se auto-repare en vez de morir en silencio (C).
+**Goal:** Corregir tres defectos de UX reportados en vivo (0), vaciar la cola de 100 pendientes en minutos (A), dejar de generar `revisar-manual` por formatos de Yape y BBVA-QR que hoy no se parsean (B), y hacer que la suscripción push se auto-repare en vez de morir en silencio (C).
 
-**Architecture:** Tres etapas independientes, cada una con su PR y su deploy. La etapa A añade un modo de selección múltiple a `#revisar` con la lógica pura extraída a `js/revisar-lote.js` (testeable en Node) y una función de lote en `js/db.js` que reutiliza el camino de confirmación existente fila por fila — sin semántica nueva de base de datos. La etapa B corrige los parsers del Worker de ingesta (funciones puras, ya cubiertas por `test/ingest-parsers.test.mjs`) contra cuerpos de correo reales capturados el 2026-09-01. La etapa C añade reconciliación de suscripción push en el arranque, porque hoy el cliente cree estar suscrito mirando el navegador mientras la fila de la base ya fue borrada por la Edge Function.
+**Architecture:** Cuatro etapas independientes, cada una con su PR y su deploy. La etapa A añade un modo de selección múltiple a `#revisar` con la lógica pura extraída a `js/revisar-lote.js` (testeable en Node) y una función de lote en `js/db.js` que reutiliza el camino de confirmación existente fila por fila — sin semántica nueva de base de datos. La etapa B corrige los parsers del Worker de ingesta (funciones puras, ya cubiertas por `test/ingest-parsers.test.mjs`) contra cuerpos de correo reales capturados el 2026-09-01. La etapa C añade reconciliación de suscripción push en el arranque, porque hoy el cliente cree estar suscrito mirando el navegador mientras la fila de la base ya fue borrada por la Edge Function.
 
 **Tech Stack:** PWA vanilla sin build (ES5-ish en las vistas, ESM en `js/*.js` y en el Worker), `node:test` para tests puros, Cloudflare Worker (`workers/ingest`) desplegado con wrangler, Supabase Postgres + Edge Functions, Cloudflare Pages para el sitio.
 
@@ -19,11 +19,12 @@ Estado medido el 2026-09-01:
 - `push_subscriptions`: **0 filas**. El cron `enviar-notificaciones-diario` corre a las 08:00 contra cero destinatarios.
 - Última transacción registrada: 2026-08-23. La ingesta nunca paró (~40 correos/semana).
 
-El orden es A → B → C por dependencia práctica:
+El orden es 0 → A → B → C por dependencia práctica:
 
-1. **A primero** porque el dolor es la cola de 100 y es un drenaje de una sola vez.
-2. **B después** porque evita que sigan cayendo correos a `revisar-manual`, pero no ayuda a las 100 que ya están parseadas.
-3. **C al final** porque volver a encender los avisos antes de que la cola sea drenable convierte la notificación en ruido.
+1. **0 primero** porque son tres defectos baratos que el usuario ya está viendo, y uno de ellos (la Brújula sin margen) le está dando un número **falso** cada inicio de mes.
+2. **A después** porque el dolor grande es la cola de 100 y es un drenaje de una sola vez.
+3. **B** porque evita que sigan cayendo correos a `revisar-manual`, pero no ayuda a las 100 que ya están parseadas.
+4. **C al final** porque volver a encender los avisos antes de que la cola sea drenable convierte la notificación en ruido.
 
 **Fuera de alcance (decidido a propósito):**
 
@@ -35,13 +36,24 @@ El orden es A → B → C por dependencia práctica:
 
 ## Estructura de archivos
 
+**Etapa 0:**
+- Modificar: `js/format.js` — separador no-rompible en `formatMonto()`.
+- Modificar: `views/dashboard.html` — el hero pinta símbolo y monto pegados.
+- Crear: `js/metas-plazo.js` — lógica pura del aliento y la nueva fecha sugerida para metas vencidas.
+- Crear: `test/metas-plazo.test.mjs`.
+- Modificar: `views/metas.html` — mensaje de aliento y acción "Darme más tiempo".
+- Modificar: `js/brujula.js` — nivel `sin-datos` y razón distinta cuando el ingreso es estimado.
+- Modificar: `test/brujula.test.mjs`.
+- Modificar: `views/brujula.html` — ingreso de referencia con respaldo del mes anterior.
+- Modificar: `index.html` y `sw.js` — alta de `js/metas-plazo.js`, `SHELL_VERSION` a `v42`.
+
 **Etapa A:**
 - Crear: `js/revisar-lote.js` — lógica pura de selección en lote (qué fila es confirmable sin abrir la card, cómo se arma la nota, resumen de la selección). Sin DOM, sin red.
 - Crear: `test/revisar-lote.test.mjs` — tests de esas funciones puras.
 - Modificar: `js/db.js` — añadir `confirmarLoteIngest()`.
 - Modificar: `views/revisar.html` — modo selección: checkbox por card, barra de acciones, y reemplazo de la construcción de nota inline por `notaDePendiente()`.
 - Modificar: `index.html` — cargar `js/revisar-lote.js`.
-- Modificar: `sw.js` — `SHELL_VERSION` a `v42` y alta del archivo nuevo en el precache.
+- Modificar: `sw.js` — `SHELL_VERSION` a `v43` y alta del archivo nuevo en el precache.
 
 **Etapa B:**
 - Modificar: `workers/ingest/parsers/utils.js` — `lineasPlanas()` y meses abreviados en `parseFechaLarga()`.
@@ -53,7 +65,470 @@ El orden es A → B → C por dependencia práctica:
 - Modificar: `js/push.js` — `pushEstadoServidor()` y `pushReconciliar()`.
 - Modificar: `index.html` — llamar a `pushReconciliar()` tras autenticar.
 - Modificar: `views/configuracion.html` — el toggle refleja el estado del servidor, no solo el del navegador.
-- Modificar: `sw.js` — `SHELL_VERSION` a `v43`.
+- Modificar: `sw.js` — `SHELL_VERSION` a `v44`.
+
+---
+
+# ETAPA 0 — Tres defectos reportados en vivo
+
+Los tres se verificaron el 2026-09-01 contra el código y los datos reales.
+
+---
+
+### Task 0.1: El símbolo de moneda no se separa del monto
+
+**Síntoma:** en el hero "Puedes gastar hoy" del dashboard, el `S/` aparece en una línea y el monto en la de abajo.
+
+**Causa raíz:** `js/format.js:19` concatena con un espacio normal — `sym + " " + num...` — y `.dash-s2s-monto` rinde a `2.6rem`, así que el navegador parte la línea justo en ese espacio. El comentario de cabecera del propio archivo dice "Símbolo y monto en la misma línea (sin saltos)": el código nunca cumplió lo que documenta.
+
+Dos cambios, uno global y uno del hero:
+
+- **Global:** el separador pasa a espacio no-rompible (`\u00A0`). Arregla el salto en los 72 sitios que llaman `formatMonto()`, sin cambiar la firma, el espaciado visual ni ningún test (ninguno afirma sobre su salida).
+- **Hero:** además pega símbolo y monto, que es lo pedido para esa tarjeta en concreto.
+
+> `js/format.js` se carga como `<script src>` plano, **no** como módulo (`index.html:176`). No se le puede añadir `export` sin romper la carga, así que esta task no lleva test unitario: se verifica en el navegador.
+
+**Files:**
+- Modify: `js/format.js:19`
+- Modify: `views/dashboard.html`
+
+- [ ] **Step 1: Separador no-rompible en `formatMonto()`**
+
+En `js/format.js`, el separador pasa a espacio no-rompible. **Escribirlo como escape `\u00A0`, nunca como carácter literal**: un NBSP literal es indistinguible de un espacio normal en el diff y el próximo que pase por el archivo lo "limpia" sin saber que era el arreglo.
+
+Línea ~19, antes:
+
+```js
+  return sym + " " + num.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+```
+
+después:
+
+```js
+  // Espacio NO-ROMPIBLE: con un espacio normal el navegador parte la línea
+  // entre el símbolo y la cifra en los tamaños grandes (hero del dashboard a
+  // 2.6rem). Esto es lo que la cabecera de este archivo siempre prometió.
+  return sym + "\u00A0" + num.toLocaleString(loc, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+```
+
+El `return` del caso nulo, unas líneas más arriba. Antes:
+
+```js
+    return sym + " 0" + (dec ? "." + "0".repeat(dec) : "");
+```
+
+después:
+
+```js
+    return sym + "\u00A00" + (dec ? "." + "0".repeat(dec) : "");
+```
+
+- [ ] **Step 2: El hero pinta símbolo y monto pegados**
+
+En `views/dashboard.html`, junto a las demás funciones auxiliares de la vista:
+
+```js
+  // El hero va sin separación entre símbolo y cifra: a 2.6rem el espacio se
+  // lee como un hueco, no como parte del número. El resto de la app conserva
+  // el espacio no-rompible de formatMonto().
+  function montoHero(n) {
+    return formatMonto(n).replace(/\u00A0/g, '');
+  }
+```
+
+y usarla en las dos líneas que pintan la cifra grande (líneas ~750 y ~759):
+
+```js
+            <p class="dash-s2s-monto">${esc(montoHero(res.exceso))}</p>
+```
+
+```js
+          <p class="dash-s2s-monto">${esc(montoHero(res.diario))}</p>
+```
+
+- [ ] **Step 3: Cinturón de seguridad en CSS**
+
+En el bloque `.dash-s2s-monto` de `views/dashboard.html` (línea ~166), añadir:
+
+```css
+    white-space: nowrap;
+```
+
+- [ ] **Step 4: Verificar en el navegador**
+
+Levantar el preview y mirar el dashboard: la tarjeta debe decir `S/1,234.56` en una sola línea. Comprobar también con `resize_window` en preset `mobile` (375px), que es donde el salto aparecía.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add js/format.js views/dashboard.html
+git commit -m "fix(dashboard): el símbolo de moneda ya no salta de línea en el hero"
+```
+
+---
+
+### Task 0.2: Una meta vencida no ofrece salida
+
+**Síntoma:** cuando una meta pasa su `fecha_limite`, la card se pinta en rojo y dice "Vencida hace N días", y ahí se acaba. No hay aliento ni forma de mover la fecha.
+
+**Verificado:** hay 2 metas vencidas reales (*Máquina de afeitar*, límite 2026-07-11; *Laptop nueva*, límite 2026-08-17). `views/metas.html:336` calcula `plazoCls`, y el bloque `meta-acciones` solo ofrece "Registrar aporte" y "Eliminar". `updateMeta(id, datos)` ya existe en `js/db.js:834` y acepta cualquier campo, así que no hace falta nada nuevo en la base.
+
+**Files:**
+- Create: `js/metas-plazo.js`
+- Test: `test/metas-plazo.test.mjs`
+- Modify: `views/metas.html`
+- Modify: `index.html`
+
+- [ ] **Step 1: Escribir el test que falla**
+
+Crear `test/metas-plazo.test.mjs`:
+
+```js
+// test/metas-plazo.test.mjs
+// Lógica pura del rescate de metas vencidas. `hoy` se inyecta siempre: nada
+// acá puede depender del reloj del proceso.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mensajeAliento, nuevaFechaSugerida } from '../js/metas-plazo.js';
+
+test('mensajeAliento: con avance, reconoce lo logrado', () => {
+  const m = mensajeAliento({ monto_actual: 400, monto_objetivo: 650 });
+  assert.match(m, /62%/);
+  assert.match(m, /S\/ ?250|250/);
+});
+
+test('mensajeAliento: sin avance, no felicita en falso', () => {
+  const m = mensajeAliento({ monto_actual: 0, monto_objetivo: 650 });
+  assert.doesNotMatch(m, /0%/);
+  assert.ok(m.length > 0);
+});
+
+test('mensajeAliento: sin objetivo, mensaje genérico sin NaN ni Infinity', () => {
+  const m = mensajeAliento({ monto_actual: 100, monto_objetivo: null });
+  assert.doesNotMatch(m, /NaN|Infinity/);
+  assert.ok(m.length > 0);
+});
+
+test('nuevaFechaSugerida: un mes desde hoy, no desde el límite viejo', () => {
+  // La meta venció hace rato: reprogramar sobre la fecha vieja daría otra
+  // fecha ya pasada.
+  assert.equal(nuevaFechaSugerida('2026-07-11', '2026-09-01'), '2026-10-01');
+});
+
+test('nuevaFechaSugerida: cruce de año', () => {
+  assert.equal(nuevaFechaSugerida('2026-11-30', '2026-12-15'), '2027-01-15');
+});
+
+test('nuevaFechaSugerida: día 31 en un mes que no lo tiene → último día real', () => {
+  assert.equal(nuevaFechaSugerida('2026-01-31', '2026-01-31'), '2026-02-28');
+});
+
+test('nuevaFechaSugerida: sin fecha de hoy válida → null', () => {
+  assert.equal(nuevaFechaSugerida('2026-07-11', ''), null);
+});
+```
+
+- [ ] **Step 2: Correr el test y verificar que falla**
+
+Run: `node --test test/metas-plazo.test.mjs`
+Expected: FAIL — `Cannot find module '../js/metas-plazo.js'`
+
+- [ ] **Step 3: Escribir la implementación**
+
+Crear `js/metas-plazo.js`:
+
+```js
+// js/metas-plazo.js — rescate de metas vencidas: qué decirle al usuario y qué
+// fecha proponerle. Puro: sin DOM, sin red, y `hoy` se inyecta siempre.
+// Carga doble: <script type="module"> (window.*) y ESM en node:test.
+
+// mensajeAliento(meta) — texto de aliento para una meta vencida.
+// Con avance real reconoce lo logrado y nombra lo que falta; sin avance no
+// felicita en falso. Nunca devuelve NaN/Infinity aunque falte el objetivo.
+function mensajeAliento(meta) {
+  const act = Number(meta && meta.monto_actual) || 0;
+  const obj = Number(meta && meta.monto_objetivo) || 0;
+  if (obj <= 0) {
+    return 'La fecha pasó, pero lo que juntaste sigue siendo tuyo. Ponle un plazo nuevo y sigue.';
+  }
+  const falta = Math.max(0, Math.round(obj - act));
+  const pct = Math.round(act / obj * 100);
+  if (pct <= 0) {
+    return 'Esta no arrancó, y no pasa nada. Dale un plazo realista y empieza con un aporte chico.';
+  }
+  return 'Ya llevas ' + pct + '% y te faltan ' + falta + '. La fecha se venció, no la meta: date un plazo nuevo.';
+}
+
+// nuevaFechaSugerida(fechaLimite, hoyISO) — "YYYY-MM-DD" un mes DESPUÉS DE HOY.
+// Sobre hoy y no sobre el límite viejo: una meta vencida hace dos meses
+// reprogramada sobre su propia fecha nacería vencida otra vez.
+// Un día que no existe en el mes destino (31 → febrero) cae al último día real.
+function nuevaFechaSugerida(fechaLimite, hoyISO) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(hoyISO || ''));
+  if (!m) return null;
+  const anio = Number(m[1]);
+  const mes = Number(m[2]);       // 1-based
+  const dia = Number(m[3]);
+  const anioDest = mes === 12 ? anio + 1 : anio;
+  const mesDest = mes === 12 ? 1 : mes + 1;
+  // Día 0 del mes siguiente = último día del mes destino.
+  const ultimo = new Date(anioDest, mesDest, 0).getDate();
+  const diaDest = Math.min(dia, ultimo);
+  const p = (n) => String(n).padStart(2, '0');
+  return anioDest + '-' + p(mesDest) + '-' + p(diaDest);
+}
+
+if (typeof window !== 'undefined') {
+  window.mensajeAliento = mensajeAliento;
+  window.nuevaFechaSugerida = nuevaFechaSugerida;
+}
+export { mensajeAliento, nuevaFechaSugerida };
+```
+
+- [ ] **Step 4: Correr el test y verificar que pasa**
+
+Run: `node --test test/metas-plazo.test.mjs`
+Expected: PASS — `# fail 0`
+
+- [ ] **Step 5: Cargar el módulo**
+
+En `index.html`, junto a los otros `<script type="module">`:
+
+```html
+    <script type="module" src="js/metas-plazo.js"></script>
+```
+
+En `sw.js`, añadir al precache:
+
+```js
+  { url: 'js/metas-plazo.js', revision: SHELL_VERSION },
+```
+
+- [ ] **Step 6: Pintar el aliento y la acción en la card vencida**
+
+En `views/metas.html`, dentro de la función que arma la card, después de calcular `vis`:
+
+```js
+        var rescate = vis !== 'vencida' ? '' :
+          '<p class="meta-aliento">' + esc(mensajeAliento(m)) + '</p>';
+        var btnPlazo = vis !== 'vencida' ? '' :
+          '<button type="button" class="btn-small btn-small--primary" ' +
+          'data-act="replazo" data-id="' + m.id + '">Darme más tiempo</button>';
+```
+
+Insertar `rescate` justo después del `<p class="meta-plazo...">` en el `return`, y `btnPlazo` como primer elemento de `<div class="meta-acciones">`, antes de `aporte`.
+
+Estilo, junto a las demás reglas `.meta-*`:
+
+```css
+  .meta-aliento { margin: var(--space-xs) 0 0; font-size: var(--font-size-sm);
+    color: var(--color-text-muted); }
+```
+
+- [ ] **Step 7: Cablear la acción**
+
+En el manejador de clicks de la vista, junto a los casos `aporte` / `eliminar` / `confirmar`:
+
+```js
+      if (act === 'replazo') {
+        var meta = _metas.find(function (x) { return x.id === id; });
+        if (!meta) return;
+        var hoyISO = new Date().toISOString().slice(0, 10);
+        var sugerida = nuevaFechaSugerida(meta.fecha_limite, hoyISO);
+        var elegida = window.prompt(
+          'Nueva fecha límite para "' + meta.nombre + '" (YYYY-MM-DD):', sugerida || '');
+        if (!elegida) return;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(elegida)) { mostrarToast('Formato de fecha inválido.'); return; }
+        if (elegida <= hoyISO) { mostrarToast('La fecha nueva tiene que ser futura.'); return; }
+        try {
+          // updateMeta acepta cualquier campo (js/db.js:834). El estado vuelve a
+          // 'en_curso': si la fila quedó marcada 'vencida' en la base, moverle la
+          // fecha sin resetear el estado la dejaría roja con una fecha futura.
+          await updateMeta(id, { fecha_limite: elegida, estado: 'en_curso' });
+          await cargar();
+          mostrarToast('Nuevo plazo: ' + elegida);
+        } catch (e) {
+          console.error('replazo falló:', e);
+          mostrarToast('No se pudo cambiar la fecha. Reintenta.');
+        }
+        return;
+      }
+```
+
+> Antes de escribir esto, confirmar con `grep -n "mostrarToast\|async function cargar" views/metas.html` los nombres reales del toast y del recargador de la vista, y usar esos. Si el manejador de clicks no es `async`, hacerlo `async` o envolver el bloque en una función `async` autoinvocada.
+
+- [ ] **Step 8: Verificar en el navegador**
+
+Con las metas vencidas reales (*Máquina de afeitar*, *Laptop nueva*):
+
+1. La card muestra el aliento y el botón "Darme más tiempo".
+2. El prompt viene con la fecha sugerida (un mes desde hoy).
+3. Aceptar → la card sale del rojo y muestra el plazo nuevo.
+4. Una meta no vencida no muestra ni el aliento ni el botón.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add js/metas-plazo.js test/metas-plazo.test.mjs views/metas.html index.html sw.js
+git commit -m "feat(metas): una meta vencida ofrece aliento y un plazo nuevo"
+```
+
+---
+
+### Task 0.3: La Brújula dice "sin margen" el día 1 del mes
+
+**Síntoma:** el 2026-09-01, siendo el primer día del mes, la Brújula responde que no queda margen en **ninguna** categoría favorita.
+
+**Causa raíz (verificada con datos reales):** en `js/brujula.js:10`,
+
+```js
+var liquidez = Math.max(0, m.ingresos - m.gastos - m.recurrentesPendientes - m.colchonMetas);
+```
+
+y `views/brujula.html:192` alimenta `m.ingresos` con `getBalancePersonal(hoy.mes, hoy.anio)` — **solo el mes en curso**. En septiembre hay S/0.00 de ingresos registrados (agosto cerró con S/1,277.98). Entonces `liquidez = max(0, 0 − 0 − recurrentes − colchón) = 0`, `tope = min(margenCat, 0) = 0`, y `calcularRango` cae en la rama `tope <= 0` → `sin-margen` para toda categoría. **Se repite cada inicio de mes hasta que caiga el primer ingreso.**
+
+**Arreglo:** un ingreso de referencia con respaldo del mes anterior, y copy que no mienta sobre de dónde sale el número.
+
+- Si el mes en curso ya tiene ingresos → se usan, como hoy.
+- Si no → se usa el ingreso del mes anterior y se marca como estimado, para que la razón lo diga.
+- Si tampoco hay mes anterior (usuario nuevo) → nivel nuevo `sin-datos`, que **no** es lo mismo que "te lo gastaste".
+
+> **Alternativa considerada y descartada:** promediar los últimos 3 meses. Con ingresos tan irregulares como los reales (julio S/3,406.26 en 28 movimientos, agosto S/1,277.98 en 6) el promedio inflaría el margen justo cuando viene un mes flojo, y sobreestimar el margen es el error caro. El mes anterior es más conservador y más fácil de explicar en la UI. Si prefieres el promedio, el cambio es de una línea en `views/brujula.html`.
+
+**Files:**
+- Modify: `js/brujula.js`
+- Modify: `test/brujula.test.mjs`
+- Modify: `views/brujula.html`
+
+- [ ] **Step 1: Escribir el test que falla**
+
+Añadir en `test/brujula.test.mjs`:
+
+```js
+test('sin ingresos registrados y sin respaldo → sin-datos, no sin-margen', () => {
+  const r = calcularRango(50, metricas({ ingresos: 0, gastos: 0 }), CAT);
+  assert.equal(r.nivel, 'sin-datos');
+  assert.match(r.razon, /ingreso/i);
+});
+
+test('ingreso estimado del mes anterior → la razón lo declara', () => {
+  const m = metricas({ ingresos: 1200, gastos: 0, ingresoEstimado: true });
+  const r = calcularRango(50, m, CAT);
+  assert.notEqual(r.nivel, 'sin-datos');
+  assert.match(r.razon, /estimad/i);
+});
+
+test('gastarse el margen sigue dando sin-margen, no sin-datos', () => {
+  // Hay ingreso real: el margen se agotó de verdad.
+  const r = calcularRango(50, metricas({ ingresos: 900 }), CAT); // 900-800-200-100 < 0
+  assert.equal(r.nivel, 'sin-margen');
+});
+```
+
+- [ ] **Step 2: Correr el test y verificar que falla**
+
+Run: `node --test test/brujula.test.mjs`
+Expected: FAIL — el primer test da `sin-margen` en vez de `sin-datos`.
+
+- [ ] **Step 3: Implementar**
+
+En `js/brujula.js`, dentro de `calcularRango`, reemplazar el bloque de `tope <= 0`:
+
+```js
+  if (tope <= 0) {
+    // Distinguir "no hay dato" de "te lo gastaste". Sin ingreso registrado ni
+    // respaldo del mes anterior, la liquidez sale 0 por falta de información,
+    // no por exceso de gasto: decirle "no te queda margen" el día 1 del mes es
+    // un número falso (bug reportado el 2026-09-01).
+    if (!(m.ingresos > 0)) {
+      return { nivel: 'sin-datos', comodo: 0, tope: 0, sugerido: 0,
+        razon: 'Todavía no registras ingresos este mes, así que no puedo calcular tu margen. Anota tu ingreso y vuelve a preguntar.' };
+    }
+    return { nivel: 'sin-margen', comodo: 0, tope: 0, sugerido: 0,
+      razon: 'Este mes no te queda margen en ' + categoria.nombre + '. Revisa tus gastos o espera al próximo ciclo.' };
+  }
+```
+
+y añadir el sufijo de estimación a las razones que citan cifras. Justo antes de los `return` de `consulta` / `recomendable` / `cautela` / `no`, calcular una vez:
+
+```js
+  // Cuando el margen se apoya en el ingreso del mes pasado (aún no hay ingreso
+  // este mes), decirlo: el número es utilizable pero no es un hecho.
+  var nota = m.ingresoEstimado ? ' Es un estimado con tu ingreso del mes pasado.' : '';
+```
+
+y concatenar `nota` al final de cada una de esas cuatro `razon`. Ejemplo para `consulta`:
+
+```js
+  if (!(monto > 0)) {
+    return { nivel: 'consulta', comodo: comodo, tope: tope, sugerido: tope,
+      razon: 'Puedes gastar tranquilo hasta ' + comodo + '; tu tope este mes es ' + tope + '.' + nota };
+  }
+```
+
+- [ ] **Step 4: Correr el test y verificar que pasa**
+
+Run: `node --test test/brujula.test.mjs`
+Expected: PASS — incluidos los tests viejos, que no cambian de nivel.
+
+- [ ] **Step 5: Alimentar el ingreso de referencia desde la vista**
+
+En `views/brujula.html`, dentro de `recolectarMetricas` (línea ~184), añadir el mes anterior al `Promise.all`:
+
+```js
+      var mesAnt = hoy.mes === 1 ? 12 : hoy.mes - 1;
+      var anioAnt = hoy.mes === 1 ? hoy.anio - 1 : hoy.anio;
+
+      var res = await Promise.all([
+        getGastoCategoria(cat.id, ambito, rMes.desde, rMes.hasta),
+        getGastoCategoria(cat.id, ambito, rSem.desde, rSem.hasta),
+        getBalancePersonal(hoy.mes, hoy.anio), // Fase 6.3: liquidez siempre contra el bolsillo del que pregunta, sea cual sea el ámbito de la categoría
+        getMetas(ambito),
+        getRecurrentes(),
+        getBalancePersonal(mesAnt, anioAnt),   // respaldo: el mes en curso puede no tener ingresos aún
+      ]);
+      var gastoMes = res[0], gastoSemana = res[1], balance = res[2];
+      var balanceAnt = res[5];
+```
+
+y en el objeto `metricas` que devuelve, reemplazar `ingresos: balance.ingresos` por:
+
+```js
+          ingresos: balance.ingresos > 0 ? balance.ingresos : (balanceAnt.ingresos || 0),
+          ingresoEstimado: !(balance.ingresos > 0) && (balanceAnt.ingresos || 0) > 0,
+```
+
+- [ ] **Step 6: Manejar el nivel nuevo en la UI**
+
+Buscar dónde la vista mapea `nivel` a estilos o textos:
+
+Run: `grep -n "sin-margen" views/brujula.html`
+
+Añadir `sin-datos` a cada mapa que encuentre, reutilizando el tratamiento visual de `sin-margen` (es el mismo tono de "no puedo recomendarte gastar"). Si el mapa es un objeto, añadir la clave; si es un `if`, añadir la condición. Un `nivel` sin entrada dejaría la respuesta sin estilo.
+
+- [ ] **Step 7: Verificar en el navegador**
+
+Estando en el primer día del mes sin ingresos registrados:
+
+1. La Brújula ya **no** dice "no te queda margen" en todas las categorías.
+2. Dice que se apoya en el ingreso del mes pasado, con un tope calculado sobre S/1,277.98 (agosto) menos gastos, recurrentes por venir y colchón de metas.
+3. Registrar un ingreso de septiembre y volver a preguntar: el sufijo "estimado" desaparece y el tope se recalcula sobre el ingreso real.
+
+- [ ] **Step 8: Correr toda la suite y cerrar la etapa**
+
+Run: `for f in test/*.test.mjs; do node --test "$f" || echo "FAIL $f"; done`
+Expected: sin líneas `FAIL`.
+
+- [ ] **Step 9: Bumpear el shell, commit y PR**
+
+En `sw.js`: `const SHELL_VERSION = 'v42';`
+
+```bash
+git add js/brujula.js test/brujula.test.mjs views/brujula.html sw.js
+git commit -m "fix(brujula): el margen ya no sale en cero el primer día del mes"
+git push -u origin fix/ux-reportados
+gh pr create --title "fix: moneda que salta de línea, metas vencidas sin salida, brújula sin margen" --body "Tres defectos reportados. El de la brújula daba un número falso cada inicio de mes: la liquidez se calculaba solo con el ingreso del mes en curso, que el día 1 es cero."
+```
 
 ---
 
@@ -507,7 +982,7 @@ Cablear los eventos en dos lugares distintos, porque la barra **no** está dentr
 
 - [ ] **Step 7: Bumpear el shell y precachear el archivo nuevo**
 
-En `sw.js`: cambiar `const SHELL_VERSION = 'v41';` por `'v42'`, y añadir a la lista de precache:
+En `sw.js`: cambiar `const SHELL_VERSION = 'v42';` por `'v43'`, y añadir a la lista de precache:
 
 ```js
   { url: 'js/revisar-lote.js', revision: SHELL_VERSION },
@@ -539,7 +1014,7 @@ gh pr create --title "feat(revisar): confirmar pendientes en lote" --body "Vací
 ```
 
 > `main` está protegida: no intentar push directo. Tras el merge, verificar el deploy con cache-buster:
-> `curl -sL "https://nestra-8rl.pages.dev/sw.js?cb=$RANDOM" | grep SHELL_VERSION` → debe decir `v42`.
+> `curl -sL "https://nestra-8rl.pages.dev/sw.js?cb=$RANDOM" | grep SHELL_VERSION` → debe decir `v43`.
 
 ---
 
@@ -1222,7 +1697,7 @@ Hacer el mismo reemplazo en la línea que repinta después de activar o desactiv
 
 - [ ] **Step 2: Bumpear el shell**
 
-En `sw.js`: `const SHELL_VERSION = 'v43';`
+En `sw.js`: `const SHELL_VERSION = 'v44';`
 
 - [ ] **Step 3: Verificar en el navegador**
 
@@ -1273,7 +1748,7 @@ gh pr create --title "fix(push): la suscripción se repara sola" --body "push_su
 curl -sL "https://nestra-8rl.pages.dev/sw.js?cb=$RANDOM" | grep SHELL_VERSION
 ```
 
-Expected: `const SHELL_VERSION = 'v43';`
+Expected: `const SHELL_VERSION = 'v44';`
 
 > En el teléfono puede hacer falta cerrar y reabrir la PWA para que tome el shell nuevo.
 
