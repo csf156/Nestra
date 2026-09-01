@@ -179,7 +179,8 @@
                 'revertirIngestPendiente', 'deleteTransaccion',
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
                 'validarPartesGastoHogar', 'confirmarLoteIngest', 'loteable',
-                'resumenLote', 'notaDePendiente'].filter(function (f) {
+                'resumenLote', 'notaDePendiente', 'getMapaComercioCategoria',
+                'mergeLearned'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -780,6 +781,19 @@
   async function init() {
     try {
       if (typeof autocatLearned === 'function') _learned = await autocatLearned();
+      // El mapa local es por navegador y por origen: en un dispositivo nuevo
+      // está vacío. Se completa con lo reconstruido desde el servidor, con
+      // peso 1 para que NUNCA le gane a lo aprendido acá (autocatLearnTokens
+      // acumula de a 1 por confirmación, así que un comercio confirmado dos
+      // veces en este navegador pesa más que el eco del servidor).
+      if (typeof getMapaComercioCategoria === 'function' && typeof mergeLearned === 'function') {
+        try {
+          var delServidor = await getMapaComercioCategoria();
+          _learned = mergeLearned(_learned, delServidor.map(function (e) {
+            return { texto: e.texto, categoria_id: e.categoria_id, peso: 1 };
+          }));
+        } catch (e) { console.error('mapa de servidor:', e); }
+      }
       _filas = await getIngestPendientes();
       loadingEl.style.display = 'none';
       if (!_filas.length) { renderVacio(); return; }

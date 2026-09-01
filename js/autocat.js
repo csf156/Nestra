@@ -49,6 +49,26 @@ function scoreCategorias(tokens, ctx) {
   return scores;
 }
 
+// mergeLearned(learned, entradas) → mapa nuevo token → { catId: freq }.
+// Fusiona sin mutar. `entradas`: [{ texto, categoria_id, peso }].
+// Existe porque el mapa aprendido vive solo en IndexedDB y por tanto es por
+// navegador y por origen: en un dispositivo nuevo está vacío y las sugerencias
+// desaparecen. Reconstruyendo desde los pendientes ya confirmados en el
+// servidor, la sugerencia deja de depender de dónde estés.
+function mergeLearned(learned, entradas) {
+  var out = {};
+  for (var tok in (learned || {})) out[tok] = Object.assign({}, learned[tok]);
+  (entradas || []).forEach(function (e) {
+    if (!e || !e.texto || !e.categoria_id) return;
+    var peso = Number(e.peso) > 0 ? Number(e.peso) : 1;
+    tokenize(e.texto).forEach(function (tok) {
+      if (!out[tok]) out[tok] = {};
+      out[tok][e.categoria_id] = (out[tok][e.categoria_id] || 0) + peso;
+    });
+  });
+  return out;
+}
+
 // matchCategoria(tokens, ctx, umbral=1) → categoria_id | null. Empate → null.
 function matchCategoria(tokens, ctx, umbral = 1) {
   const scores = scoreCategorias(tokens, ctx);
@@ -80,6 +100,7 @@ if (typeof window !== 'undefined') {
   window.tokenize = tokenize;
   window.scoreCategorias = scoreCategorias;
   window.matchCategoria = matchCategoria;
+  window.mergeLearned = mergeLearned;
   window.NESTRA_SEED = SEED;
 }
-export { normalizeDesc, tokenize, scoreCategorias, matchCategoria, SEED };
+export { normalizeDesc, tokenize, scoreCategorias, matchCategoria, mergeLearned, SEED };

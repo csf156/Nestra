@@ -1784,6 +1784,35 @@ async function confirmarLoteIngest(items) {
   return out;
 }
 
+// getMapaComercioCategoria() — reconstruye comercio → categoría desde los
+// pendientes YA confirmados y la categoría de la transacción que generaron.
+// El mapa de autocat vive solo en IndexedDB (por navegador y por origen): en
+// un dispositivo nuevo está vacío y "Marcar sugeridas" no marca nada. Esto lo
+// reconstruye desde el servidor. Devuelve [] ante cualquier error: la
+// sugerencia es una ayuda, nunca debe romper la vista.
+async function getMapaComercioCategoria() {
+  try {
+    const userId = _requireUserId();
+    const { data, error } = await supabase
+      .from('ingest_pendientes')
+      .select('comercio, contraparte, transacciones(categoria_id)')
+      .eq('user_id', userId)
+      .eq('estado', 'confirmado')
+      .not('transaccion_id', 'is', null)
+      .limit(500);
+    if (error) throw error;
+    return (data || [])
+      .map((r) => ({
+        texto: r.comercio || r.contraparte || '',
+        categoria_id: r.transacciones && r.transacciones.categoria_id,
+      }))
+      .filter((r) => r.texto && r.categoria_id);
+  } catch (err) {
+    console.error('getMapaComercioCategoria():', err.message || err);
+    return [];
+  }
+}
+
 // descartarIngestPendiente(id) — descarta la propuesta (no crea transacción).
 async function descartarIngestPendiente(id) {
   await _aplicarIngestEstado(id, { estado: 'descartado', resolved_at: new Date().toISOString() });

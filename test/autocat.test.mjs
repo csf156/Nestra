@@ -1,7 +1,7 @@
 // test/autocat.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDesc, tokenize, scoreCategorias, matchCategoria, SEED } from '../js/autocat.js';
+import { normalizeDesc, tokenize, scoreCategorias, matchCategoria, mergeLearned, SEED } from '../js/autocat.js';
 
 test('normalizeDesc quita tildes, baja caja, colapsa espacios', () => {
   assert.equal(normalizeDesc('  Café  CON Leche '), 'cafe con leche');
@@ -58,4 +58,41 @@ test('matchCategoria: sin señal → null', () => {
 test('SEED incluye semillas es-PE', () => {
   assert.equal(SEED.uber, 'Transporte');
   assert.equal(SEED.almuerzo, 'Comida');
+});
+
+test('mergeLearned: suma entradas nuevas al mapa vacío', () => {
+  const out = mergeLearned({}, [{ texto: 'LA PANERA CAFE', categoria_id: 'cat-comida', peso: 2 }]);
+  // "la"/"cafe"/"panera" → tokens; "la" es stopword y se cae.
+  assert.equal(out.panera['cat-comida'], 2);
+  assert.equal(out.cafe['cat-comida'], 2);
+  assert.equal(out.la, undefined);
+});
+
+test('mergeLearned: acumula sobre lo ya aprendido, no lo pisa', () => {
+  const previo = { panera: { 'cat-comida': 5 } };
+  const out = mergeLearned(previo, [{ texto: 'PANERA', categoria_id: 'cat-comida', peso: 2 }]);
+  assert.equal(out.panera['cat-comida'], 7);
+});
+
+test('mergeLearned: lo aprendido en el navegador pesa más que lo del servidor', () => {
+  // El mapa local viene de confirmaciones explícitas del usuario en ESTE
+  // navegador; el del servidor es reconstruido. Ante empate manda el local.
+  const previo = { rappi: { 'cat-a': 3 } };
+  const out = mergeLearned(previo, [{ texto: 'RAPPI', categoria_id: 'cat-b', peso: 1 }]);
+  assert.ok(out.rappi['cat-a'] > out.rappi['cat-b']);
+});
+
+test('mergeLearned: entradas inservibles se ignoran sin romper', () => {
+  const out = mergeLearned({}, [
+    { texto: '', categoria_id: 'cat-a', peso: 1 },
+    { texto: 'ALGO', categoria_id: null, peso: 1 },
+    null,
+  ]);
+  assert.deepEqual(out, {});
+});
+
+test('mergeLearned: no muta el mapa recibido', () => {
+  const previo = { panera: { 'cat-comida': 5 } };
+  mergeLearned(previo, [{ texto: 'PANERA', categoria_id: 'cat-comida', peso: 2 }]);
+  assert.equal(previo.panera['cat-comida'], 5);
 });
