@@ -401,7 +401,7 @@
       var meta = _metaPorId(id);
       if (!meta) return;
       var hoyISO = _hoyISO();
-      var sugerida = nuevaFechaSugerida(meta.fecha_limite, hoyISO);
+      var sugerida = nuevaFechaSugerida(hoyISO);
       var elegida = window.prompt(
         'Nueva fecha límite para "' + meta.nombre + '" (YYYY-MM-DD):', sugerida || '');
       if (!elegida) return;

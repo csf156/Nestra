@@ -19,11 +19,11 @@ function mensajeAliento(meta) {
   return 'Ya llevas ' + pct + '% y te faltan ' + falta + '. La fecha se venció, no la meta: date un plazo nuevo.';
 }
 
-// nuevaFechaSugerida(fechaLimite, hoyISO) — "YYYY-MM-DD" un mes DESPUÉS DE HOY.
+// nuevaFechaSugerida(hoyISO) — "YYYY-MM-DD" un mes DESPUÉS DE HOY.
 // Sobre hoy y no sobre el límite viejo: una meta vencida hace dos meses
 // reprogramada sobre su propia fecha nacería vencida otra vez.
 // Un día que no existe en el mes destino (31 → febrero) cae al último día real.
-function nuevaFechaSugerida(fechaLimite, hoyISO) {
+function nuevaFechaSugerida(hoyISO) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(hoyISO || ''));
   if (!m) return null;
   const anio = Number(m[1]);
