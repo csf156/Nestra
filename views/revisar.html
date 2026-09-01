@@ -96,6 +96,18 @@
     padding: .75rem 1rem; background: var(--bg-light-secondary);
     border-top: 1px solid var(--border-light); }
   .rev-lote-bar[hidden] { display: none; }
+  /* Popover de categoría: único para toda la vista, fuera de las cards.
+     El <select> de la fila vive dentro de .rev-expandido (display:none), así
+     que el componente no puede montarse ahí — ver revisión del plan. */
+  .rev-catpop {
+    position: fixed; z-index: 50; width: min(20rem, calc(100vw - 2rem));
+    padding: var(--space-sm);
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  }
+  .rev-catpop[hidden] { display: none; }
   .rev-lote-resumen { font-size: .9rem; }
   /* Checkbox de selección: se conserva el input real (foco por teclado y
      :checked, del que depende indicesSeleccionados) y solo se le quita la
@@ -186,6 +198,9 @@
       <button type="button" class="btn btn-ghost" id="revLoteTodas">Marcar sugeridas</button>
       <button type="button" class="btn btn-primary" id="revLoteConfirmar" disabled>Confirmar</button>
     </span>
+  </div>
+  <div class="rev-catpop" id="revCatPop" hidden role="dialog" aria-label="Elegir categoría">
+    <select id="revCatPopSel"></select>
   </div>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
@@ -599,6 +614,45 @@
     return el ? (el.value || null) : null;
   }
 
+  var _catPopIdx = null;
+
+  // abrirBuscadorCategoria(i, anchorEl) — popover de categorías para la fila i.
+  // Una sola instancia de searchableSelect para toda la vista: el <select> de
+  // la card no sirve como anfitrión porque vive en un contenedor oculto.
+  async function abrirBuscadorCategoria(i, anchorEl) {
+    var pop = document.getElementById('revCatPop');
+    var sel = document.getElementById('revCatPopSel');
+    var fila = _filas[i];
+    if (!pop || !sel || !fila) return;
+    _catPopIdx = i;
+
+    var tipo = document.getElementById('revTipo' + i);
+    var cats = await catsPara(tipo ? tipo.value : (fila.tipo || 'gasto'));
+    sel.innerHTML = opcionesCategoria(cats, catDeFila(i));
+
+    if (typeof searchableSelect === 'function') {
+      searchableSelect(sel, { placeholder: 'Buscar categoría…' });  // idempotente
+      if (sel._ssSync) sel._ssSync();
+    }
+
+    // Posicionar bajo el chip, sin salirse de la pantalla.
+    var r = anchorEl.getBoundingClientRect();
+    pop.hidden = false;
+    var ancho = pop.offsetWidth;
+    var left = Math.min(Math.max(8, r.left), window.innerWidth - ancho - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 80) + 'px';
+
+    var input = pop.querySelector('.ss-input');
+    if (input) input.focus();   // el 'focus' del componente abre la lista
+  }
+
+  function cerrarBuscadorCategoria() {
+    var pop = document.getElementById('revCatPop');
+    if (pop) pop.hidden = true;
+    _catPopIdx = null;
+  }
+
   function indicesSeleccionados() {
     var out = [];
     Array.prototype.forEach.call(
@@ -892,18 +946,8 @@
         }
         var chipBtn = ev.target.closest('[data-rev-chip]');
         if (chipBtn) {
-          // Ya no hay bottom-sheet: el chip solo lleva a editar la categoría en
-          // el <select> del form expandido — expande la card y le da foco.
           ev.stopPropagation();
-          var i = Number(chipBtn.getAttribute('data-rev-chip'));
-          var chipCard = chipBtn.closest('.rev-card');
-          if (chipCard) {
-            chipCard.classList.add('is-expanded');
-            var expandirDeChip = chipCard.querySelector('[data-rev-expandir]');
-            if (expandirDeChip) expandirDeChip.setAttribute('aria-expanded', 'true');
-          }
-          var selCat = document.getElementById('revCat' + i);
-          if (selCat) selCat.focus();
+          abrirBuscadorCategoria(Number(chipBtn.getAttribute('data-rev-chip')), chipBtn);
           return;
         }
         var expandir = ev.target.closest('[data-rev-expandir]');
@@ -932,6 +976,30 @@
       document.getElementById('revLoteTodas').addEventListener('click', marcarSugeridas);
       document.getElementById('revLoteConfirmar').addEventListener('click', function (ev) {
         confirmarLote(ev.currentTarget);
+      });
+      // Al elegir en el popover, el valor se escribe en el select de la fila y
+      // se dispara su 'change': así el repintado del chip y el estado
+      // --sugerida siguen pasando por el mismo camino de siempre.
+      document.getElementById('revCatPopSel').addEventListener('change', function (ev) {
+        if (_catPopIdx == null) return;
+        var destino = document.getElementById('revCat' + _catPopIdx);
+        if (destino) {
+          destino.value = ev.target.value;
+          destino.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        cerrarBuscadorCategoria();
+        pintarBarraLote();
+      });
+      // Cerrar al tocar fuera o con Escape. El componente ya cierra su propia
+      // lista al clic exterior; esto cierra además el popover que la contiene.
+      document.addEventListener('click', function (ev) {
+        var pop = document.getElementById('revCatPop');
+        if (!pop || pop.hidden) return;
+        if (pop.contains(ev.target) || ev.target.closest('[data-rev-chip]')) return;
+        cerrarBuscadorCategoria();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') cerrarBuscadorCategoria();
       });
 
       listaEl.addEventListener('pointerdown', swipeStart);

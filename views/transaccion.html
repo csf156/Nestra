@@ -669,49 +669,6 @@
   .chip:disabled { opacity: 0.5; cursor: not-allowed; }
   .chip-plantilla { cursor: pointer; }
 
-  /* ── Selector de categoría con buscador (combobox) ───────── */
-  .ss-wrap { position: relative; }
-  .ss-input {
-    width: 100%;
-    min-height: 44px;
-    padding: var(--space-sm) var(--space-md);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    background: var(--bg-light);
-    color: var(--text-dark);
-    font-size: var(--font-size-base);
-  }
-  .ss-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
-  .ss-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
-  }
-  .ss-list {
-    position: absolute;
-    left: 0; right: 0; top: calc(100% + 4px);
-    z-index: 30;
-    margin: 0;
-    padding: var(--space-xs);
-    list-style: none;
-    background: var(--bg-light);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-md);
-    max-height: 240px;
-    overflow-y: auto;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-  }
-  .ss-item {
-    padding: var(--space-sm) var(--space-md);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    font-size: var(--font-size-base);
-  }
-  .ss-item:hover, .ss-item.ss-active { background: var(--border-light); }
-
   /* ── Panel "concepto nuevo" ──────────────────────────────── */
   .tx-quick-ask-cat { margin: var(--space-md) 0; text-align: left; }
 </style>
