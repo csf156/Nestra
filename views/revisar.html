@@ -97,7 +97,33 @@
     border-top: 1px solid var(--border-light); }
   .rev-lote-bar[hidden] { display: none; }
   .rev-lote-resumen { font-size: .9rem; }
-  .rev-check { margin-right: .5rem; }
+  /* Checkbox de selección: se conserva el input real (foco por teclado y
+     :checked, del que depende indicesSeleccionados) y solo se le quita la
+     apariencia nativa. La paleta sale de los tokens de la app.
+     Selector reforzado a [data-rev-check] (no solo .rev-check): css/components.css
+     trae `input[type="checkbox"] { width: auto; display: inline; }` con más
+     especificidad que una sola clase — sin este refuerzo, width/display de
+     acá pierden la cascada y el checkbox queda invisible (2px de ancho). */
+  .rev-check[data-rev-check] {
+    appearance: none; -webkit-appearance: none;
+    width: 1.15rem; height: 1.15rem; flex: 0 0 auto;
+    margin: 0 .5rem 0 0;
+    border: 1.5px solid var(--border-light);
+    border-radius: 5px;
+    background: var(--bg-light-secondary);
+    cursor: pointer;
+    display: inline-grid; place-content: center;
+    transition: background-color .12s ease, border-color .12s ease;
+  }
+  .rev-check::before {
+    content: ''; width: .6rem; height: .6rem;
+    transform: scale(0); transition: transform .12s ease;
+    box-shadow: inset 1rem 1rem var(--bg-light-secondary);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  .rev-check:checked { background: var(--color-primary); border-color: var(--color-primary); }
+  .rev-check:checked::before { transform: scale(1); }
+  .rev-check:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
      banco dejó de ser .badge — en el resto de la app .badge significa estado. */
   .rev-meta { display: flex; align-items: center; gap: var(--space-sm);
