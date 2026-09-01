@@ -471,6 +471,162 @@ Cortar de `views/transaccion.html` el bloque de reglas `.ss-wrap`, `.ss-input`, 
 
 Antes de seguir: abrir `#transaccion` en el preview y confirmar que el buscador de categoría se ve exactamente igual que antes. Si algo cambió, una regla se quedó atrás en el corte.
 
+### Revisión del 2026-09-01 (tras el bloqueo en el Step 3)
+
+El Step 3 original decía aplicar `searchableSelect()` sobre el `<select id="revCatN">` de la fila. **No funciona, y el diagnóstico es correcto:** ese select vive dentro de `.rev-expandido`, que es `display:none` salvo que la card tenga `.is-expanded` (`views/revisar.html:51-52`), y `searchableSelect()` inserta su `.ss-wrap` como hermano del select (`js/searchable-select.js:41`) — o sea, dentro del contenedor oculto. El combo se crea y se "abre", pero es invisible. Error de diseño del plan, no de la implementación.
+
+**Decisión: un popover único para toda la vista.** Ni reparentar el `.ss-wrap`, ni revelar media card, ni expandir la card entera.
+
+Un solo `<div>` flotante, fuera de las cards, con su propio `<select>` interno al que se le aplica `searchableSelect()` una vez. Al tocar el chip de la fila `i`, se le cargan las categorías de esa fila, se posiciona bajo el chip y se abre; al elegir, escribe el valor en el `revCat{i}` de la fila y dispara su `change`, que es lo que la vista ya escucha para repintar el chip.
+
+Por qué así y no las alternativas:
+
+- **Reparentar el `.ss-wrap` de cada fila** sería viable — el componente guarda referencias directas a sus nodos y nunca relee `parentNode`, así que moverlo no rompe sus listeners. Pero deja 92 instancias del componente y hay que devolver cada `wrap` a su sitio al cerrar, o la card expandida se queda sin su combo.
+- **Revelar solo el campo de categoría** cambia el layout de la card de una forma que nadie pidió.
+- **Expandir la card entera** es exactamente lo que el usuario pidió eliminar.
+
+El popover único es **una sola instancia** del componente para las 92 filas, no toca el layout de la card, y deja intacto el comportamiento de la card expandida.
+
+- [ ] **Step 3 (revisado): Añadir el popover a la vista**
+
+En el HTML estático de `views/revisar.html`, después del `<div class="rev-lote-bar">`:
+
+```html
+<div class="rev-catpop" id="revCatPop" hidden role="dialog" aria-label="Elegir categoría">
+  <select id="revCatPopSel"></select>
+</div>
+```
+
+Y el estilo, junto a las demás reglas `.rev-*`:
+
+```css
+  /* Popover de categoría: único para toda la vista, fuera de las cards.
+     El <select> de la fila vive dentro de .rev-expandido (display:none), así
+     que el componente no puede montarse ahí — ver revisión del plan. */
+  .rev-catpop {
+    position: fixed; z-index: 50; width: min(20rem, calc(100vw - 2rem));
+    padding: var(--space-sm);
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  }
+  .rev-catpop[hidden] { display: none; }
+```
+
+- [ ] **Step 4 (revisado): Abrir el popover desde el chip**
+
+En el listener de clicks, reemplazar el cuerpo del bloque `[data-rev-chip]` por:
+
+```js
+        if (chipBtn) {
+          ev.stopPropagation();
+          abrirBuscadorCategoria(Number(chipBtn.getAttribute('data-rev-chip')), chipBtn);
+          return;
+        }
+```
+
+Y añadir junto a las demás funciones de la vista:
+
+```js
+  var _catPopIdx = null;
+
+  // abrirBuscadorCategoria(i, anchorEl) — popover de categorías para la fila i.
+  // Una sola instancia de searchableSelect para toda la vista: el <select> de
+  // la card no sirve como anfitrión porque vive en un contenedor oculto.
+  async function abrirBuscadorCategoria(i, anchorEl) {
+    var pop = document.getElementById('revCatPop');
+    var sel = document.getElementById('revCatPopSel');
+    var fila = _filas[i];
+    if (!pop || !sel || !fila) return;
+    _catPopIdx = i;
+
+    var tipo = document.getElementById('revTipo' + i);
+    var cats = await catsPara(tipo ? tipo.value : (fila.tipo || 'gasto'));
+    sel.innerHTML = opcionesCategoria(cats, catDeFila(i));
+
+    if (typeof searchableSelect === 'function') {
+      searchableSelect(sel, { placeholder: 'Buscar categoría…' });  // idempotente
+      if (sel._ssSync) sel._ssSync();
+    }
+
+    // Posicionar bajo el chip, sin salirse de la pantalla.
+    var r = anchorEl.getBoundingClientRect();
+    pop.hidden = false;
+    var ancho = pop.offsetWidth;
+    var left = Math.min(Math.max(8, r.left), window.innerWidth - ancho - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 80) + 'px';
+
+    var input = pop.querySelector('.ss-input');
+    if (input) input.focus();   // el 'focus' del componente abre la lista
+  }
+
+  function cerrarBuscadorCategoria() {
+    var pop = document.getElementById('revCatPop');
+    if (pop) pop.hidden = true;
+    _catPopIdx = null;
+  }
+```
+
+- [ ] **Step 5 (revisado): Escribir la elección en la fila**
+
+El `<select>` del popover es transitorio; la fuente de verdad sigue siendo el `revCat{i}` de la card, que es lo que `catDeFila()` y `loteable()` leen. Añadir, junto a los otros listeners de la vista:
+
+```js
+      // Al elegir en el popover, el valor se escribe en el select de la fila y
+      // se dispara su 'change': así el repintado del chip y el estado
+      // --sugerida siguen pasando por el mismo camino de siempre.
+      document.getElementById('revCatPopSel').addEventListener('change', function (ev) {
+        if (_catPopIdx == null) return;
+        var destino = document.getElementById('revCat' + _catPopIdx);
+        if (destino) {
+          destino.value = ev.target.value;
+          destino.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        cerrarBuscadorCategoria();
+        pintarBarraLote();
+      });
+
+      // Cerrar al tocar fuera o con Escape. El componente ya cierra su propia
+      // lista al clic exterior; esto cierra además el popover que la contiene.
+      document.addEventListener('click', function (ev) {
+        var pop = document.getElementById('revCatPop');
+        if (!pop || pop.hidden) return;
+        if (pop.contains(ev.target) || ev.target.closest('[data-rev-chip]')) return;
+        cerrarBuscadorCategoria();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') cerrarBuscadorCategoria();
+      });
+```
+
+- [ ] **Step 6 (revisado): Verificar en navegador**
+
+1. Tocar el chip abre el popover bajo él; la card **no** se expande.
+2. Escribir filtra la lista.
+3. Elegir una categoría cierra el popover, actualiza el chip de la fila, y si la fila queda completa pasa a marcable en el lote (compruébalo tocando "Marcar sugeridas" después).
+4. Tocar fuera y Escape cierran sin cambiar nada.
+5. En una fila cerca del borde inferior de la pantalla, el popover sigue visible y no se sale (probar en preset `mobile`, 375px).
+6. Expandir una card a mano sigue funcionando y su `<select>` nativo sigue operativo.
+7. `#transaccion` y `#configuracion` siguen igual — el componente es compartido.
+
+> El SW cachea el JS agresivamente en local. Si un cambio no aparece, `unregister()` + `caches.delete()` antes de dar nada por roto.
+
+- [ ] **Step 7 (revisado): Bumpear el shell y commitear**
+
+En `sw.js`: `const SHELL_VERSION = 'v44';`
+
+```bash
+git add css/components.css views/transaccion.html views/revisar.html sw.js
+git commit -m "feat(revisar-lote): el chip de categoría abre un buscador flotante"
+```
+
+---
+
+<details>
+<summary>Step 3 original (descartado — se conserva por qué falló)</summary>
+
 - [ ] **Step 3: El chip abre el buscador en vez de expandir la card**
 
 En el listener de clicks de `views/revisar.html`, el bloque `[data-rev-chip]` hoy expande la card y enfoca el select. Reemplazar su cuerpo por:
@@ -515,14 +671,7 @@ El `change` del `<select>` ya está manejado (repinta el chip y le quita el esta
 3. Elegir una categoría actualiza el chip y la fila pasa a marcable en el lote.
 4. `#transaccion` y `#configuracion` siguen funcionando igual (el componente es compartido).
 
-- [ ] **Step 6: Bumpear el shell y commitear**
-
-En `sw.js`: `const SHELL_VERSION = 'v44';`
-
-```bash
-git add css/components.css views/transaccion.html views/revisar.html sw.js
-git commit -m "feat(revisar-lote): el chip de categoría abre el buscador flotante"
-```
+</details>
 
 ---
 
