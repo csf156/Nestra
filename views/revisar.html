@@ -529,7 +529,11 @@
         txIds = [tx.id];
       }
       await confirmarIngestPendiente(p.id, (txIds.length === 1 ? txIds[0] : null), { tipo: tipo, monto: monto, fecha: fecha });
-      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds, estadoOriginal: p.estado });
+      quitarCardsConUndo([i], {
+        accion: 'confirmar',
+        pendientes: [{ pendienteId: p.id, estadoOriginal: p.estado }],
+        txIds: txIds,
+      });
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
       btn.disabled = false;
@@ -541,7 +545,11 @@
     btn.disabled = true;
     try {
       await descartarIngestPendiente(_filas[i].id);
-      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
+      quitarCardsConUndo([i], {
+        accion: 'descartar',
+        pendientes: [{ pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado }],
+        txIds: [],
+      });
     } catch (e) {
       console.error('descartar pendiente falló:', e);
       btn.disabled = false;
@@ -614,17 +622,24 @@
     btn.disabled = true;
     try {
       var res = await confirmarLoteIngest(items);
-      var okIds = {};
-      res.forEach(function (r) { if (r.ok) okIds[r.id] = true; });
-      // Quitar de la lista solo las que entraron; las fallidas quedan visibles.
-      for (var i = _filas.length - 1; i >= 0; i--) {
-        if (_filas[i] && okIds[_filas[i].id]) quitarCard(i);
+      var okIds = {}, txIds = [], pendientes = [], indices = [];
+      res.forEach(function (r) {
+        if (!r.ok) return;
+        okIds[r.id] = true;
+        if (r.transaccionId) txIds.push(r.transaccionId);
+      });
+      for (var i = 0; i < _filas.length; i++) {
+        if (_filas[i] && okIds[_filas[i].id]) {
+          indices.push(i);
+          pendientes.push({ pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
+        }
       }
-      // Repintar ANTES del aviso: pintarBarraLote escribe en el mismo elemento
-      // y borraría el resultado si corriera después.
+      var fallidas = res.length - indices.length;
+      if (indices.length) {
+        quitarCardsConUndo(indices, { accion: 'confirmar', pendientes: pendientes, txIds: txIds });
+      }
       pintarBarraLote();
-      var fallidas = res.length - Object.keys(okIds).length;
-      mostrarToastLote(Object.keys(okIds).length, fallidas);
+      if (fallidas) mostrarToastLote(indices.length, fallidas);
     } finally {
       btn.disabled = false;
     }
@@ -641,27 +656,40 @@
   // ── Undo: cada card se oculta (no se borra) y entra a una cola LIFO; cada
   // item tiene su propio timer de 7s independiente. El toast es una sola
   // superficie visual pero ya no representa un solo item — representa la cola.
-  var _undoQueue = []; // [{ i, ctx, timerId }], más reciente al final
+  var _undoQueue = []; // [{ is: [i...], ctx, timerId }], más reciente al final
 
-  function quitarCardConUndo(i, ctx) {
-    var card = document.getElementById('revCard' + i);
-    if (card) card.style.display = 'none';
+  // quitarCardsConUndo(indices, ctx) — oculta N cards y encola UN solo item de
+  // undo para todas. El camino de a una pasa un array de largo 1: así hay una
+  // sola ruta de código y el lote no puede divergir del gesto individual.
+  // ctx: { accion, pendientes: [{ pendienteId, estadoOriginal }], txIds: [] }
+  function quitarCardsConUndo(indices, ctx) {
+    indices.forEach(function (i) {
+      var card = document.getElementById('revCard' + i);
+      if (card) card.style.display = 'none';
+    });
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
-    var item = { i: i, ctx: ctx, timerId: null };
+    var item = { is: indices.slice(), ctx: ctx, timerId: null };
     item.timerId = setTimeout(function () { finalizarItem(item); }, 7000); // 7s: leer + ubicar + tocar en móvil
     _undoQueue.push(item);
     renderToast();
   }
   // Redibuja el toast según cuántos items quedan en la cola. 1 item: mismo
-  // copy que antes ("Confirmado"/"Descartado"); 2+: conteo agregado.
+  // copy que antes ("Confirmado"/"Descartado"), o el conteo si ese item es un
+  // lote de N>1; 2+ items en cola: conteo agregado de items (no de filas).
   function renderToast() {
     var t = document.getElementById('revUndoToast');
     var n = _undoQueue.length;
     if (n === 0) { t.classList.remove('is-open'); return; }
     var msg = t.querySelector('.rev-undo-msg');
-    msg.textContent = (n === 1)
-      ? (_undoQueue[0].ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado')
-      : (n + ' movimientos revisados');
+    if (n === 1) {
+      var c = _undoQueue[0];
+      var cuantos = c.is.length;
+      msg.textContent = cuantos > 1
+        ? (cuantos + ' confirmadas')
+        : (c.ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado');
+    } else {
+      msg.textContent = n + ' movimientos revisados';
+    }
     t.classList.add('is-open');
   }
   // Se dispara cuando el timer PROPIO de `item` vence. No toca los demás items
@@ -669,15 +697,14 @@
   function finalizarItem(item) {
     var idx = _undoQueue.indexOf(item);
     if (idx !== -1) _undoQueue.splice(idx, 1);
-    var card = document.getElementById('revCard' + item.i);
-    if (card) card.remove();
-    _filas[item.i] = null;
-    if (_undoQueue.length === 0) {
-      document.getElementById('revUndoToast').classList.remove('is-open');
-    } else {
-      renderToast();
-    }
+    item.is.forEach(function (i) {
+      var card = document.getElementById('revCard' + i);
+      if (card) card.remove();
+      _filas[i] = null;
+    });
     if (!_filas.some(Boolean)) renderVacio();
+    pintarBarraLote();
+    renderToast();
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
   // "Deshacer" siempre opera sobre el ÚLTIMO item en entrar (LIFO): es el que
@@ -693,10 +720,15 @@
           if (ctx.txIds[k]) await deleteTransaccion(ctx.txIds[k]);
         }
       }
-      await revertirIngestPendiente(ctx.pendienteId, ctx.estadoOriginal);
-      var card = document.getElementById('revCard' + item.i);
-      if (card) card.style.display = '';
+      for (var j = 0; j < ctx.pendientes.length; j++) {
+        await revertirIngestPendiente(ctx.pendientes[j].pendienteId, ctx.pendientes[j].estadoOriginal);
+      }
+      item.is.forEach(function (i) {
+        var card = document.getElementById('revCard' + i);
+        if (card) card.style.display = '';
+      });
       if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+      pintarBarraLote();
       renderToast(); // sigue abierto con el conteo nuevo, o cierra si quedó en 0
     } catch (e) {
       // El item ya salió de la cola (pop) y su timer ya está cancelado, así que
