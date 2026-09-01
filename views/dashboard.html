@@ -170,6 +170,7 @@
     font-weight: var(--font-weight-bold);
     line-height: 1.05;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .dash-s2s-sub {
     margin: var(--space-xs) 0 0;
@@ -737,6 +738,13 @@
       cont.innerHTML = `<div class="dash-insights-track">${cards}</div>`;
     }
 
+    // El hero va sin separación entre símbolo y cifra: a 2.6rem el espacio se
+    // lee como un hueco, no como parte del número. El resto de la app conserva
+    // el espacio no-rompible de formatMonto().
+    function montoHero(n) {
+      return formatMonto(n).replace(/\u00A0/g, '');
+    }
+
     // ── Render: safe-to-spend (hero) ──────────────────────────
     function renderSafeToSpend(res) {
       const cont = $('dashSafeToSpend');
@@ -747,7 +755,7 @@
         cont.innerHTML = `
           <div class="dash-s2s-card dash-s2s-card--excedido">
             <p class="dash-s2s-label">Te pasaste por</p>
-            <p class="dash-s2s-monto">${esc(formatMonto(res.exceso))}</p>
+            <p class="dash-s2s-monto">${esc(montoHero(res.exceso))}</p>
             <p class="dash-s2s-sub">Quedan ${dias} de mes.</p>
             ${desgloseHTML(res, 'Te pasaste por', res.exceso)}
           </div>`;
@@ -756,7 +764,7 @@
       cont.innerHTML = `
         <div class="dash-s2s-card">
           <p class="dash-s2s-label">Puedes gastar hoy</p>
-          <p class="dash-s2s-monto">${esc(formatMonto(res.diario))}</p>
+          <p class="dash-s2s-monto">${esc(montoHero(res.diario))}</p>
           <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${dias}.</p>
           ${desgloseHTML(res, 'Te queda para el mes', res.restanteMes)}
         </div>`;
