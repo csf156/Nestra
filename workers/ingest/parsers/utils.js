@@ -29,6 +29,9 @@ const MESES = {
   enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
   julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10,
   noviembre: 11, diciembre: 12,
+  // Abreviaturas: Yape las usa en las recargas ("30 ago. 2026").
+  ene: 1, feb: 2, mar: 3, abr: 4, jun: 6, jul: 7,
+  ago: 8, sep: 9, set: 9, oct: 10, nov: 11, dic: 12,
 };
 
 function iso(y, m, d) {
@@ -39,7 +42,10 @@ function iso(y, m, d) {
 // "23 de junio de 2026" | "10 junio 2026" | "12 de julio, 2026" → "2026-06-23"
 function parseFechaLarga(txt) {
   const s = normalizar(txt).toLowerCase();
-  const m = s.match(/(\d{1,2})\s*(?:de\s+)?([a-z]+)[\s,]+(?:de\s+)?(\d{4})/);
+  // \.? tras el mes: Yape abrevia con punto ("ago.", "set.") en las recargas;
+  // sin esto el punto rompe el separador [\s,]+ que sigue y la fecha entera
+  // no matchea (verificado contra correo real del 2026-08-30).
+  const m = s.match(/(\d{1,2})\s*(?:de\s+)?([a-z]+)\.?[\s,]+(?:de\s+)?(\d{4})/);
   if (!m) return null;
   const mes = MESES[m[2]];
   return mes ? iso(Number(m[3]), mes, Number(m[1])) : null;

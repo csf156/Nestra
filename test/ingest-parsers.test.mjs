@@ -30,6 +30,14 @@ test('parseFechaLarga: variantes reales de los tres bancos', () => {
   assert.equal(parseFechaLarga('setiembre'), null);
 });
 
+test('parseFechaLarga: meses abreviados (recarga Yape, 2026-08-30)', () => {
+  assert.equal(parseFechaLarga('30 ago. 2026 - 10:29 a. m.'), '2026-08-30');
+  assert.equal(parseFechaLarga('1 set. 2026'), '2026-09-01');
+  assert.equal(parseFechaLarga('15 dic. 2026'), '2026-12-15');
+  // Los nombres completos siguen funcionando.
+  assert.equal(parseFechaLarga('30 agosto 2026 - 11:39 a. m.'), '2026-08-30');
+});
+
 test('parseFechaCorta: DD/MM/YYYY (no MM/DD)', () => {
   assert.equal(parseFechaCorta('06/07/2026'), '2026-07-06');
   assert.equal(parseFechaCorta('11/07/2026'), '2026-07-11');
