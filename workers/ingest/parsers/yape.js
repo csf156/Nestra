@@ -10,8 +10,8 @@
 // Yape", "Tu pago en PEDIDOS YA".
 
 import {
-  normalizar, lineas, parseMonto, parseFechaLarga,
-  fechaEnLima, campoTrasEtiqueta, campoInline,
+  normalizar, lineasPlanas, parseMonto, parseFechaLarga,
+  fechaEnLima, campoTrasEtiqueta,
 } from './utils.js';
 import { FormatoNoReconocidoError } from './errores.js';
 
@@ -20,7 +20,7 @@ const slug = 'yape';
 function parse({ subject, body, date }) {
   const subj = normalizar(subject).toLowerCase();
   const nbody = normalizar(body);
-  const ls = lineas(body);
+  const ls = lineasPlanas(body);
 
   // Ruido confirmado: no son movimientos → null.
   if (/afiliacion/.test(subj) || /bienvenida a su billetera/i.test(nbody)) {
@@ -32,19 +32,33 @@ function parse({ subject, body, date }) {
   // NO es ruido (es el estándar de cada yapeo), pero TAMPOCO define la
   // dirección: la decide el cuerpo, que sí es inequívoco.
   if (/Acabas de yapear/i.test(nbody)) {
-    const monto = parseMonto(campoTrasEtiqueta(ls, 'Monto de yapeo*'));
-    const fecha = parseFechaLarga(campoInline(ls, 'Fecha y Hora de la operacion') || '') || fechaEnLima(date);
+    // Yape marca las etiquetas con asteriscos de negrita ("*Monto de yapeo**")
+    // y manda el valor dos líneas abajo. Sin limpiar los asteriscos, el ancla
+    // de campoTrasEtiqueta no matchea y el monto sale null: eso mandó los 11
+    // correos de Yape a 'revisar-manual' entre agosto y setiembre de 2026.
+    const monto = parseMonto(campoTrasEtiqueta(ls, 'Monto de yapeo'));
+    // Varios campos vienen aplastados en un solo renglón: se leen del cuerpo
+    // plano acotando cada valor con la etiqueta siguiente.
+    const plano = nbody.replace(/\s+/g, ' ');
+    const mFecha = plano.match(/Fecha y Hora de la operacion\s+(.+?)\s+Celular del Beneficiario/i);
+    const fecha = parseFechaLarga(mFecha ? mFecha[1] : '') || fechaEnLima(date);
     if (!monto || !fecha) throw new FormatoNoReconocidoError(slug, 'yapeo saliente sin monto/fecha');
 
-    // OJO: "Nombre del Beneficiario" NO es confiable como contraparte. En los
-    // dos correos reales verificados traía a la dueña de la cuenta (igual que
-    // "Yapero") y el mismo celular enmascarado, no a quien recibió. Se deja
-    // null hasta verificarlo contra un yapeo a un tercero: mejor sin comercio
-    // que con el nombre del propio usuario como "comercio" de su gasto.
+    // "Nombre del Beneficiario" solo sirve como comercio si NO es el titular:
+    // en los correos de julio de 2026 traía a la dueña de la cuenta (igual que
+    // "Yapero"), y en los de agosto trae el comercio real. Comparar contra el
+    // yapero resuelve los dos casos sin adivinar.
+    const mBenef = plano.match(/Nombre del Beneficiario\s+(.+?)\s+N.? de operacion/i);
+    const mYapero = plano.match(/Yapero\s+(.+?)\s+Tu numero de celular/i);
+    const benef = mBenef ? mBenef[1].trim() : null;
+    const yapero = mYapero ? mYapero[1].trim() : null;
+    const comercio = (benef && benef !== yapero) ? benef : null;
+
+    const mOp = plano.match(/N.? de operacion\s+(\d+)/i);
     return {
       banco: slug, tipo: 'gasto', monto, moneda: 'PEN',
-      comercio: null, fecha, contraparte: null,
-      operacion: campoInline(ls, 'N.? de operacion'),
+      comercio, fecha, contraparte: comercio,
+      operacion: mOp ? mOp[1] : null,
       p2p: true, ultimos4: null,
     };
   }

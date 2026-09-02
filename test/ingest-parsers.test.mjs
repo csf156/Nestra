@@ -53,6 +53,52 @@ test('lineasPlanas: no toca los asteriscos internos de un comercio BBVA', () => 
   assert.deepEqual(lineasPlanas('IZI*GLASE'), ['IZI*GLASE']);
 });
 
+// Fragmento VERBATIM del correo real del 2026-08-30 (bandeja de Darling).
+const YAPE_SALIENTE_2026_08 = `*¡Hola, DARLING GABRIELA MEZA R.!*
+
+*¡Acabas de yapear exitosamente!*
+
+*Monto de yapeo**
+
+S/ 13.50
+
+Yapero DARLING GABRIELA MEZA R. Tu número de celular XXXXXXXXX153 Fecha y Hora de la operación 30 agosto 2026 - 11:39 a. m. Celular del Beneficiario  Nombre del Beneficiario SERVICIOS GENERALES CARAMBA S. Nº de operación 4064627
+`;
+
+test('yape: yapeo saliente con etiqueta en negrita → gasto con monto', () => {
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: YAPE_SALIENTE_2026_08,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 13.5);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-08-30');
+  assert.equal(p.p2p, true);
+});
+
+test('yape: el beneficiario distinto del yapero sí es comercio', () => {
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: YAPE_SALIENTE_2026_08,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.comercio, 'SERVICIOS GENERALES CARAMBA S.');
+});
+
+test('yape: beneficiario igual al yapero → comercio null (no es contraparte real)', () => {
+  const body = YAPE_SALIENTE_2026_08.replace(
+    'Nombre del Beneficiario SERVICIOS GENERALES CARAMBA S.',
+    'Nombre del Beneficiario DARLING GABRIELA MEZA R.');
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: body,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.comercio, null);
+});
+
 test('parseFechaCorta: DD/MM/YYYY (no MM/DD)', () => {
   assert.equal(parseFechaCorta('06/07/2026'), '2026-07-06');
   assert.equal(parseFechaCorta('11/07/2026'), '2026-07-11');
