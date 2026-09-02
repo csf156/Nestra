@@ -63,6 +63,27 @@ function parse({ subject, body, date }) {
     };
   }
 
+  // Recarga de celular → gasto. El monto va en la primera línea ("*S/* 7"):
+  // Yape solo negrea "S/", no la línea completa, así que lineasPlanas (que
+  // limpia asteriscos de los EXTREMOS de la línea, no internos — ver B2) deja
+  // "S/* 7" tal cual. \*? tolera ese asterisco que sobra entre "S/" y el número.
+  if (/recarga en yape/.test(subj)) {
+    const primera = ls.find((l) => /^S\/\*?\s*[\d.,]+$/.test(l));
+    const monto = parseMonto(primera);
+    const operadora = campoTrasEtiqueta(ls, 'Operadora:');
+    const fecha = parseFechaLarga(campoTrasEtiqueta(ls, 'Fecha:') || '') || fechaEnLima(date);
+    if (!monto || !fecha) throw new FormatoNoReconocidoError(slug, 'recarga sin monto/fecha');
+    return {
+      banco: slug, tipo: 'gasto', monto, moneda: 'PEN',
+      comercio: operadora ? ('Recarga ' + operadora) : 'Recarga',
+      fecha, contraparte: null,
+      operacion: campoTrasEtiqueta(ls, 'N. de operacion Yape:'),
+      // Una recarga es consumo de un servicio, no una transferencia entre
+      // personas: p2p false para que no entre en la lógica de contrapartes.
+      p2p: false, ultimos4: null,
+    };
+  }
+
   // Remitente Yape con formato no verificado (entrantes, recargas, pagos en
   // apps) → a revisión manual, en vez de adivinar la dirección del dinero.
   throw new FormatoNoReconocidoError(slug, `formato no reconocido: ${subj.slice(0, 80)}`);

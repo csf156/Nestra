@@ -447,6 +447,48 @@ test('Yape: la dirección la decide el cuerpo, no el asunto', () => {
   }), FormatoNoReconocidoError);
 });
 
+// Fragmento VERBATIM del correo real del 2026-08-30.
+const YAPE_RECARGA_2026_08 = `*S/* 7
+
+Número recargado:
+
+910 735 153
+
+Yapero:
+
+Darling Gabriela Meza Reyes
+
+Número de yapero:
+
+*** *** 153
+
+Fecha:
+
+30 ago. 2026 - 10:29 a. m.
+
+Operadora:
+
+Bitel
+
+Nº de operación Yape:
+
+00629341
+`;
+
+test('yape: recarga de celular → gasto con la operadora como comercio', () => {
+  const p = parse('yape', {
+    subject: 'Tu recarga en Yape ha sido confirmada',
+    body: YAPE_RECARGA_2026_08,
+    date: '2026-08-30T15:29:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 7);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-08-30');
+  assert.equal(p.comercio, 'Recarga Bitel');
+  assert.equal(p.p2p, false);
+});
+
 // ── Ruido y formatos no verificados → null ───────────────────────
 test('ruido: OTP de Apple Pay → null', () => {
   const r = parseCorreo({
