@@ -91,6 +91,51 @@
   .rev-undo-toast.is-open { transform: translateX(-50%) translateY(0);
     visibility: visible; transition: transform .2s ease, visibility 0s; }
   .rev-undo-btn { background: none; border: none; color: var(--color-primary); font-weight: var(--font-weight-bold); cursor: pointer; }
+  .rev-lote-bar { position: sticky; bottom: 0; z-index: 5;
+    display: flex; gap: .5rem; align-items: center; justify-content: space-between;
+    padding: .75rem 1rem; background: var(--bg-light-secondary);
+    border-top: 1px solid var(--border-light); }
+  .rev-lote-bar[hidden] { display: none; }
+  /* Popover de categoría: único para toda la vista, fuera de las cards.
+     El <select> de la fila vive dentro de .rev-expandido (display:none), así
+     que el componente no puede montarse ahí — ver revisión del plan. */
+  .rev-catpop {
+    position: fixed; z-index: 50; width: min(20rem, calc(100vw - 2rem));
+    padding: var(--space-sm);
+    background: var(--bg-light-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  }
+  .rev-catpop[hidden] { display: none; }
+  .rev-lote-resumen { font-size: .9rem; }
+  /* Checkbox de selección: se conserva el input real (foco por teclado y
+     :checked, del que depende indicesSeleccionados) y solo se le quita la
+     apariencia nativa. La paleta sale de los tokens de la app.
+     Selector reforzado a [data-rev-check] (no solo .rev-check): css/components.css
+     trae `input[type="checkbox"] { width: auto; display: inline; }` con más
+     especificidad que una sola clase — sin este refuerzo, width/display de
+     acá pierden la cascada y el checkbox queda invisible (2px de ancho). */
+  .rev-check[data-rev-check] {
+    appearance: none; -webkit-appearance: none;
+    width: 1.15rem; height: 1.15rem; flex: 0 0 auto;
+    margin: 0 .5rem 0 0;
+    border: 1.5px solid var(--border-light);
+    border-radius: 5px;
+    background: var(--bg-light-secondary);
+    cursor: pointer;
+    display: inline-grid; place-content: center;
+    transition: background-color .12s ease, border-color .12s ease;
+  }
+  .rev-check::before {
+    content: ''; width: .6rem; height: .6rem;
+    transform: scale(0); transition: transform .12s ease;
+    box-shadow: inset 1rem 1rem var(--bg-light-secondary);
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+  .rev-check:checked { background: var(--color-primary); border-color: var(--color-primary); }
+  .rev-check:checked::before { transform: scale(1); }
+  .rev-check:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   /* Cabecera tipo recibo: banco y fecha son metadatos, no estados. Por eso el
      banco dejó de ser .badge — en el resto de la app .badge significa estado. */
   .rev-meta { display: flex; align-items: center; gap: var(--space-sm);
@@ -147,6 +192,16 @@
   </div>
 
   <ul class="rev-lista" id="revLista" role="list" style="display:none;"></ul>
+  <div class="rev-lote-bar" id="revLoteBar" hidden>
+    <span class="rev-lote-resumen" id="revLoteResumen">0 seleccionadas</span>
+    <span>
+      <button type="button" class="btn btn-ghost" id="revLoteTodas">Marcar sugeridas</button>
+      <button type="button" class="btn btn-primary" id="revLoteConfirmar" disabled>Confirmar</button>
+    </span>
+  </div>
+  <div class="rev-catpop" id="revCatPop" hidden role="dialog" aria-label="Elegir categoría">
+    <select id="revCatPopSel"></select>
+  </div>
   <div id="revVacio" style="display:none;"></div>
   <p class="rev-error" id="revErrorGlobal"></p>
   <div class="rev-undo-toast" id="revUndoToast" role="status">
@@ -164,7 +219,9 @@
   var faltan = ['getIngestPendientes', 'confirmarIngestPendiente', 'descartarIngestPendiente',
                 'revertirIngestPendiente', 'deleteTransaccion',
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
-                'validarPartesGastoHogar'].filter(function (f) {
+                'validarPartesGastoHogar', 'confirmarLoteIngest', 'loteable',
+                'resumenLote', 'notaDePendiente', 'getMapaComercioCategoria',
+                'mergeLearned'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -259,6 +316,9 @@
     }
 
     var sinCat = !sugerida;
+    var checkHTML = manual ? '' :
+      '<input type="checkbox" class="rev-check" data-rev-check="' + i + '" ' +
+      'aria-label="Seleccionar para confirmar en lote">';
 
     return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
@@ -266,6 +326,7 @@
       '<div class="rev-swipe-surface">' +
         '<div class="rev-compact" data-rev-expandir="' + i + '" role="button" tabindex="0" aria-expanded="false">' +
           '<div class="rev-meta">' +
+            checkHTML +
             '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
             '<span class="rev-fecha-correo">' + esc(fmtFechaCorreo(p.created_at)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
@@ -484,7 +545,7 @@
       }
     }
 
-    var base = p.comercio || p.contraparte || p.raw_subject || 'Correo ' + (BANCO_LABEL[p.banco] || p.banco);
+    var base = notaDePendiente(p, BANCO_LABEL);
     var userNotaEl = document.getElementById('revNota' + i);
     var userNota = userNotaEl ? userNotaEl.value.trim() : '';
     var nota = userNota ? base + ' — ' + userNota : base;
@@ -509,7 +570,11 @@
         txIds = [tx.id];
       }
       await confirmarIngestPendiente(p.id, (txIds.length === 1 ? txIds[0] : null), { tipo: tipo, monto: monto, fecha: fecha });
-      quitarCardConUndo(i, { accion: 'confirmar', pendienteId: p.id, txIds: txIds, estadoOriginal: p.estado });
+      quitarCardsConUndo([i], {
+        accion: 'confirmar',
+        pendientes: [{ pendienteId: p.id, estadoOriginal: p.estado }],
+        txIds: txIds,
+      });
     } catch (e) {
       console.error('confirmar pendiente falló:', e);
       btn.disabled = false;
@@ -521,7 +586,11 @@
     btn.disabled = true;
     try {
       await descartarIngestPendiente(_filas[i].id);
-      quitarCardConUndo(i, { accion: 'descartar', pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
+      quitarCardsConUndo([i], {
+        accion: 'descartar',
+        pendientes: [{ pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado }],
+        txIds: [],
+      });
     } catch (e) {
       console.error('descartar pendiente falló:', e);
       btn.disabled = false;
@@ -537,30 +606,170 @@
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
 
+  // ── Modo lote: seleccionar varias filas y confirmarlas de una pasada ──
+  // Categoría resuelta de la fila i: la que el usuario dejó en el select
+  // (que ya viene prefilleado con la sugerencia de autocat).
+  function catDeFila(i) {
+    var el = document.getElementById('revCat' + i);
+    return el ? (el.value || null) : null;
+  }
+
+  var _catPopIdx = null;
+
+  // abrirBuscadorCategoria(i, anchorEl) — popover de categorías para la fila i.
+  // Una sola instancia de searchableSelect para toda la vista: el <select> de
+  // la card no sirve como anfitrión porque vive en un contenedor oculto.
+  async function abrirBuscadorCategoria(i, anchorEl) {
+    var pop = document.getElementById('revCatPop');
+    var sel = document.getElementById('revCatPopSel');
+    var fila = _filas[i];
+    if (!pop || !sel || !fila) return;
+    _catPopIdx = i;
+
+    var tipo = document.getElementById('revTipo' + i);
+    var cats = await catsPara(tipo ? tipo.value : (fila.tipo || 'gasto'));
+    sel.innerHTML = opcionesCategoria(cats, catDeFila(i));
+
+    if (typeof searchableSelect === 'function') {
+      searchableSelect(sel, { placeholder: 'Buscar categoría…' });  // idempotente
+      if (sel._ssSync) sel._ssSync();
+    }
+
+    // Posicionar bajo el chip, sin salirse de la pantalla.
+    var r = anchorEl.getBoundingClientRect();
+    pop.hidden = false;
+    var ancho = pop.offsetWidth;
+    var left = Math.min(Math.max(8, r.left), window.innerWidth - ancho - 8);
+    pop.style.left = left + 'px';
+    pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 80) + 'px';
+
+    var input = pop.querySelector('.ss-input');
+    if (input) input.focus();   // el 'focus' del componente abre la lista
+  }
+
+  function cerrarBuscadorCategoria() {
+    var pop = document.getElementById('revCatPop');
+    if (pop) pop.hidden = true;
+    _catPopIdx = null;
+  }
+
+  function indicesSeleccionados() {
+    var out = [];
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-rev-check]:checked'),
+      function (el) { out.push(Number(el.getAttribute('data-rev-check'))); });
+    return out;
+  }
+
+  // La barra se muestra si hay al menos una card seleccionable. Sin esto el
+  // botón "Marcar sugeridas" quedaría dentro de un contenedor oculto y sería
+  // inalcanzable: el usuario no tendría cómo hacer la primera selección.
+  function pintarBarraLote() {
+    var bar = document.getElementById('revLoteBar');
+    if (!bar) return;
+    if (!document.querySelector('[data-rev-check]')) { bar.hidden = true; return; }
+    var idx = indicesSeleccionados();
+    var filas = idx.map(function (i) { return _filas[i]; }).filter(Boolean);
+    var r = resumenLote(filas);
+    document.getElementById('revLoteResumen').textContent =
+      r.n === 0 ? '0 seleccionadas' : (r.n + ' seleccionadas · ' + fmt(r.total));
+    document.getElementById('revLoteConfirmar').disabled = r.n === 0;
+    bar.hidden = false;
+  }
+
+  // "Marcar sugeridas": marca todas las filas que loteable() acepta con la
+  // categoría que hoy tiene su select.
+  function marcarSugeridas() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-rev-check]'),
+      function (el) {
+        var i = Number(el.getAttribute('data-rev-check'));
+        el.checked = loteable(_filas[i], catDeFila(i));
+      });
+    pintarBarraLote();
+  }
+
+  async function confirmarLote(btn) {
+    var idx = indicesSeleccionados();
+    var items = [];
+    idx.forEach(function (i) {
+      var f = _filas[i];
+      var cat = catDeFila(i);
+      if (!loteable(f, cat)) return;   // defensa: no confiar solo en el checkbox
+      items.push({ fila: f, categoria_id: cat, nota: notaDePendiente(f, BANCO_LABEL) });
+    });
+    if (!items.length) return;
+    btn.disabled = true;
+    try {
+      var res = await confirmarLoteIngest(items);
+      var okIds = {}, txIds = [], pendientes = [], indices = [];
+      res.forEach(function (r) {
+        if (!r.ok) return;
+        okIds[r.id] = true;
+        if (r.transaccionId) txIds.push(r.transaccionId);
+      });
+      for (var i = 0; i < _filas.length; i++) {
+        if (_filas[i] && okIds[_filas[i].id]) {
+          indices.push(i);
+          pendientes.push({ pendienteId: _filas[i].id, estadoOriginal: _filas[i].estado });
+        }
+      }
+      var fallidas = res.length - indices.length;
+      if (indices.length) {
+        quitarCardsConUndo(indices, { accion: 'confirmar', pendientes: pendientes, txIds: txIds });
+      }
+      pintarBarraLote();
+      if (fallidas) mostrarToastLote(indices.length, fallidas);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function mostrarToastLote(ok, fallidas) {
+    var el = document.getElementById('revLoteResumen');
+    if (!el) return;
+    el.textContent = fallidas
+      ? (ok + ' confirmadas · ' + fallidas + ' fallaron, reintenta')
+      : (ok + ' confirmadas');
+  }
+
   // ── Undo: cada card se oculta (no se borra) y entra a una cola LIFO; cada
   // item tiene su propio timer de 7s independiente. El toast es una sola
   // superficie visual pero ya no representa un solo item — representa la cola.
-  var _undoQueue = []; // [{ i, ctx, timerId }], más reciente al final
+  var _undoQueue = []; // [{ is: [i...], ctx, timerId }], más reciente al final
 
-  function quitarCardConUndo(i, ctx) {
-    var card = document.getElementById('revCard' + i);
-    if (card) card.style.display = 'none';
+  // quitarCardsConUndo(indices, ctx) — oculta N cards y encola UN solo item de
+  // undo para todas. El camino de a una pasa un array de largo 1: así hay una
+  // sola ruta de código y el lote no puede divergir del gesto individual.
+  // ctx: { accion, pendientes: [{ pendienteId, estadoOriginal }], txIds: [] }
+  function quitarCardsConUndo(indices, ctx) {
+    indices.forEach(function (i) {
+      var card = document.getElementById('revCard' + i);
+      if (card) card.style.display = 'none';
+    });
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
-    var item = { i: i, ctx: ctx, timerId: null };
+    var item = { is: indices.slice(), ctx: ctx, timerId: null };
     item.timerId = setTimeout(function () { finalizarItem(item); }, 7000); // 7s: leer + ubicar + tocar en móvil
     _undoQueue.push(item);
     renderToast();
   }
   // Redibuja el toast según cuántos items quedan en la cola. 1 item: mismo
-  // copy que antes ("Confirmado"/"Descartado"); 2+: conteo agregado.
+  // copy que antes ("Confirmado"/"Descartado"), o el conteo si ese item es un
+  // lote de N>1; 2+ items en cola: conteo agregado de items (no de filas).
   function renderToast() {
     var t = document.getElementById('revUndoToast');
     var n = _undoQueue.length;
     if (n === 0) { t.classList.remove('is-open'); return; }
     var msg = t.querySelector('.rev-undo-msg');
-    msg.textContent = (n === 1)
-      ? (_undoQueue[0].ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado')
-      : (n + ' movimientos revisados');
+    if (n === 1) {
+      var c = _undoQueue[0];
+      var cuantos = c.is.length;
+      msg.textContent = cuantos > 1
+        ? (cuantos + ' confirmadas')
+        : (c.ctx.accion === 'confirmar' ? 'Confirmado' : 'Descartado');
+    } else {
+      msg.textContent = n + ' movimientos revisados';
+    }
     t.classList.add('is-open');
   }
   // Se dispara cuando el timer PROPIO de `item` vence. No toca los demás items
@@ -568,15 +777,14 @@
   function finalizarItem(item) {
     var idx = _undoQueue.indexOf(item);
     if (idx !== -1) _undoQueue.splice(idx, 1);
-    var card = document.getElementById('revCard' + item.i);
-    if (card) card.remove();
-    _filas[item.i] = null;
-    if (_undoQueue.length === 0) {
-      document.getElementById('revUndoToast').classList.remove('is-open');
-    } else {
-      renderToast();
-    }
+    item.is.forEach(function (i) {
+      var card = document.getElementById('revCard' + i);
+      if (card) card.remove();
+      _filas[i] = null;
+    });
     if (!_filas.some(Boolean)) renderVacio();
+    pintarBarraLote();
+    renderToast();
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
   // "Deshacer" siempre opera sobre el ÚLTIMO item en entrar (LIFO): es el que
@@ -592,10 +800,15 @@
           if (ctx.txIds[k]) await deleteTransaccion(ctx.txIds[k]);
         }
       }
-      await revertirIngestPendiente(ctx.pendienteId, ctx.estadoOriginal);
-      var card = document.getElementById('revCard' + item.i);
-      if (card) card.style.display = '';
+      for (var j = 0; j < ctx.pendientes.length; j++) {
+        await revertirIngestPendiente(ctx.pendientes[j].pendienteId, ctx.pendientes[j].estadoOriginal);
+      }
+      item.is.forEach(function (i) {
+        var card = document.getElementById('revCard' + i);
+        if (card) card.style.display = '';
+      });
       if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
+      pintarBarraLote();
       renderToast(); // sigue abierto con el conteo nuevo, o cierra si quedó en 0
     } catch (e) {
       // El item ya salió de la cola (pop) y su timer ya está cancelado, así que
@@ -680,6 +893,19 @@
   async function init() {
     try {
       if (typeof autocatLearned === 'function') _learned = await autocatLearned();
+      // El mapa local es por navegador y por origen: en un dispositivo nuevo
+      // está vacío. Se completa con lo reconstruido desde el servidor, con
+      // peso 1 para que NUNCA le gane a lo aprendido acá (autocatLearnTokens
+      // acumula de a 1 por confirmación, así que un comercio confirmado dos
+      // veces en este navegador pesa más que el eco del servidor).
+      if (typeof getMapaComercioCategoria === 'function' && typeof mergeLearned === 'function') {
+        try {
+          var delServidor = await getMapaComercioCategoria();
+          _learned = mergeLearned(_learned, delServidor.map(function (e) {
+            return { texto: e.texto, categoria_id: e.categoria_id, peso: 1 };
+          }));
+        } catch (e) { console.error('mapa de servidor:', e); }
+      }
       _filas = await getIngestPendientes();
       loadingEl.style.display = 'none';
       if (!_filas.length) { renderVacio(); return; }
@@ -688,6 +914,7 @@
       for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
       listaEl.innerHTML = html;
       listaEl.style.display = '';
+      pintarBarraLote();
 
       // Demo de swipe: solo en la primera card elegible, y solo en esta carga
       // de la vista. Una fila 'revisar-manual' no puede completarse con un
@@ -709,20 +936,18 @@
       }
 
       listaEl.addEventListener('click', function (ev) {
+        var chk = ev.target.closest('[data-rev-check]');
+        if (chk) {
+          // Marcar no debe expandir la card: .rev-meta vive dentro del
+          // [data-rev-expandir], así que hay que cortar acá.
+          ev.stopPropagation();
+          pintarBarraLote();
+          return;
+        }
         var chipBtn = ev.target.closest('[data-rev-chip]');
         if (chipBtn) {
-          // Ya no hay bottom-sheet: el chip solo lleva a editar la categoría en
-          // el <select> del form expandido — expande la card y le da foco.
           ev.stopPropagation();
-          var i = Number(chipBtn.getAttribute('data-rev-chip'));
-          var chipCard = chipBtn.closest('.rev-card');
-          if (chipCard) {
-            chipCard.classList.add('is-expanded');
-            var expandirDeChip = chipCard.querySelector('[data-rev-expandir]');
-            if (expandirDeChip) expandirDeChip.setAttribute('aria-expanded', 'true');
-          }
-          var selCat = document.getElementById('revCat' + i);
-          if (selCat) selCat.focus();
+          abrirBuscadorCategoria(Number(chipBtn.getAttribute('data-rev-chip')), chipBtn);
           return;
         }
         var expandir = ev.target.closest('[data-rev-expandir]');
@@ -746,6 +971,43 @@
         expandir.click();
       });
       document.getElementById('revUndoBtn').addEventListener('click', deshacer);
+      // La barra de lote NO está dentro de #revLista: sus clicks nunca llegarían
+      // al delegado de la lista, así que necesita listeners propios.
+      document.getElementById('revLoteTodas').addEventListener('click', marcarSugeridas);
+      document.getElementById('revLoteConfirmar').addEventListener('click', function (ev) {
+        confirmarLote(ev.currentTarget);
+      });
+      // Al elegir en el popover, el valor se escribe en el select de la fila y
+      // se dispara su 'change': así el repintado del chip y el estado
+      // --sugerida siguen pasando por el mismo camino de siempre.
+      document.getElementById('revCatPopSel').addEventListener('change', function (ev) {
+        if (_catPopIdx == null) return;
+        var destino = document.getElementById('revCat' + _catPopIdx);
+        if (destino) {
+          destino.value = ev.target.value;
+          destino.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        cerrarBuscadorCategoria();
+        pintarBarraLote();
+      });
+      // Cerrar al tocar fuera o con Escape. El componente ya cierra su propia
+      // lista al clic exterior; esto cierra además el popover que la contiene.
+      // router.js re-ejecuta el <script> de la vista en cada navegación
+      // (executeScripts). Sin esta guarda, cada visita a #revisar deja dos
+      // listeners más colgados de document, y cada closure retiene el _filas
+      // de esa visita (~92 filas con la cola real).
+      if (!window._revCatPopBound) {
+        window._revCatPopBound = true;
+        document.addEventListener('click', function (ev) {
+          var pop = document.getElementById('revCatPop');
+          if (!pop || pop.hidden) return;
+          if (pop.contains(ev.target) || ev.target.closest('[data-rev-chip]')) return;
+          cerrarBuscadorCategoria();
+        });
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape') cerrarBuscadorCategoria();
+        });
+      }
 
       listaEl.addEventListener('pointerdown', swipeStart);
       listaEl.addEventListener('pointermove', swipeMove);

@@ -1467,3 +1467,49 @@ body.nestra-offline main { padding-top: var(--offline-banner-h, 0px); }
 .ob-cat-chip.is-on { border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
 .ob-actions { display: flex; gap: var(--space-sm); margin-top: var(--space-lg); }
 .ob-actions .btn-primary { margin-left: auto; }
+
+/* ── searchable-select (js/searchable-select.js) ──────────────────
+   Compartido: lo usan #transaccion, #configuracion y #revisar. Vivía dentro
+   de views/transaccion.html, lo que dejaba el componente sin estilo en
+   cualquier otra vista que lo usara. */
+.ss-wrap { position: relative; }
+.ss-input {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-light);
+  color: var(--text-dark);
+  font-size: var(--font-size-base);
+}
+.ss-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+.ss-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+.ss-list {
+  position: absolute;
+  left: 0; right: 0; top: calc(100% + 4px);
+  z-index: 30;
+  margin: 0;
+  padding: var(--space-xs);
+  list-style: none;
+  background: var(--bg-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+}
+.ss-item {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-base);
+}
+.ss-item:hover, .ss-item.ss-active { background: var(--border-light); }
