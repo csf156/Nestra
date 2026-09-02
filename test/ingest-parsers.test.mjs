@@ -260,6 +260,64 @@ test('BBVA PLIN con QR: mismo parser', () => {
   assert.equal(r.comercio, 'Luis P Cupe O De');
 });
 
+// Fragmento VERBATIM del correo real del 2026-09-01 (bandeja de Christian).
+const BBVA_QR_2026_09 = `BBVA
+
+Hola, CHRISTIAN
+
+Has realizado con éxito la operación:
+
+Pagar con QR
+
+Importe pagado
+
+S/ 2.00
+
+<#>
+DETALLES DE LA OPERACIÓN
+
+Titular de la tarjeta
+
+CHRISTIAN SANCHEZ
+
+Titular de la cuenta
+
+Tipo de operación
+
+Pagar con QR
+
+Fecha de la operación
+
+1 de septiembre, 2026
+
+Comercio
+
+IZI*GLASE
+
+Forma de pago
+
+VISA COMPRAS
+
+Número de tarjeta
+
+• 1902
+`;
+
+test('bbva: pago con QR a comercio → gasto', () => {
+  const p = parse('bbva', {
+    subject: 'BBVA - Constancia de pago a comercios con QR',
+    body: BBVA_QR_2026_09,
+    date: '2026-09-01T14:00:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 2);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-09-01');
+  assert.equal(p.comercio, 'IZI*GLASE');
+  assert.equal(p.ultimos4, '1902');
+  assert.equal(p.p2p, false);
+});
+
 // ── BCP consumo ──────────────────────────────────────────────────
 const BCP_CONSUMO = `Hola Darling Gabriela,
 

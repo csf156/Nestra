@@ -62,6 +62,25 @@ function parse({ subject, body, date }) {
     };
   }
 
+  // Pago con QR a comercio. Mismo layout que el resto de BBVA: etiqueta en una
+  // línea, valor dos líneas abajo — campoTrasEtiqueta ya lo resuelve.
+  // OJO: es distinto de "transferencia PLIN con QR" (P2P): acá hay comercio y
+  // tarjeta, no una persona destino.
+  if (/pago a comercios con qr/.test(subj)) {
+    const monto = parseMonto(campoTrasEtiqueta(ls, 'Importe pagado'));
+    const fecha = parseFechaLarga(campoTrasEtiqueta(ls, 'Fecha de la operacion') || '')
+      || fechaEnLima(date);
+    if (!monto || !fecha) throw new FormatoNoReconocidoError(slug, 'QR sin monto/fecha');
+    const comercio = campoTrasEtiqueta(ls, 'Comercio');
+    return {
+      banco: slug, tipo: 'gasto', monto, moneda: 'PEN',
+      comercio: comercio || null, fecha, contraparte: null,
+      operacion: campoTrasEtiqueta(ls, 'ID de compra'),
+      p2p: false,
+      ultimos4: ultimos4De(campoTrasEtiqueta(ls, 'Numero de tarjeta')),
+    };
+  }
+
   // Remitente BBVA con formato no verificado → a revisión manual.
   throw new FormatoNoReconocidoError(slug, `asunto no reconocido: ${subj.slice(0, 80)}`);
 }
