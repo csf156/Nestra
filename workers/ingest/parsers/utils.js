@@ -15,6 +15,14 @@ function lineas(body) {
   return normalizar(body).split(/\r?\n/).map((l) => l.trim());
 }
 
+// Igual que lineas(), pero quitando los asteriscos de negrita que Yape mete
+// alrededor de las etiquetas ("*Monto de yapeo**"). Solo los de los extremos:
+// un asterisco interno puede ser parte del nombre real del comercio
+// ("IZI*GLASE" en BBVA), y perderlo cambiaría el dato.
+function lineasPlanas(body) {
+  return lineas(body).map((l) => l.replace(/^\*+/, '').replace(/\*+$/, '').trim());
+}
+
 // "1,234.56" | "52.00" | "S/ 6" → number | null
 function parseMonto(raw) {
   if (raw == null) return null;
@@ -111,6 +119,6 @@ function ultimos4De(txt) {
 }
 
 export {
-  normalizar, lineas, parseMonto, parseFechaLarga, parseFechaCorta,
+  normalizar, lineas, lineasPlanas, parseMonto, parseFechaLarga, parseFechaCorta,
   fechaEnLima, campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte,
 };
