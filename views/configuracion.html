@@ -1719,7 +1719,13 @@
         toggle.setAttribute('aria-checked', on ? 'true' : 'false');
         toggle.setAttribute('aria-label', on ? 'Desactivar notificaciones push' : 'Activar notificaciones push');
       }
-      paintPush(await pushIsSubscribed());
+      // El navegador puede tener una suscripción viva cuya fila la Edge
+      // Function ya borró (410). Lo que decide si las notificaciones llegan de
+      // verdad es la fila en la base, así que el toggle pinta eso.
+      // null (sin red) → caer al estado del navegador, que es mejor que mentir
+      // con "apagado" cuando probablemente esté bien.
+      var srv = await pushEstadoServidor();
+      paintPush(srv === null ? await pushIsSubscribed() : srv);
       var MENSAJES_PUSH = {
         denied: 'Permiso de notificaciones bloqueado. Actívalo en los ajustes del navegador.',
         'subscribe-error': 'No se pudo activar. En iPhone instala la app a la pantalla de inicio primero.',
@@ -1743,7 +1749,8 @@
           console.error('pushToggle:', err);
         } finally {
           // Verdad de terreno: refleja si quedó realmente (des)suscrito.
-          paintPush(await pushIsSubscribed());
+          var srv2 = await pushEstadoServidor();
+          paintPush(srv2 === null ? await pushIsSubscribed() : srv2);
           toggle.disabled = false;
         }
       });
