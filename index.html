@@ -449,5 +449,16 @@
     <script src="js/pwa.js"></script>
     <script src="js/push.js"></script>
     <script src="js/share-target.js"></script>
+    <script type="module">
+      // Reparar la suscripción push si el permiso está concedido pero la fila
+      // de la base desapareció (la Edge Function la borra ante un 410 del
+      // servicio de push). Silencioso y sin bloquear el arranque.
+      window.addEventListener('load', function () {
+        if (typeof pushReconciliar !== 'function') return;
+        pushReconciliar().then(function (r) {
+          if (r === 'reparado') console.info('push: suscripción restaurada');
+        }).catch(function (e) { console.error('pushReconciliar:', e); });
+      });
+    </script>
 </body>
 </html>
