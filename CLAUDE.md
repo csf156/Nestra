@@ -18,6 +18,7 @@ Pages está conectado al repo `csf156/Nestra` y **reconstruye automáticamente a
 - NO es un túnel a un server local. El server local en 5050 (`preview_start` config `nestra` de `.claude/launch.json`, `npx serve -l 5050 .`) sirve SOLO para tu verificación en navegador; el usuario NO lo ve.
 - Tras el merge, verificar el deploy live **con cache-buster** — la caché de borde de Pages devuelve el archivo viejo y da falsos negativos:
   `curl -sL "https://nestra-8rl.pages.dev/sw.js?cb=$RANDOM" | grep SHELL_VERSION`
+- **Al verificar, `curl` SIEMPRE con `-L`, y pedir `/` en vez de `/index.html`.** Tanto Pages como el `npx serve` local redirigen las URLs `.html` a su versión sin extensión (`/index.html` → `/`, `/views/revisar.html` → `/views/revisar`). Un `curl` sin `-L` devuelve el 301 con **cuerpo vacío**, y un `grep` sobre eso da cero coincidencias: parece que el código no se desplegó cuando sí está. Pasó dos veces el 2026-09-04 y las dos veces mandó a investigar un deploy que estaba perfecto. Ante un "no aparece mi cambio", descartar esto ANTES de sospechar de la caché.
 - Las vistas (`views/*.html`) usan **NetworkFirst** en `sw.js`; los cambios se ven al recargar online. Tras cambios de assets se bumpea `SHELL_VERSION` en `sw.js`; en el teléfono puede requerir cerrar/reabrir la PWA para tomar el shell nuevo.
 - El SW y la cámara (`<input capture>`) exigen HTTPS; Pages ya lo da.
 
