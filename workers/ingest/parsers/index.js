@@ -24,7 +24,7 @@ import * as yape from './yape.js';
 import { FormatoNoReconocidoError } from './errores.js';
 import {
   normalizar, parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima,
-  campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte,
+  campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte, lineasPlanas,
 } from './utils.js';
 
 const PARSERS = Object.freeze({
@@ -65,5 +65,5 @@ export {
   PARSERS, parse, parseCorreo, bancoDesdeRemitente, FormatoNoReconocidoError,
   // helpers puros re-exportados para los tests
   normalizar, parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima,
-  campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte,
+  campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte, lineasPlanas,
 };

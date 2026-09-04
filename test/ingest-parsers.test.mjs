@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {
   parseCorreo, parse, PARSERS, FormatoNoReconocidoError,
   parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima, esAnteriorAlCorte,
+  lineasPlanas,
 } from '../workers/ingest/parsers/index.js';
 
 const BBVA = 'BBVA <procesos@bbva.com.pe>';
@@ -28,6 +29,74 @@ test('parseFechaLarga: variantes reales de los tres bancos', () => {
   assert.equal(parseFechaLarga('10 junio 2026 - 07:08 a. m.'), '2026-06-10');
   assert.equal(parseFechaLarga('12 de julio, 2026 15:44'), '2026-07-12');
   assert.equal(parseFechaLarga('setiembre'), null);
+});
+
+test('parseFechaLarga: meses abreviados (recarga Yape, 2026-08-30)', () => {
+  assert.equal(parseFechaLarga('30 ago. 2026 - 10:29 a. m.'), '2026-08-30');
+  assert.equal(parseFechaLarga('1 set. 2026'), '2026-09-01');
+  assert.equal(parseFechaLarga('15 dic. 2026'), '2026-12-15');
+  // Los nombres completos siguen funcionando.
+  assert.equal(parseFechaLarga('30 agosto 2026 - 11:39 a. m.'), '2026-08-30');
+});
+
+test('lineasPlanas: quita los asteriscos de negrita del texto plano de Yape', () => {
+  const body = '*Monto de yapeo**\n\nS/ 13.50\n';
+  // lineas() (de la que lineasPlanas hereda el split) pasa por normalizar(),
+  // que hace .trim() del cuerpo ENTERO antes de partir por línea — el \n
+  // final desaparece antes del split, así que no queda un '' de cola.
+  assert.deepEqual(lineasPlanas(body), ['Monto de yapeo', '', 'S/ 13.50']);
+});
+
+test('lineasPlanas: no toca los asteriscos internos de un comercio BBVA', () => {
+  // "IZI*GLASE" es el nombre real del comercio: solo se limpian los de los
+  // extremos, que son marcado de negrita.
+  assert.deepEqual(lineasPlanas('IZI*GLASE'), ['IZI*GLASE']);
+});
+
+// Fragmento VERBATIM del correo real del 2026-08-30 (bandeja de Darling).
+const YAPE_SALIENTE_2026_08 = `*¡Hola, DARLING GABRIELA MEZA R.!*
+
+*¡Acabas de yapear exitosamente!*
+
+*Monto de yapeo**
+
+S/ 13.50
+
+Yapero DARLING GABRIELA MEZA R. Tu número de celular XXXXXXXXX153 Fecha y Hora de la operación 30 agosto 2026 - 11:39 a. m. Celular del Beneficiario  Nombre del Beneficiario SERVICIOS GENERALES CARAMBA S. Nº de operación 4064627
+`;
+
+test('yape: yapeo saliente con etiqueta en negrita → gasto con monto', () => {
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: YAPE_SALIENTE_2026_08,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 13.5);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-08-30');
+  assert.equal(p.p2p, true);
+});
+
+test('yape: el beneficiario distinto del yapero sí es comercio', () => {
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: YAPE_SALIENTE_2026_08,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.comercio, 'SERVICIOS GENERALES CARAMBA S.');
+});
+
+test('yape: beneficiario igual al yapero → comercio null (no es contraparte real)', () => {
+  const body = YAPE_SALIENTE_2026_08.replace(
+    'Nombre del Beneficiario SERVICIOS GENERALES CARAMBA S.',
+    'Nombre del Beneficiario DARLING GABRIELA MEZA R.');
+  const p = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: body,
+    date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(p.comercio, null);
 });
 
 test('parseFechaCorta: DD/MM/YYYY (no MM/DD)', () => {
@@ -189,6 +258,64 @@ test('BBVA PLIN con QR: mismo parser', () => {
   });
   assert.equal(r.monto, 6);
   assert.equal(r.comercio, 'Luis P Cupe O De');
+});
+
+// Fragmento VERBATIM del correo real del 2026-09-01 (bandeja de Christian).
+const BBVA_QR_2026_09 = `BBVA
+
+Hola, CHRISTIAN
+
+Has realizado con éxito la operación:
+
+Pagar con QR
+
+Importe pagado
+
+S/ 2.00
+
+<#>
+DETALLES DE LA OPERACIÓN
+
+Titular de la tarjeta
+
+CHRISTIAN SANCHEZ
+
+Titular de la cuenta
+
+Tipo de operación
+
+Pagar con QR
+
+Fecha de la operación
+
+1 de septiembre, 2026
+
+Comercio
+
+IZI*GLASE
+
+Forma de pago
+
+VISA COMPRAS
+
+Número de tarjeta
+
+• 1902
+`;
+
+test('bbva: pago con QR a comercio → gasto', () => {
+  const p = parse('bbva', {
+    subject: 'BBVA - Constancia de pago a comercios con QR',
+    body: BBVA_QR_2026_09,
+    date: '2026-09-01T14:00:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 2);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-09-01');
+  assert.equal(p.comercio, 'IZI*GLASE');
+  assert.equal(p.ultimos4, '1902');
+  assert.equal(p.p2p, false);
 });
 
 // ── BCP consumo ──────────────────────────────────────────────────
@@ -376,6 +503,48 @@ test('Yape: la dirección la decide el cuerpo, no el asunto', () => {
     body: YAPE_YAPEO.replace('¡Acabas de yapear exitosamente!', '¡Te han yapeado!'),
     date: '2026-06-10T12:08:00.000Z',
   }), FormatoNoReconocidoError);
+});
+
+// Fragmento VERBATIM del correo real del 2026-08-30.
+const YAPE_RECARGA_2026_08 = `*S/* 7
+
+Número recargado:
+
+910 735 153
+
+Yapero:
+
+Darling Gabriela Meza Reyes
+
+Número de yapero:
+
+*** *** 153
+
+Fecha:
+
+30 ago. 2026 - 10:29 a. m.
+
+Operadora:
+
+Bitel
+
+Nº de operación Yape:
+
+00629341
+`;
+
+test('yape: recarga de celular → gasto con la operadora como comercio', () => {
+  const p = parse('yape', {
+    subject: 'Tu recarga en Yape ha sido confirmada',
+    body: YAPE_RECARGA_2026_08,
+    date: '2026-08-30T15:29:00Z',
+  });
+  assert.equal(p.tipo, 'gasto');
+  assert.equal(p.monto, 7);
+  assert.equal(p.moneda, 'PEN');
+  assert.equal(p.fecha, '2026-08-30');
+  assert.equal(p.comercio, 'Recarga Bitel');
+  assert.equal(p.p2p, false);
 });
 
 // ── Ruido y formatos no verificados → null ───────────────────────
