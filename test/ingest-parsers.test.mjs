@@ -10,6 +10,7 @@ import {
   parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima, esAnteriorAlCorte,
   lineasPlanas,
 } from '../workers/ingest/parsers/index.js';
+import { huboInsercion } from '../workers/ingest/src/index.js';
 
 const BBVA = 'BBVA <procesos@bbva.com.pe>';
 const BCP = 'BCP Notificaciones <notificaciones@notificacionesbcp.com.pe>';
@@ -670,4 +671,24 @@ test('parse(slug, correo): rutea directo al módulo del banco', () => {
 
 test('parse(slug desconocido) → lanza (error de programación, no de formato)', () => {
   assert.throws(() => parse('interbank', { subject: 'x', body: 'y', date: null }));
+});
+
+// ── dedupe de notificación (bug del 2026-09-04) ───────────────────
+test('huboInsercion: PostgREST devuelve la fila creada → true', () => {
+  assert.equal(huboInsercion([{ id: 'abc', monto: 12.5 }]), true);
+});
+
+test('huboInsercion: array vacío = ON CONFLICT DO NOTHING ignoró → false', () => {
+  // Este es el caso del reenvío de hilo: la fila ya existía, no se insertó,
+  // y por tanto NO debe notificarse.
+  assert.equal(huboInsercion([]), false);
+});
+
+test('huboInsercion: cuerpo inesperado → false, nunca notifica a ciegas', () => {
+  // Ante la duda, no molestar al usuario: una notificación de más es peor
+  // que una de menos, porque erosiona la confianza en todas las demás.
+  assert.equal(huboInsercion(null), false);
+  assert.equal(huboInsercion(undefined), false);
+  assert.equal(huboInsercion({}), false);
+  assert.equal(huboInsercion('ok'), false);
 });

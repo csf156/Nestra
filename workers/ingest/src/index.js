@@ -98,13 +98,40 @@ async function tasaAPen(moneda) {
 const redondear2 = (n) => Math.round(n * 100) / 100;
 
 /**
+ * huboInsercion(filas) — ¿PostgREST creó realmente la fila?
+ *
+ * Con `resolution=ignore-duplicates` el INSERT es ON CONFLICT DO NOTHING y la
+ * respuesta es 2xx tanto si insertó como si ignoró el duplicado. Con
+ * `return=representation` la diferencia sí es visible: la fila creada viene en
+ * un array, y un duplicado ignorado devuelve el array vacío.
+ *
+ * Importa porque el Apps Script reenvía TODOS los mensajes de un hilo de Gmail
+ * cada vez que llega uno nuevo (ver Code.gs). Sin esta distinción, cada gasto
+ * nuevo volvía a notificar todos los anteriores del mismo hilo.
+ *
+ * Ante un cuerpo inesperado devuelve false: una notificación de más es peor que
+ * una de menos — la fila ya está encolada y el usuario la verá en #revisar.
+ */
+function huboInsercion(filas) {
+  return Array.isArray(filas) && filas.length > 0;
+}
+export { huboInsercion };
+
+/**
  * Inserta una fila en ingest_pendientes con dedupe por (user_id, message_id).
  * on_conflict + ignore-duplicates: el script reenvía todos los mensajes de un
  * hilo en cada corrida; el mismo correo no debe encolarse dos veces.
- * Devuelve la Response HTTP para el Apps Script:
- *   200 → el script etiqueta el hilo como procesado.
- *   500 → NO etiqueta y reintenta en la próxima corrida (ej. migración de
- *         'revisar-manual' aún sin aplicar: el correo no se pierde).
+ * Devuelve { response, insertada }:
+ *   response  → la Response HTTP para el Apps Script.
+ *               200 → el script etiqueta el hilo como procesado.
+ *               500 → NO etiqueta y reintenta en la próxima corrida (ej.
+ *                     migración de 'revisar-manual' aún sin aplicar: el correo
+ *                     no se pierde).
+ *   insertada → si la fila es NUEVA. Los duplicados también responden 200 a
+ *               propósito: el script solo etiqueta el hilo si TODO le fue bien,
+ *               y devolver un no-2xx aquí lo dejaría sin etiquetar para
+ *               siempre, reenviándose en bucle. Lo único que cambia con el
+ *               duplicado es que no se notifica.
  */
 async function insertarPendiente(env, fila, userId, messageId) {
   const resp = await fetch(
@@ -113,7 +140,10 @@ async function insertarPendiente(env, fila, userId, messageId) {
       method: 'POST',
       headers: headersSupabase(env, {
         'content-type': 'application/json',
-        prefer: 'resolution=ignore-duplicates,return=minimal',
+        // representation (antes minimal): sin cuerpo no hay forma de saber si
+        // el ON CONFLICT DO NOTHING insertó o ignoró, y sin eso se notificaba
+        // cada reenvío de hilo. Ver plan 2026-09-04.
+        prefer: 'resolution=ignore-duplicates,return=representation',
       }),
       body: JSON.stringify(fila),
     }
@@ -125,17 +155,23 @@ async function insertarPendiente(env, fila, userId, messageId) {
       event: 'insert_failed', userId, messageId,
       status: resp.status, detalle,
     }));
-    return json({ error: 'insert failed' }, 500);
+    return { response: json({ error: 'insert failed' }, 500), insertada: false };
   }
 
+  const filas = await resp.json().catch(() => null);
+  const insertada = huboInsercion(filas);
+
   console.log(JSON.stringify({
-    event: 'email_encolado', userId, messageId,
+    event: insertada ? 'email_encolado' : 'email_duplicado', userId, messageId,
     banco: fila.banco, tipo: fila.tipo, monto: fila.monto,
     estado: fila.estado || 'pendiente',
     moneda_original: fila.moneda_original || null,
     comercio: fila.comercio, fecha: fila.fecha,
   }));
-  return json({ ok: true, tipo: fila.tipo, monto: fila.monto });
+  return {
+    response: json({ ok: true, insertada, tipo: fila.tipo, monto: fila.monto }),
+    insertada,
+  };
 }
 
 /**
@@ -168,6 +204,10 @@ async function enviarPushConfirmacion(env, userId, fila) {
     title: '¿Confirmar gasto?',
     body: `S/${fila.monto} en ${fila.comercio || fila.contraparte || 'movimiento'}`,
     url: './#revisar',
+    // Segunda capa sobre el dedupe de insertarPendiente: un tag por correo hace
+    // que un aviso repetido REEMPLACE al anterior en vez de apilarse. Gastos
+    // distintos tienen message_id distinto, así que nunca se colapsan entre sí.
+    tag: fila.message_id || undefined,
   };
 
   for (const sub of subs) {
@@ -247,7 +287,9 @@ export default {
           event: 'email_revisar_manual', userId: usuario.user_id, messageId,
           banco: e.banco, motivo: e.motivo, subject: subject || null,
         }));
-        return insertarPendiente(env, {
+        // Esta rama nunca notifica (una fila 'revisar-manual' no tiene monto ni
+        // comercio que mostrar), así que solo devuelve la respuesta.
+        const manual = await insertarPendiente(env, {
           user_id: usuario.user_id,
           message_id: messageId,
           banco: e.banco,
@@ -260,6 +302,7 @@ export default {
           raw_subject: subject || null,
           raw_body: String(body).slice(0, 20000),
         }, usuario.user_id, messageId);
+        return manual.response;
       }
       // Bug inesperado del parser: se loguea y se responde 200 para que el
       // script no reintente eternamente un correo que siempre va a fallar.
@@ -315,8 +358,11 @@ export default {
       raw_body: String(body).slice(0, 20000),
     };
 
-    const insertResp = await insertarPendiente(env, fila, usuario.user_id, messageId);
-    if (insertResp.status === 200) avisarPendiente(env, ctx, usuario.user_id, fila);
-    return insertResp;
+    const { response, insertada } = await insertarPendiente(env, fila, usuario.user_id, messageId);
+    // Solo la PRIMERA vez que este correo entra. El Apps Script reenvía todos
+    // los mensajes del hilo cada vez que llega uno nuevo (ver Code.gs), y
+    // notificar en cada reenvío repetía los gastos anteriores del mismo día.
+    if (insertada) avisarPendiente(env, ctx, usuario.user_id, fila);
+    return response;
   },
 };
