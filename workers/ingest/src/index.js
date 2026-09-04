@@ -204,6 +204,10 @@ async function enviarPushConfirmacion(env, userId, fila) {
     title: '¿Confirmar gasto?',
     body: `S/${fila.monto} en ${fila.comercio || fila.contraparte || 'movimiento'}`,
     url: './#revisar',
+    // Segunda capa sobre el dedupe de insertarPendiente: un tag por correo hace
+    // que un aviso repetido REEMPLACE al anterior en vez de apilarse. Gastos
+    // distintos tienen message_id distinto, así que nunca se colapsan entre sí.
+    tag: fila.message_id || undefined,
   };
 
   for (const sub of subs) {

@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v45';
+const SHELL_VERSION = 'v46';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -160,6 +160,9 @@ self.addEventListener('push', (event) => {
     icon: 'assets/icon-192.png',
     badge: 'assets/icon-192.png',
     data: { url: data.url || '/' },
+    // Sin tag, dos avisos idénticos se apilan; con él, el segundo reemplaza al
+    // primero. El Worker manda un tag por correo (message_id).
+    tag: data.tag || undefined,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
