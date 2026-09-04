@@ -98,6 +98,26 @@ async function tasaAPen(moneda) {
 const redondear2 = (n) => Math.round(n * 100) / 100;
 
 /**
+ * huboInsercion(filas) — ¿PostgREST creó realmente la fila?
+ *
+ * Con `resolution=ignore-duplicates` el INSERT es ON CONFLICT DO NOTHING y la
+ * respuesta es 2xx tanto si insertó como si ignoró el duplicado. Con
+ * `return=representation` la diferencia sí es visible: la fila creada viene en
+ * un array, y un duplicado ignorado devuelve el array vacío.
+ *
+ * Importa porque el Apps Script reenvía TODOS los mensajes de un hilo de Gmail
+ * cada vez que llega uno nuevo (ver Code.gs). Sin esta distinción, cada gasto
+ * nuevo volvía a notificar todos los anteriores del mismo hilo.
+ *
+ * Ante un cuerpo inesperado devuelve false: una notificación de más es peor que
+ * una de menos — la fila ya está encolada y el usuario la verá en #revisar.
+ */
+function huboInsercion(filas) {
+  return Array.isArray(filas) && filas.length > 0;
+}
+export { huboInsercion };
+
+/**
  * Inserta una fila en ingest_pendientes con dedupe por (user_id, message_id).
  * on_conflict + ignore-duplicates: el script reenvía todos los mensajes de un
  * hilo en cada corrida; el mismo correo no debe encolarse dos veces.
