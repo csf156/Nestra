@@ -29,6 +29,7 @@ precaching.precacheAndRoute([
   { url: 'js/iconos.js', revision: SHELL_VERSION },
   { url: 'js/ui.js', revision: SHELL_VERSION },
   { url: 'js/sparkline.js', revision: SHELL_VERSION },
+  { url: 'js/sesion-recuperar.js', revision: SHELL_VERSION },
   { url: 'js/export.js', revision: SHELL_VERSION },
   { url: 'js/db.js', revision: SHELL_VERSION },
   { url: 'js/alerts.js', revision: SHELL_VERSION },
