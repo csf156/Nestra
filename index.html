@@ -461,5 +461,20 @@
         }).catch(function (e) { console.error('pushReconciliar:', e); });
       });
     </script>
+    <script type="module">
+      // Almacenamiento persistente: sin esto el navegador puede desalojar
+      // localStorage (donde vive el token de sesión) e IndexedDB (el espejo
+      // offline) bajo presión de espacio. No hay prompt en iOS: se concede o
+      // no según heurísticas (app instalada, uso frecuente). Silencioso.
+      window.addEventListener('load', function () {
+        if (!navigator.storage || !navigator.storage.persist) return;
+        navigator.storage.persisted().then(function (ya) {
+          if (ya) return;
+          return navigator.storage.persist().then(function (concedido) {
+            console.info('almacenamiento persistente:', concedido ? 'concedido' : 'denegado');
+          });
+        }).catch(function (e) { console.warn('storage.persist:', e); });
+      });
+    </script>
 </body>
 </html>
