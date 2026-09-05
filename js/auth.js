@@ -213,6 +213,71 @@ function handleSessionExpired() {
   }
 }
 
+// intentarRecuperarSesion() — un refresco explícito antes de rendirse.
+// autoRefreshToken corre con un temporizador que NO tickea mientras la PWA
+// está congelada en segundo plano; al volver, el token puede estar vencido
+// aunque el refresh token siga siendo válido. Un refresco a mano lo resuelve.
+// Returns: true si hay sesión después de intentarlo.
+async function intentarRecuperarSesion() {
+  try {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (data && data.session) return true;
+    if (error) console.warn('refreshSession falló:', error.message);
+  } catch (e) {
+    console.warn('refreshSession lanzó:', e && e.message);
+  }
+  try {
+    const { data } = await supabase.auth.getSession();
+    return !!(data && data.session);
+  } catch (_) { return false; }
+}
+
+// _reintentoPendiente — evita encolar N reintentos si llegan varios eventos.
+var _reintentoPendiente = false;
+var _reintentosFallidos = 0;
+var MAX_REINTENTOS_SESION = 5;
+
+// programarReintentoSesion() — vuelve a intentarlo cuando haya señales de que
+// puede funcionar: al recuperar red, o al volver la app a primer plano.
+// Con tope: el sesgo a reintentar evita expulsar por un tropiezo, pero sin
+// límite dejaría la app "iniciada" con toda query fallando en 401 — un fallo
+// invisible, peor que el login prematuro que esto vino a arreglar.
+function programarReintentoSesion() {
+  if (_reintentoPendiente) return;
+  _reintentoPendiente = true;
+
+  function dejarDeEscuchar() {
+    window.removeEventListener('online', intento);
+    document.removeEventListener('visibilitychange', intento);
+  }
+
+  async function intento() {
+    // En segundo plano no cuenta como intento: no hay nada que reintentar
+    // hasta que la app vuelva a estar visible.
+    if (document.visibilityState === 'hidden') return;
+    const ok = await intentarRecuperarSesion();
+    if (ok) {
+      _reintentoPendiente = false;
+      _reintentosFallidos = 0;
+      dejarDeEscuchar();
+      console.info('sesión recuperada sin expulsar al usuario');
+      return;
+    }
+    _reintentosFallidos++;
+    if (_reintentosFallidos >= MAX_REINTENTOS_SESION) {
+      _reintentoPendiente = false;
+      _reintentosFallidos = 0;
+      dejarDeEscuchar();
+      console.warn('recuperación agotada tras ' + MAX_REINTENTOS_SESION + ' intentos — cerrando sesión');
+      handleSessionExpired();
+    }
+  }
+
+  window.addEventListener('online', intento);
+  document.addEventListener('visibilitychange', intento);
+  intento();
+}
+
 // setupAuthStateListener() — React to Supabase auth events
 // Returns: undefined
 // Side effects: subscribes to onAuthStateChange; on SIGNED_IN (incl. OAuth redirect return)
@@ -237,7 +302,18 @@ function setupAuthStateListener() {
     }
     // Token expired and refresh failed, user signed out, or account removed
     if (event === 'SIGNED_OUT' || ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && !session)) {
+      var veredicto = (typeof clasificarPerdidaSesion === 'function')
+        ? clasificarPerdidaSesion({ event: event, session: session, online: navigator.onLine })
+        : 'terminal';   // sin el módulo, el comportamiento de antes
+      if (veredicto === 'reintentar') {
+        // No limpiar estado ni redirigir: la sesión puede seguir viva en el
+        // servidor y el usuario no tiene por qué volver a entrar.
+        console.warn('Pérdida de sesión recuperable — reintentando en segundo plano');
+        programarReintentoSesion();
+        return;
+      }
       handleSessionExpired();
+      return;
     }
     // Password recovery link clicked — redirect to reset form
     if (event === 'PASSWORD_RECOVERY') {
