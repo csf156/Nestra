@@ -764,6 +764,7 @@
             <p class="dash-s2s-label">Te pasaste por</p>
             <p class="dash-s2s-monto">${esc(montoHero(res.exceso))}</p>
             <p class="dash-s2s-sub">Quedan ${dias} de mes.</p>
+            ${balanceHTML(res)}
             ${desgloseHTML(res, 'Te pasaste por', res.exceso)}
           </div>`;
         return;
