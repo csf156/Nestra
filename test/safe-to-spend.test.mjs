@@ -306,3 +306,21 @@ test('pctAhorro no altera una meta holgada que ya cabía bajo el techo', () => {
   assert.strictEqual(out.diario, 294);          // idéntico al test original
   assert.strictEqual(out.desglose.metasFueraDeRitmo.length, 0);
 });
+
+test('desglose: balanceRegistrado = ingresos − gastos del mes, ya anotados', () => {
+  const r = calcularSafeToSpend([ing(2100, '2026-06-05'), gas(700, '2026-06-10')], [], { hoy: HOY });
+  assert.strictEqual(r.desglose.ingresoRegistrado, 2100);
+  assert.strictEqual(r.desglose.balanceRegistrado, 1400);
+});
+
+test('desglose: sin ingresos registrados el balance sale negativo', () => {
+  // El caso del registro por lotes: gastos de junio anotados, ingresos de
+  // junio todavía no. El disponible se apoya en el promedio de meses cerrados
+  // y NO colapsa; el balance registrado sí refleja la realidad cruda.
+  const r = calcularSafeToSpend(
+    [ing(1800, '2026-05-05'), ing(1800, '2026-04-05'), gas(200, '2026-06-02')],
+    [], { hoy: HOY });
+  assert.strictEqual(r.desglose.ingresoRegistrado, 0);
+  assert.strictEqual(r.desglose.balanceRegistrado, -200);
+  assert.ok(r.desglose.disponible > 0, 'el disponible NO colapsa: usa el promedio');
+});
