@@ -234,21 +234,43 @@ async function intentarRecuperarSesion() {
 
 // _reintentoPendiente — evita encolar N reintentos si llegan varios eventos.
 var _reintentoPendiente = false;
+var _reintentosFallidos = 0;
+var MAX_REINTENTOS_SESION = 5;
 
 // programarReintentoSesion() — vuelve a intentarlo cuando haya señales de que
 // puede funcionar: al recuperar red, o al volver la app a primer plano.
+// Con tope: el sesgo a reintentar evita expulsar por un tropiezo, pero sin
+// límite dejaría la app "iniciada" con toda query fallando en 401 — un fallo
+// invisible, peor que el login prematuro que esto vino a arreglar.
 function programarReintentoSesion() {
   if (_reintentoPendiente) return;
   _reintentoPendiente = true;
 
-  async function intento() {
-    if (document.visibilityState === 'hidden') return;
-    const ok = await intentarRecuperarSesion();
-    if (!ok) return;                 // sigue escuchando: puede que aún no haya red
-    _reintentoPendiente = false;
+  function dejarDeEscuchar() {
     window.removeEventListener('online', intento);
     document.removeEventListener('visibilitychange', intento);
-    console.info('sesión recuperada sin expulsar al usuario');
+  }
+
+  async function intento() {
+    // En segundo plano no cuenta como intento: no hay nada que reintentar
+    // hasta que la app vuelva a estar visible.
+    if (document.visibilityState === 'hidden') return;
+    const ok = await intentarRecuperarSesion();
+    if (ok) {
+      _reintentoPendiente = false;
+      _reintentosFallidos = 0;
+      dejarDeEscuchar();
+      console.info('sesión recuperada sin expulsar al usuario');
+      return;
+    }
+    _reintentosFallidos++;
+    if (_reintentosFallidos >= MAX_REINTENTOS_SESION) {
+      _reintentoPendiente = false;
+      _reintentosFallidos = 0;
+      dejarDeEscuchar();
+      console.warn('recuperación agotada tras ' + MAX_REINTENTOS_SESION + ' intentos — cerrando sesión');
+      handleSessionExpired();
+    }
   }
 
   window.addEventListener('online', intento);
