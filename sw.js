@@ -46,6 +46,7 @@ precaching.precacheAndRoute([
   { url: 'js/recurrentes-detect.js', revision: SHELL_VERSION },
   { url: 'js/brujula.js', revision: SHELL_VERSION },
   { url: 'js/flujo-proyeccion.js', revision: SHELL_VERSION },
+  { url: 'js/config-rutas.js', revision: SHELL_VERSION },
   { url: 'js/router.js', revision: SHELL_VERSION },
   { url: 'js/sidebar.js', revision: SHELL_VERSION },
   { url: 'js/nestra-db.js', revision: SHELL_VERSION },
