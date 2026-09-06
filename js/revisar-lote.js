@@ -25,12 +25,29 @@ function resumenLote(filas) {
   return { n: ls.length, total: Math.round(total * 100) / 100 };
 }
 
-// notaDePendiente(fila, bancoLabel) — texto base de la transacción.
-// Misma regla que usaba confirmar() en views/revisar.html: se extrae acá para
-// que la confirmación de a una y la de lote no puedan divergir.
-function notaDePendiente(fila, bancoLabel) {
+// normalizarContraparte(s) — clave estable para buscar el alias. Reutiliza la
+// misma normalización que autocat (minúsculas, sin tildes, espacios
+// colapsados) para que las variantes del banco caigan en la misma entrada.
+function normalizarContraparte(s) {
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD')
+    .replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// aliasDe(nombre, mapa) → alias | null. mapa: { nombre_norm: alias }.
+function aliasDe(nombre, mapa) {
+  if (!nombre || !mapa) return null;
+  return mapa[normalizarContraparte(nombre)] || null;
+}
+
+// notaDePendiente(fila, bancoLabel, aliases) — texto base de la transacción.
+// El alias gana: es lo que el usuario reconoce, y además es sobre lo que
+// autocat aprende (insertTransaccion tokeniza la nota), así que un alias corto
+// y estable enseña mucho mejor que un nombre completo que nunca se repite.
+function notaDePendiente(fila, bancoLabel, aliases) {
   if (!fila) return '';
   const labels = bancoLabel || {};
+  const ali = aliasDe(fila.comercio, aliases) || aliasDe(fila.contraparte, aliases);
+  if (ali) return ali;
   return fila.comercio || fila.contraparte || fila.raw_subject ||
     ('Correo ' + (labels[fila.banco] || fila.banco));
 }
@@ -39,5 +56,7 @@ if (typeof window !== 'undefined') {
   window.loteable = loteable;
   window.resumenLote = resumenLote;
   window.notaDePendiente = notaDePendiente;
+  window.normalizarContraparte = normalizarContraparte;
+  window.aliasDe = aliasDe;
 }
-export { loteable, resumenLote, notaDePendiente };
+export { loteable, resumenLote, notaDePendiente, normalizarContraparte, aliasDe };

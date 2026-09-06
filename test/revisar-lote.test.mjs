@@ -3,7 +3,7 @@
 // filas de ingest_pendientes tal como las devuelve getIngestPendientes().
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loteable, resumenLote, notaDePendiente } from '../js/revisar-lote.js';
+import { loteable, resumenLote, notaDePendiente, aliasDe } from '../js/revisar-lote.js';
 
 const BANCO_LABEL = { bbva: 'BBVA', bcp: 'BCP', yape: 'Yape' };
 
@@ -75,4 +75,28 @@ test('notaDePendiente: sin comercio cae a contraparte, luego al asunto', () => {
 test('notaDePendiente: sin nada usable, etiqueta el banco', () => {
   const f = fila({ comercio: null, contraparte: null, raw_subject: null });
   assert.equal(notaDePendiente(f, BANCO_LABEL), 'Correo BBVA');
+});
+
+test('aliasDe: encuentra el alias normalizando el nombre', () => {
+  const mapa = { 'rodolfo martin anderson huarcaya': 'Rodolfo (gimnasio)' };
+  assert.equal(aliasDe('RODOLFO MARTIN ANDERSON HUARCAYA', mapa), 'Rodolfo (gimnasio)');
+  assert.equal(aliasDe('  Rodolfo Martin Anderson Huarcaya  ', mapa), 'Rodolfo (gimnasio)');
+});
+
+test('aliasDe: sin alias devuelve null, no el nombre crudo', () => {
+  assert.equal(aliasDe('ALGUIEN NUEVO', {}), null);
+  assert.equal(aliasDe(null, {}), null);
+  assert.equal(aliasDe('X', null), null);
+});
+
+test('notaDePendiente: el alias gana al nombre del banco', () => {
+  const fila = { comercio: null, contraparte: 'KAREN R GAGO O', banco: 'bbva', raw_subject: 'x' };
+  const mapa = { 'karen r gago o': 'Karen' };
+  assert.equal(notaDePendiente(fila, { bbva: 'BBVA' }, mapa), 'Karen');
+});
+
+test('notaDePendiente: sin mapa se comporta igual que antes', () => {
+  // Compatibilidad: los llamadores que no pasen alias no cambian de conducta.
+  const fila = { comercio: 'LA PANERA CAFE', contraparte: null, banco: 'bbva', raw_subject: 'x' };
+  assert.equal(notaDePendiente(fila, { bbva: 'BBVA' }), 'LA PANERA CAFE');
 });

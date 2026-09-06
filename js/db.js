@@ -1826,3 +1826,41 @@ async function descartarIngestPendiente(id) {
 async function revertirIngestPendiente(id, estado) {
   await _aplicarIngestEstado(id, { estado: estado || 'pendiente', transaccion_id: null, resolved_at: null });
 }
+
+// getAliasContrapartes() — { nombre_norm: alias } del usuario. {} ante error:
+// el alias es una comodidad, nunca debe romper la cola de revisión.
+async function getAliasContrapartes() {
+  try {
+    const userId = _requireUserId();
+    const { data, error } = await supabase
+      .from('contraparte_alias')
+      .select('nombre_norm, alias')
+      .eq('user_id', userId);
+    if (error) throw error;
+    const mapa = {};
+    (data || []).forEach((r) => { mapa[r.nombre_norm] = r.alias; });
+    return mapa;
+  } catch (err) {
+    console.error('getAliasContrapartes():', err.message || err);
+    return {};
+  }
+}
+
+// setAliasContraparte(nombreRaw, alias) — alta o cambio. Alias vacío = borrar.
+async function setAliasContraparte(nombreRaw, alias) {
+  const userId = _requireUserId();
+  const norm = normalizarContraparte(nombreRaw);
+  if (!norm) throw new Error('nombre vacío');
+  const limpio = String(alias || '').trim();
+  if (!limpio) {
+    const { error } = await supabase.from('contraparte_alias')
+      .delete().eq('user_id', userId).eq('nombre_norm', norm);
+    if (error) throw error;
+    return null;
+  }
+  const { error } = await supabase.from('contraparte_alias')
+    .upsert({ user_id: userId, nombre_norm: norm, alias: limpio, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,nombre_norm' });
+  if (error) throw error;
+  return limpio;
+}

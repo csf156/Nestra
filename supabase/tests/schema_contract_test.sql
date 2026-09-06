@@ -34,7 +34,8 @@ declare
     'categorias_favoritas','hogar_miembros','metas_con_progreso','metas',
     'recurrentes','prestamos','desafios','plantillas','hogares',
     'hogar_codigos','hogar_liquidaciones','push_subscriptions',
-    'ingest_pendientes'  -- cola de revisión de ingesta (db.js getIngestPendientes/confirmar/descartar, 2026-07-15)
+    'ingest_pendientes', -- cola de revisión de ingesta (db.js getIngestPendientes/confirmar/descartar, 2026-07-15)
+    'contraparte_alias'  -- alias de contrapartes (db.js getAliasContrapartes/setAliasContraparte, 2026-09-05)
   ];
   v_tabla text;
   v_faltan text[] := array[]::text[];
