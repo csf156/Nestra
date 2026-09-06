@@ -103,6 +103,21 @@
       <h2 class="cfg-sub-titulo">Categorías y presupuestos</h2>
     </div>
     <div id="cfgCatBody">
+      <div class="cfg-cat-cabecera">
+        <input type="search" id="cfgCatBuscar" class="cfg-input"
+               placeholder="Buscar categoría…" autocomplete="off">
+        <div class="cfg-cat-segmentos" role="group" aria-label="Tipo de categoría">
+          <button type="button" class="cfg-seg is-activo" data-cat-tipo="gasto">Gastos</button>
+          <button type="button" class="cfg-seg" data-cat-tipo="ingreso">Ingresos</button>
+        </div>
+        <div class="cfg-cat-filtros">
+          <button type="button" class="cfg-chip" id="cfgCatChipSinPresupuesto" aria-pressed="false">
+            Sin presupuesto
+          </button>
+          <button type="button" class="cfg-chip" id="cfgCatOrdenToggle">Orden: cercanía al límite</button>
+        </div>
+      </div>
+
       <div class="cfg-acord-toolbar">
         <button type="button" class="cfg-btn-add" id="cfgCatAddBtn" aria-expanded="false">
           <span aria-hidden="true">+</span> Nueva
@@ -131,13 +146,19 @@
         </div>
       </div>
 
-      <div class="cfg-cat-grupo">
-        <p class="cfg-cat-tipo-label">Gastos</p>
+      <div class="cfg-cat-grupo" data-grupo-tipo="gasto">
         <ul class="cfg-cat-lista" id="cfgCatListaGastos" role="list"></ul>
+        <details class="cfg-cat-archivadas" hidden>
+          <summary>Archivadas (0)</summary>
+          <ul class="cfg-cat-lista" id="cfgCatArchivadasGastos" role="list"></ul>
+        </details>
       </div>
-      <div class="cfg-cat-grupo">
-        <p class="cfg-cat-tipo-label">Ingresos</p>
+      <div class="cfg-cat-grupo" data-grupo-tipo="ingreso" style="display:none">
         <ul class="cfg-cat-lista" id="cfgCatListaIngresos" role="list"></ul>
+        <details class="cfg-cat-archivadas" hidden>
+          <summary>Archivadas (0)</summary>
+          <ul class="cfg-cat-lista" id="cfgCatArchivadasIngresos" role="list"></ul>
+        </details>
       </div>
     </div>
   </section>
@@ -689,6 +710,70 @@
       box-sizing: border-box;
     }
     .cfg-cat-form-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+
+    /* ── Cabecera de categorías: buscador, segmentos, filtros ────────── */
+    .cfg-cat-cabecera {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+    }
+    .cfg-cat-segmentos { display: flex; gap: 6px; }
+    .cfg-seg {
+      flex: 1;
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      background: var(--bg-light);
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      text-align: center;
+    }
+    .cfg-seg.is-activo {
+      background: var(--color-primary);
+      color: #0a0a0a;
+      border-color: var(--color-primary);
+    }
+    .cfg-cat-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cfg-chip {
+      padding: 4px var(--space-sm);
+      border: 1px solid var(--border-light);
+      border-radius: 9999px;
+      background: var(--bg-light);
+      color: var(--text-secondary);
+      font-size: var(--font-size-xs);
+      cursor: pointer;
+    }
+    .cfg-chip.is-activo, .cfg-chip[aria-pressed="true"] {
+      background: var(--color-primary);
+      color: #0a0a0a;
+      border-color: var(--color-primary);
+    }
+
+    /* ── Ámbito del límite por fila (Personal/Hogar) ─────────────────── */
+    .cfg-cat-ambito { display: flex; gap: 4px; margin-top: 4px; }
+    .cfg-cat-ambito-seg {
+      padding: 1px 8px;
+      border: 1px solid var(--border-light);
+      border-radius: 9999px;
+      background: none;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .cfg-cat-ambito-seg.is-activo { background: var(--bg-light); color: inherit; border-color: var(--color-primary); }
+
+    /* ── Archivadas: bloque colapsado al fondo de cada tipo ──────────── */
+    .cfg-cat-archivadas { margin-top: var(--space-sm); }
+    .cfg-cat-archivadas summary {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: var(--space-xs) 0;
+    }
+
     .cfg-cat-grupo { margin-bottom: var(--space-md); }
     .cfg-cat-grupo:last-of-type { margin-bottom: 0; }
     .cfg-cat-tipo-label {
@@ -772,7 +857,16 @@
       color: var(--text-secondary);
     }
     .cfg-cat-icono-wrap .cat-icono { width: 18px; height: 18px; }
-    .cfg-cat-limite-static { font-size: var(--font-size-sm); color: var(--text-secondary); white-space: nowrap; }
+    .cfg-cat-limite-static {
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: var(--radius-sm);
+      transition: background 0.1s;
+    }
+    .cfg-cat-limite-static:hover { background: var(--bg-light); }
     .cfg-cat-item--archivada { opacity: 0.5; }
     .cfg-cat-badge-arch {
       display: inline-block; margin-left: var(--space-sm);
@@ -988,6 +1082,15 @@
     var _editCatId = null;
     var _editIconoSel = null;
 
+    // ── Pantalla de categorías (Task 3): estado de filtros/orden ────────
+    var _catFiltroTipo = 'gasto';          // 'gasto' | 'ingreso' — un tipo a la vez
+    var _catBuscar = '';                   // texto del buscador, normalizado al comparar
+    var _catSoloSinPresupuesto = false;    // chip "Sin presupuesto"
+    var _catOrdenAlfa = false;             // false = cercanía al límite (default), true = alfabético
+    var _catAmbito = {};                   // { [catId]: 'personal'|'hogar' } — ámbito mostrado por fila
+    var _gastoPorCat = {};                 // { [catId]: gastado este mes, ámbito personal }
+    var _gastoHogarPorCat = {};            // { [catId]: gastado este mes, ámbito hogar }
+
     /* ── Toast ──────────────────────────────────────────── */
     function mostrarToast(msg, ms) {
       clearTimeout(_toastTimer);
@@ -1059,18 +1162,38 @@
     }
 
     /* ── Categorías: render ─────────────────────────────── */
+    // ── Ámbito del límite (Task 3): solo gastos globales (user_id null) con
+    // hogar activo ofrecen los dos ámbitos — igual condición que usaba el
+    // bloque de Hogar que este selector reemplaza.
+    function catOfreceAmbito(cat) {
+      return cat.tipo === 'gasto' && cat.user_id == null &&
+        (typeof tieneHogar === 'function') && tieneHogar();
+    }
+
     function renderCatItem(cat) {
-      var lim = cat.limite_mensual != null ? formatMonto(cat.limite_mensual) : '—';
       var esArch = cat.estado === 'archivada';
+      var conAmbito = !esArch && catOfreceAmbito(cat);
+      var ambito = conAmbito ? (_catAmbito[cat.id] || 'personal') : 'personal';
+      var limiteActivo = ambito === 'hogar' ? cat.limite_mensual_hogar : cat.limite_mensual;
+      var lim = limiteActivo != null ? formatMonto(limiteActivo) : '—';
       var icono = (typeof iconoCategoria === 'function') ? iconoCategoria(cat.icono) : '';
       var starCls = cat.favorita ? 'cfg-cat-star cfg-cat-star--on' : 'cfg-cat-star';
       var starLabel = cat.favorita ? 'Quitar de favoritas' : 'Marcar como favorita';
       var badge = esArch ? '<span class="cfg-cat-badge-arch">archivada</span>' : '';
+      var ambitoHtml = conAmbito ?
+        '<div class="cfg-cat-ambito" role="group" aria-label="Ámbito del límite">' +
+          '<button type="button" class="cfg-cat-ambito-seg' + (ambito === 'personal' ? ' is-activo' : '') +
+            '" data-ambito="personal" aria-pressed="' + (ambito === 'personal') + '">Personal</button>' +
+          '<button type="button" class="cfg-cat-ambito-seg' + (ambito === 'hogar' ? ' is-activo' : '') +
+            '" data-ambito="hogar" aria-pressed="' + (ambito === 'hogar') + '">Hogar</button>' +
+        '</div>' : '';
       return '<li class="cfg-cat-item' + (esArch ? ' cfg-cat-item--archivada' : '') +
-          '" data-id="' + escHtml(cat.id) + '" data-tipo="' + escHtml(cat.tipo) + '">' +
+          '" data-id="' + escHtml(cat.id) + '" data-tipo="' + escHtml(cat.tipo) +
+          '" data-ambito="' + ambito + '">' +
         '<span class="cfg-cat-icono-wrap">' + icono + '</span>' +
         '<div class="cfg-cat-nombre-wrap">' +
           '<span class="cfg-cat-nombre-text">' + escHtml(cat.nombre) + '</span>' + badge +
+          ambitoHtml +
         '</div>' +
         '<div class="cfg-cat-limite-wrap">' +
           '<span class="cfg-cat-limite-static">' + escHtml(lim) + '</span>' +
@@ -1087,19 +1210,172 @@
       '</li>';
     }
 
+    // filtrarYOrdenar(tipo) — activas del tipo dado, con buscador + chip
+    // "sin presupuesto" aplicados, en el orden elegido. Las archivadas NO se
+    // filtran (el bloque "Archivadas" siempre muestra todas las del tipo).
+    function filtrarYOrdenar(tipo) {
+      var q = (typeof normalizeDesc === 'function') ? normalizeDesc(_catBuscar) : _catBuscar.toLowerCase();
+      var activas = _cats.filter(function (c) {
+        if (c.tipo !== tipo || c.estado === 'archivada') return false;
+        if (q) {
+          var nombreNorm = (typeof normalizeDesc === 'function') ? normalizeDesc(c.nombre || '') : (c.nombre || '').toLowerCase();
+          if (nombreNorm.indexOf(q) === -1) return false;
+        }
+        if (_catSoloSinPresupuesto && c.limite_mensual != null) return false;
+        return true;
+      });
+      if (_catOrdenAlfa) {
+        return activas.slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || ''); });
+      }
+      if (typeof ordenarPresupuestos !== 'function') return activas;
+      var filas = activas.map(function (c) {
+        var amb = (_catAmbito[c.id] || 'personal');
+        var limite = amb === 'hogar' ? c.limite_mensual_hogar : c.limite_mensual;
+        var gastado = amb === 'hogar' ? (_gastoHogarPorCat[c.id] || 0) : (_gastoPorCat[c.id] || 0);
+        return { cat: c, limite: Number(limite) || 0, gastado: gastado };
+      });
+      return ordenarPresupuestos(filas, 'limite', 'desc').map(function (f) { return f.cat; });
+    }
+
+    function archivadasDe(tipo) {
+      return _cats.filter(function (c) { return c.tipo === tipo && c.estado === 'archivada'; });
+    }
+
     function renderCategorias(cats) {
       _cats = cats || [];
-      function porGrupo(tipo) {
-        var grupo = _cats.filter(function (c) { return c.tipo === tipo; });
-        var activas = grupo.filter(function (c) { return c.estado !== 'archivada'; });
-        var arch    = grupo.filter(function (c) { return c.estado === 'archivada'; });
-        return activas.concat(arch);
-      }
-      var gastos   = porGrupo('gasto');
-      var ingresos = porGrupo('ingreso');
       var vacia = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">';
-      $('cfgCatListaGastos').innerHTML   = gastos.length   ? gastos.map(renderCatItem).join('')   : vacia + 'Sin categorías de gasto</li>';
-      $('cfgCatListaIngresos').innerHTML = ingresos.length ? ingresos.map(renderCatItem).join('') : vacia + 'Sin categorías de ingreso</li>';
+
+      ['gasto', 'ingreso'].forEach(function (tipo) {
+        var activasTotal = _cats.filter(function (c) { return c.tipo === tipo && c.estado !== 'archivada'; });
+        var filtradas = filtrarYOrdenar(tipo);
+        var arch = archivadasDe(tipo);
+        var listaId = tipo === 'gasto' ? 'cfgCatListaGastos' : 'cfgCatListaIngresos';
+        var archId  = tipo === 'gasto' ? 'cfgCatArchivadasGastos' : 'cfgCatArchivadasIngresos';
+        var segLabel = tipo === 'gasto' ? 'Gastos' : 'Ingresos';
+
+        $(listaId).innerHTML = filtradas.length ? filtradas.map(renderCatItem).join('')
+          : vacia + (activasTotal.length ? 'Ninguna coincide con el filtro' : 'Sin categorías de ' + (tipo === 'gasto' ? 'gasto' : 'ingreso')) + '</li>';
+
+        var archUl = $(archId);
+        if (archUl) archUl.innerHTML = arch.length ? arch.map(renderCatItem).join('') : '';
+        var archDetails = archUl ? archUl.closest('.cfg-cat-archivadas') : null;
+        var archSummary = archDetails ? archDetails.querySelector('summary') : null;
+        if (archSummary) archSummary.textContent = 'Archivadas (' + arch.length + ')';
+        if (archDetails) archDetails.hidden = arch.length === 0;
+
+        var seg = document.querySelector('.cfg-seg[data-cat-tipo="' + tipo + '"]');
+        if (seg) seg.textContent = segLabel + ' (' + activasTotal.length + ')';
+      });
+
+      // Un tipo a la vez: el segmento activo decide qué grupo se ve.
+      ['gasto', 'ingreso'].forEach(function (tipo) {
+        var grupo = document.querySelector('.cfg-cat-grupo[data-grupo-tipo="' + tipo + '"]');
+        if (grupo) grupo.style.display = (tipo === _catFiltroTipo) ? '' : 'none';
+      });
+
+      if (typeof refreshCfgSummaries === 'function') refreshCfgSummaries();
+    }
+
+    // ── Cabecera de categorías: buscador, segmentos, chip, orden ────────
+    (function initCfgCatCabecera() {
+      var buscar = $('cfgCatBuscar');
+      if (buscar) {
+        buscar.addEventListener('input', function () {
+          _catBuscar = buscar.value || '';
+          renderCategorias(_cats);
+        });
+      }
+      Array.prototype.forEach.call(document.querySelectorAll('.cfg-seg[data-cat-tipo]'), function (seg) {
+        seg.addEventListener('click', function () {
+          _catFiltroTipo = seg.getAttribute('data-cat-tipo');
+          Array.prototype.forEach.call(document.querySelectorAll('.cfg-seg[data-cat-tipo]'), function (s) {
+            s.classList.toggle('is-activo', s === seg);
+          });
+          renderCategorias(_cats);
+        });
+      });
+      var chip = $('cfgCatChipSinPresupuesto');
+      if (chip) {
+        chip.addEventListener('click', function () {
+          _catSoloSinPresupuesto = !_catSoloSinPresupuesto;
+          chip.setAttribute('aria-pressed', _catSoloSinPresupuesto ? 'true' : 'false');
+          chip.classList.toggle('is-activo', _catSoloSinPresupuesto);
+          renderCategorias(_cats);
+        });
+      }
+      var ordenBtn = $('cfgCatOrdenToggle');
+      if (ordenBtn) {
+        ordenBtn.addEventListener('click', function () {
+          _catOrdenAlfa = !_catOrdenAlfa;
+          ordenBtn.textContent = _catOrdenAlfa ? 'Orden: A-Z' : 'Orden: cercanía al límite';
+          renderCategorias(_cats);
+        });
+      }
+    })();
+
+    // ── Edición en línea del límite (atajo: tap en el número) ───────────
+    // Se queda como atajo junto al modal completo (editar categoría), que
+    // sigue sirviendo para nombre/ícono/esencial. Escribe la MISMA columna
+    // que el modal (limite_mensual) o, con ámbito hogar, limite_mensual_hogar
+    // — mismo updateCategoria, sin migración.
+    function abrirEdicionInlineLimite(span) {
+      var li = span.closest('.cfg-cat-item');
+      if (!li) return;
+      var id = li.dataset.id;
+      var cat = _cats.find(function (c) { return c.id === id; });
+      if (!cat) return;
+      var ambito = li.dataset.ambito === 'hogar' ? 'hogar' : 'personal';
+      var actual = ambito === 'hogar' ? cat.limite_mensual_hogar : cat.limite_mensual;
+
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.min = '0';
+      input.step = '0.01';
+      input.className = 'cfg-cat-limite-input';
+      input.value = actual != null ? actual : '';
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+
+      var terminado = false;
+      function volverAEstatico(texto) {
+        if (terminado) return;
+        terminado = true;
+        var nuevoSpan = document.createElement('span');
+        nuevoSpan.className = 'cfg-cat-limite-static';
+        nuevoSpan.textContent = texto;
+        if (input.parentNode) input.replaceWith(nuevoSpan);
+      }
+      var textoOriginal = actual != null ? formatMonto(actual) : '—';
+
+      async function guardar() {
+        if (terminado) return;
+        var raw = input.value.trim();
+        if (raw !== '' && !(parseFloat(raw) >= 0)) {
+          mostrarToast('Ingresa un número válido', 3000);
+          volverAEstatico(textoOriginal);
+          return;
+        }
+        var val = raw === '' ? null : parseFloat(raw);
+        var campo = ambito === 'hogar' ? 'limite_mensual_hogar' : 'limite_mensual';
+        var datos = {};
+        datos[campo] = val;
+        try {
+          await updateCategoria(id, datos);
+          cat[campo] = val;
+          volverAEstatico(val != null ? formatMonto(val) : '—');
+          if (typeof refreshCfgSummaries === 'function') refreshCfgSummaries();
+        } catch (err) {
+          volverAEstatico(textoOriginal);
+          mostrarToast('No se pudo guardar el límite', 4000);
+        }
+      }
+      input.addEventListener('blur', guardar);
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+        else if (ev.key === 'Escape') { volverAEstatico(textoOriginal); }
+      });
     }
 
     /* ── Favorita toggle ────────────────────────────────── */
@@ -1278,6 +1554,15 @@
       var ul = $(ulId);
       if (!ul) return;
       ul.addEventListener('click', function (e) {
+        var ambitoBtn = e.target.closest('.cfg-cat-ambito-seg');
+        if (ambitoBtn) {
+          var liA = ambitoBtn.closest('.cfg-cat-item');
+          _catAmbito[liA.dataset.id] = ambitoBtn.dataset.ambito;
+          renderCategorias(_cats);
+          return;
+        }
+        var limSpan = e.target.closest('.cfg-cat-limite-static');
+        if (limSpan) { abrirEdicionInlineLimite(limSpan); return; }
         var btn = e.target.closest('[data-act]');
         if (!btn) return;
         var li  = btn.closest('.cfg-cat-item');
@@ -1309,9 +1594,12 @@
       try {
         await archivarCategoria(id);
         cerrarDeleteModal();
-        var li = document.querySelector('.cfg-cat-item[data-id="' + id + '"]');
-        if (li) li.remove();
-        _cats = _cats.filter(function (c) { return c.id !== id; });
+        // Marcar archivada (no quitar de _cats): sigue existiendo, ahora en
+        // el bloque "Archivadas" — igual que el archivar desde la hoja de
+        // acciones (cfgAccArchivar), que sí lo hacía bien.
+        var cat = _cats.find(function (c) { return c.id === id; });
+        if (cat) cat.estado = 'archivada';
+        renderCategorias(_cats);
         mostrarToast('Categoría archivada', 3000);
       } catch (err) {
         btn.disabled = false;
@@ -1333,9 +1621,8 @@
         }
         await deleteCategoria(id);
         cerrarDeleteModal();
-        var li = document.querySelector('.cfg-cat-item[data-id="' + id + '"]');
-        if (li) li.remove();
         _cats = _cats.filter(function (c) { return c.id !== id; });
+        renderCategorias(_cats);
         mostrarToast('Categoría eliminada', 3000);
       } catch (err) {
         btn.disabled = false;
@@ -1408,11 +1695,7 @@
       try {
         var nueva = await insertCategoria(datos);
         _cats.push(nueva);
-        var ulId = tipo === 'gasto' ? 'cfgCatListaGastos' : 'cfgCatListaIngresos';
-        var ul = $(ulId);
-        var empty = ul.querySelector('li:not(.cfg-cat-item)');
-        if (empty) empty.remove();
-        ul.insertAdjacentHTML('beforeend', renderCatItem(nueva));
+        renderCategorias(_cats);
         $('cfgCatNombre').value = '';
         $('cfgCatLimite').value = '';
         $('cfgCatForm').style.display = 'none';
@@ -1729,14 +2012,29 @@
     async function cargar() {
       $('cfgLoading').style.display = 'flex';
       try {
+        // Gasto por categoría del mes actual: solo para el orden por cercanía
+        // al límite (js/presupuestos-orden.js), igual que el dashboard. Es
+        // decorativo del orden — si falla, se cae a orden de inserción y no
+        // rompe el resto de la pantalla.
+        var hogarActivo = (typeof tieneHogar === 'function') && tieneHogar();
+        var periodo = (typeof mesActual === 'function') ? mesActual() : null;
+        var pGasto = periodo ? getGastosPorCategoriaMes(periodo.mes, periodo.anio).catch(function () { return {}; }) : Promise.resolve({});
+        var pGastoHogar = (periodo && hogarActivo) ? getGastoHogarPorCategoria(periodo.mes, periodo.anio).catch(function () { return {}; }) : Promise.resolve({});
+
         var res = await Promise.all([
           getProfiles(),
           getCategoriasConFavorito(null, true),
+          pGasto,
+          pGastoHogar,
         ]);
+        _gastoPorCat = res[2] || {};
+        _gastoHogarPorCat = res[3] || {};
         renderPerfiles(res[0]);
         renderCategorias(res[1]);
         delegarCats('cfgCatListaGastos');
         delegarCats('cfgCatListaIngresos');
+        delegarCats('cfgCatArchivadasGastos');
+        delegarCats('cfgCatArchivadasIngresos');
         initPreferencias();
         try { await cargarRecurrentes(); } catch (recErr) { console.error('cargarRecurrentes:', recErr); }
       } catch (err) {
@@ -1788,8 +2086,13 @@
         return partsD.join(' · ');
       }
       if (key === 'categorias') {
-        var c = n('#cfgCatListaGastos .cfg-cat-item') + n('#cfgCatListaIngresos .cfg-cat-item');
-        return c ? c + (c === 1 ? ' categoría' : ' categorías') : '';
+        // Del inventario completo (_cats), no de lo filtrado en pantalla —
+        // el buscador/segmento no debe mover el resumen del índice.
+        var gastosAct = _cats.filter(function (c) { return c.tipo === 'gasto' && c.estado !== 'archivada'; });
+        if (!gastosAct.length) return '';
+        var conLimite = gastosAct.filter(function (c) { return c.limite_mensual != null; });
+        return gastosAct.length + (gastosAct.length === 1 ? ' gasto' : ' gastos') +
+          ' · ' + conLimite.length + ' con presupuesto';
       }
       if (key === 'automatismos') {
         var recCnt = n('#recLista .cfg-rec-item');
@@ -2050,7 +2353,6 @@
         var miembros = st.miembros || [];
         var uid = (window.currentUser && window.currentUser.id) || null;
         var body = $('cfgHogarBody');
-        var catsHogar = (await getCategorias('gasto')).filter(function (c) { return c.user_id == null; });
         body.innerHTML =
           '<div class="cfg-input-group">' +
             '<label class="cfg-label" for="cfgHogarNombre">Nombre del hogar</label>' +
@@ -2076,15 +2378,8 @@
             '<button type="button" class="btn btn-secondary btn-sm cfg-reparto-btn" data-modo="proporcional">Proporcional al aporte esperado</button>' +
           '</div>' +
           '<div class="cfg-datos-separador"></div>' +
-          '<p class="cfg-label">Presupuesto del hogar por categoría (S/)</p>' +
-          catsHogar.map(function (c) {
-            var lim = (c.limite_mensual_hogar != null ? c.limite_mensual_hogar : '');
-            return '<div class="cfg-input-group" data-catid="' + escHtml(c.id) + '">' +
-              '<label class="cfg-label">' + escHtml(c.nombre) + '</label>' +
-              '<input class="cfg-input cfg-hogar-limite" type="number" inputmode="decimal" min="0" step="0.01" value="' + escHtml(String(lim)) + '">' +
-              '<button type="button" class="btn btn-secondary btn-sm cfg-hogar-limite-save">Guardar</button>' +
-            '</div>';
-          }).join('');
+          '<p class="cfg-label">El presupuesto del hogar por categoría se edita ahora en ' +
+            '<a href="#configuracion/categorias">Categorías y presupuestos</a>, con el selector de ámbito en cada fila.</p>';
         $('cfgHogarNombreSave').addEventListener('click', async function () {
           try { await renombrarHogar($('cfgHogarNombre').value); mostrarToast('Nombre actualizado', 3000); }
           catch (e) { mostrarToast((e && e.message) || 'No se pudo renombrar', 4000); }
@@ -2108,15 +2403,6 @@
             var modo = btn.getAttribute('data-modo');
             try { await setRepartoHogar(modo); mostrarToast('Reparto actualizado', 3000); await render(); }
             catch (e) { mostrarToast((e && e.message) || 'No se pudo cambiar el reparto', 4000); }
-          });
-        });
-        Array.prototype.forEach.call(body.querySelectorAll('.cfg-hogar-limite-save'), function (btn) {
-          btn.addEventListener('click', async function () {
-            var grp = btn.closest('[data-catid]');
-            var catId = grp.getAttribute('data-catid');
-            var val = parseFloat(grp.querySelector('.cfg-hogar-limite').value);
-            try { await updateCategoria(catId, { limite_mensual_hogar: (val > 0 ? val : null) }); mostrarToast('Presupuesto del hogar guardado', 3000); }
-            catch (e) { mostrarToast((e && e.message) || 'No se pudo guardar', 4000); }
           });
         });
       }
