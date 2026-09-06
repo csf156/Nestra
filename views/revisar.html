@@ -152,6 +152,8 @@
 
   .rev-compact-foot { display: flex; align-items: center; gap: var(--space-sm); }
   .rev-comercio { font-weight: var(--font-weight-semibold); margin-bottom: 2px; overflow-wrap: anywhere; }
+  .rev-alias-btn { background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); font-size: .9rem; padding: 0 .25rem; }
   .rev-original { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); }
   .rev-original.rev-original-warn { color: var(--color-warning); }
   .rev-raw { color: var(--text-secondary); font-size: var(--font-size-xs); margin-bottom: var(--space-sm); overflow-wrap: anywhere; }
@@ -221,7 +223,8 @@
                 'insertTransaccion', 'getCategorias', 'registrarGastoHogar',
                 'validarPartesGastoHogar', 'confirmarLoteIngest', 'loteable',
                 'resumenLote', 'notaDePendiente', 'getMapaComercioCategoria',
-                'mergeLearned'].filter(function (f) {
+                'mergeLearned', 'getAliasContrapartes', 'setAliasContraparte',
+                'aliasDe', 'normalizarContraparte'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -260,6 +263,13 @@
   var BANCO_LABEL = { bbva: 'BBVA', bcp: 'BCP', yape: 'Yape' };
   var _cats = { gasto: null, ingreso: null };   // cache de categorías por tipo
   var _learned = {};
+  var _aliases = {};
+  // editarAlias() vuelve a llamar a init() para repintar con el alias nuevo.
+  // Sin esta guarda, cada repintado re-enganchaba TODOS los listeners de
+  // abajo sobre los mismos elementos (listaEl no se recrea, solo su
+  // innerHTML), duplicando cada click/keydown/input a partir del segundo
+  // alias que se edite. Se engancha una sola vez por carga real de la vista.
+  var _listenersListaEnganchados = false;
 
   async function catsPara(tipo) {
     var t = (tipo === 'ingreso') ? 'ingreso' : 'gasto'; // ahorro no lleva categoría
@@ -304,7 +314,9 @@
   async function cardHTML(p, i) {
     var manual = p.estado === 'revisar-manual';
     var tipo = p.tipo || 'gasto';
-    var texto = p.comercio || p.contraparte || '';
+    var textoCrudo = p.comercio || p.contraparte || '';
+    var ali = (typeof aliasDe === 'function') ? aliasDe(textoCrudo, _aliases) : null;
+    var texto = ali || textoCrudo;
     var sugerida = manual ? null : await sugerirCategoria(texto, tipo);
     var cats = await catsPara(tipo);
 
@@ -319,6 +331,10 @@
     var checkHTML = manual ? '' :
       '<input type="checkbox" class="rev-check" data-rev-check="' + i + '" ' +
       'aria-label="Seleccionar para confirmar en lote">';
+    var btnAlias = textoCrudo
+      ? '<button type="button" class="rev-alias-btn" data-rev-alias="' + i + '" ' +
+        'aria-label="Ponerle un nombre a ' + esc(textoCrudo) + '">✎</button>'
+      : '';
 
     return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
@@ -331,7 +347,7 @@
             '<span class="rev-fecha-correo">' + esc(fmtFechaCorreo(p.created_at)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
           '</div>' +
-          (texto ? '<p class="rev-comercio">' + esc(texto) + '</p>' : '') +
+          (texto ? '<p class="rev-comercio">' + esc(texto) + btnAlias + '</p>' : '') +
           '<p class="rev-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</p>' +
           '<div class="rev-compact-foot">' +
             '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + (sinCat ? ' rev-chip--sin-cat' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
@@ -545,7 +561,7 @@
       }
     }
 
-    var base = notaDePendiente(p, BANCO_LABEL);
+    var base = notaDePendiente(p, BANCO_LABEL, _aliases);
     var userNotaEl = document.getElementById('revNota' + i);
     var userNota = userNotaEl ? userNotaEl.value.trim() : '';
     var nota = userNota ? base + ' — ' + userNota : base;
@@ -653,6 +669,28 @@
     _catPopIdx = null;
   }
 
+  // editarAlias(i) — nombre propio para la contraparte de la fila i.
+  // Se guarda por nombre normalizado, así que aplica a todos los movimientos
+  // de esa misma persona, pasados y futuros, en la cola.
+  async function editarAlias(i) {
+    var p = _filas[i];
+    if (!p) return;
+    var crudo = p.comercio || p.contraparte || '';
+    if (!crudo) return;
+    var actual = aliasDe(crudo, _aliases) || '';
+    var nuevo = window.prompt('Nombre para "' + crudo + '" (vacío para quitarlo):', actual);
+    if (nuevo === null) return;            // canceló
+    try {
+      var guardado = await setAliasContraparte(crudo, nuevo);
+      var clave = normalizarContraparte(crudo);
+      if (guardado) _aliases[clave] = guardado; else delete _aliases[clave];
+      await init();                        // repinta la lista con el alias nuevo
+    } catch (e) {
+      console.error('setAliasContraparte falló:', e);
+      mostrarError(i, 'No se pudo guardar el nombre. Reintenta.');
+    }
+  }
+
   function indicesSeleccionados() {
     var out = [];
     Array.prototype.forEach.call(
@@ -696,7 +734,7 @@
       var f = _filas[i];
       var cat = catDeFila(i);
       if (!loteable(f, cat)) return;   // defensa: no confiar solo en el checkbox
-      items.push({ fila: f, categoria_id: cat, nota: notaDePendiente(f, BANCO_LABEL) });
+      items.push({ fila: f, categoria_id: cat, nota: notaDePendiente(f, BANCO_LABEL, _aliases) });
     });
     if (!items.length) return;
     btn.disabled = true;
@@ -906,6 +944,7 @@
           }));
         } catch (e) { console.error('mapa de servidor:', e); }
       }
+      if (typeof getAliasContrapartes === 'function') _aliases = await getAliasContrapartes();
       _filas = await getIngestPendientes();
       loadingEl.style.display = 'none';
       if (!_filas.length) { renderVacio(); return; }
@@ -935,6 +974,8 @@
         });
       }
 
+      if (!_listenersListaEnganchados) {
+      _listenersListaEnganchados = true;
       listaEl.addEventListener('click', function (ev) {
         var chk = ev.target.closest('[data-rev-check]');
         if (chk) {
@@ -942,6 +983,12 @@
           // [data-rev-expandir], así que hay que cortar acá.
           ev.stopPropagation();
           pintarBarraLote();
+          return;
+        }
+        var aliasBtn = ev.target.closest('[data-rev-alias]');
+        if (aliasBtn) {
+          ev.stopPropagation();
+          editarAlias(Number(aliasBtn.getAttribute('data-rev-alias')));
           return;
         }
         var chipBtn = ev.target.closest('[data-rev-chip]');
@@ -1032,6 +1079,7 @@
           if (mIdx) actualizarRestante(Number(mIdx[1]));
         }
       });
+      } // fin de la guarda _listenersListaEnganchados
     } catch (e) {
       console.error('revisar init falló:', e);
       loadingEl.style.display = 'none';
