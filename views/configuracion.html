@@ -11,26 +11,98 @@
     <div class="skeleton skeleton-card" style="height:60px"></div>
   </div>
 
-  <!-- S1: Perfiles -->
-  <section class="cfg-card cfg-acord" id="cfgPerfilesSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPerfilesBody">
-      <span class="cfg-acord-title">Perfiles</span>
-      <span class="cfg-acord-summary" data-summary="perfiles"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgPerfilesBody">
-      <div id="cfgPerfilesCont"></div>
+  <!-- Índice de 6 sub-vistas (reemplaza los 7 acordeones) -->
+  <nav class="cfg-indice" id="cfgIndice" aria-label="Secciones de configuración">
+    <a class="cfg-indice-fila" href="#configuracion/dinero">
+      <span class="cfg-indice-nombre">Tu dinero</span>
+      <span class="cfg-indice-sub" data-summary="dinero"></span>
+    </a>
+    <a class="cfg-indice-fila" href="#configuracion/categorias">
+      <span class="cfg-indice-nombre">Categorías y presupuestos</span>
+      <span class="cfg-indice-sub" data-summary="categorias"></span>
+    </a>
+    <a class="cfg-indice-fila" href="#configuracion/automatismos">
+      <span class="cfg-indice-nombre">Automatismos</span>
+      <span class="cfg-indice-sub" data-summary="automatismos"></span>
+    </a>
+    <a class="cfg-indice-fila" href="#configuracion/hogar" id="cfgIndiceHogar">
+      <span class="cfg-indice-nombre">Hogar</span>
+      <span class="cfg-indice-sub" data-summary="hogar"></span>
+    </a>
+    <a class="cfg-indice-fila" href="#configuracion/apariencia">
+      <span class="cfg-indice-nombre">Apariencia y avisos</span>
+      <span class="cfg-indice-sub" data-summary="apariencia"></span>
+      <button type="button" class="cfg-toggle cfg-indice-dark" id="cfgDarkToggle"
+              role="switch" aria-checked="false" aria-label="Activar modo oscuro">
+        <span class="cfg-toggle-thumb"></span>
+      </button>
+    </a>
+    <a class="cfg-indice-fila" href="#configuracion/cuenta">
+      <span class="cfg-indice-nombre">Cuenta y datos</span>
+      <span class="cfg-indice-sub" data-summary="cuenta"></span>
+    </a>
+  </nav>
+
+  <!-- Tu dinero -->
+  <section class="cfg-card cfg-sub" id="cfgDineroSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Tu dinero</h2>
+    </div>
+    <div class="cfg-pref-lista">
+      <div class="cfg-pref-row cfg-pref-row--readonly">
+        <span class="cfg-pref-nombre">Moneda principal</span>
+        <span class="cfg-pref-valor" id="cfgMonedaValor">—</span>
+      </div>
+      <div class="cfg-pref-row">
+        <span class="cfg-pref-nombre">Ahorro para metas</span>
+        <span class="cfg-pct-wrap">
+          <input id="cfgPctAhorro" class="cfg-input cfg-pct-input" type="number"
+                 inputmode="numeric" min="0" max="80" step="1"
+                 aria-describedby="cfgPctAhorroHint">
+          <span class="cfg-pct-signo" aria-hidden="true">%</span>
+        </span>
+      </div>
+      <p class="cfg-pref-hint" id="cfgPctAhorroHint">
+        Del dinero que te queda cada mes tras los gastos fijos, cuánto se
+        reserva para tus metas. Afecta al número de «Puedes gastar hoy».
+      </p>
+      <div class="cfg-pref-row" id="cfgPctFondoPersonalRow">
+        <span class="cfg-pref-nombre">Aporte al fondo personal</span>
+        <span class="cfg-pct-wrap">
+          <input id="cfgPctFondoPersonal" class="cfg-input cfg-pct-input" type="number"
+                 inputmode="numeric" min="0" max="50" step="1"
+                 aria-describedby="cfgPctFondoHint">
+          <span class="cfg-pct-signo" aria-hidden="true">%</span>
+        </span>
+      </div>
+      <div class="cfg-pref-row" id="cfgPctFondoHogarRow" hidden>
+        <span class="cfg-pref-nombre">Aporte al fondo del hogar</span>
+        <span class="cfg-pct-wrap">
+          <input id="cfgPctFondoHogar" class="cfg-input cfg-pct-input" type="number"
+                 inputmode="numeric" min="0" max="50" step="1"
+                 aria-describedby="cfgPctFondoHint">
+          <span class="cfg-pct-signo" aria-hidden="true">%</span>
+        </span>
+      </div>
+      <p class="cfg-pref-hint" id="cfgPctFondoHint">
+        De cada ahorro general, cuánto va al fondo de emergencia. El resto se
+        reparte entre tus metas. (Sin metas, el fondo recibe todo.)
+      </p>
     </div>
   </section>
 
-  <!-- S2: Categorías -->
-  <section class="cfg-card cfg-acord" id="cfgCatSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgCatBody">
-      <span class="cfg-acord-title">Categorías</span>
-      <span class="cfg-acord-summary" data-summary="categorias"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgCatBody">
+  <!-- Categorías y presupuestos -->
+  <section class="cfg-card cfg-sub" id="cfgCatSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Categorías y presupuestos</h2>
+    </div>
+    <div id="cfgCatBody">
       <div class="cfg-acord-toolbar">
         <button type="button" class="cfg-btn-add" id="cfgCatAddBtn" aria-expanded="false">
           <span aria-hidden="true">+</span> Nueva
@@ -70,198 +142,163 @@
     </div>
   </section>
 
-  <!-- S2b: Gastos recurrentes -->
-  <section class="cfg-card cfg-acord" id="cfgRecurrentesSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgRecBody">
-      <span class="cfg-acord-title">Gastos recurrentes</span>
-      <span class="cfg-acord-summary" data-summary="recurrentes"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgRecBody">
-      <p class="cfg-section-desc">Suscripciones e ingresos fijos. Alimentan la proyección de saldo.</p>
-
-      <div class="cfg-stat">
-        <span class="cfg-stat-label">Comprometido al mes</span>
-        <span class="signature-num cfg-stat-num" id="recTotalMes">S/ 0.00</span>
-      </div>
-
-      <ul class="cfg-cat-lista" id="recLista" role="list" aria-live="polite"></ul>
-
-      <div id="recDetectadosWrap" hidden>
-        <p class="cfg-cat-tipo-label">Detectados en tu historial</p>
-        <ul class="cfg-cat-lista" id="recDetectados" role="list"></ul>
-      </div>
-
-      <form id="recForm" class="cfg-form-grid" autocomplete="off">
-        <div class="cfg-input-group cfg-col-2">
-          <label class="cfg-label" for="recDesc">Descripción</label>
-          <input class="cfg-input" id="recDesc" type="text" placeholder="ej. Netflix" required maxlength="80">
-        </div>
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="recMonto">Monto</label>
-          <input class="cfg-input" id="recMonto" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00" required>
-        </div>
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="recDia">Día de cargo</label>
-          <input class="cfg-input" id="recDia" type="number" inputmode="numeric" min="1" max="31" placeholder="1-31">
-        </div>
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="recTipo">Tipo</label>
-          <select class="cfg-select" id="recTipo">
-            <option value="gasto">Gasto</option>
-            <option value="ingreso">Ingreso</option>
-          </select>
-        </div>
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="recFrec">Frecuencia</label>
-          <select class="cfg-select" id="recFrec">
-            <option value="mensual">Mensual</option>
-            <option value="quincenal">Quincenal</option>
-            <option value="semanal">Semanal</option>
-          </select>
-        </div>
-        <div class="cfg-input-group cfg-col-2">
-          <label class="cfg-label" for="recCat">Categoría</label>
-          <select class="cfg-select" id="recCat"><option value="">Sin categoría</option></select>
-        </div>
-        <button class="btn btn-primary btn-sm cfg-col-2" type="submit">Agregar recurrente</button>
-      </form>
+  <!-- Automatismos: Recurrentes + Plantillas completas -->
+  <section class="cfg-card cfg-sub" id="cfgAutomatismosSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Automatismos</h2>
     </div>
+
+    <section class="cfg-sub-bloque" id="cfgRecurrentesSection">
+      <h3 class="cfg-sub-bloque-titulo">Gastos recurrentes</h3>
+      <div id="cfgRecBody">
+        <p class="cfg-section-desc">Suscripciones e ingresos fijos. Alimentan la proyección de saldo.</p>
+
+        <div class="cfg-stat">
+          <span class="cfg-stat-label">Comprometido al mes</span>
+          <span class="signature-num cfg-stat-num" id="recTotalMes">S/ 0.00</span>
+        </div>
+
+        <ul class="cfg-cat-lista" id="recLista" role="list" aria-live="polite"></ul>
+
+        <div id="recDetectadosWrap" hidden>
+          <p class="cfg-cat-tipo-label">Detectados en tu historial</p>
+          <ul class="cfg-cat-lista" id="recDetectados" role="list"></ul>
+        </div>
+
+        <form id="recForm" class="cfg-form-grid" autocomplete="off">
+          <div class="cfg-input-group cfg-col-2">
+            <label class="cfg-label" for="recDesc">Descripción</label>
+            <input class="cfg-input" id="recDesc" type="text" placeholder="ej. Netflix" required maxlength="80">
+          </div>
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="recMonto">Monto</label>
+            <input class="cfg-input" id="recMonto" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00" required>
+          </div>
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="recDia">Día de cargo</label>
+            <input class="cfg-input" id="recDia" type="number" inputmode="numeric" min="1" max="31" placeholder="1-31">
+          </div>
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="recTipo">Tipo</label>
+            <select class="cfg-select" id="recTipo">
+              <option value="gasto">Gasto</option>
+              <option value="ingreso">Ingreso</option>
+            </select>
+          </div>
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="recFrec">Frecuencia</label>
+            <select class="cfg-select" id="recFrec">
+              <option value="mensual">Mensual</option>
+              <option value="quincenal">Quincenal</option>
+              <option value="semanal">Semanal</option>
+            </select>
+          </div>
+          <div class="cfg-input-group cfg-col-2">
+            <label class="cfg-label" for="recCat">Categoría</label>
+            <select class="cfg-select" id="recCat"><option value="">Sin categoría</option></select>
+          </div>
+          <button class="btn btn-primary btn-sm cfg-col-2" type="submit">Agregar recurrente</button>
+        </form>
+      </div>
+    </section>
+
+    <div class="cfg-sub-bloque-separador"></div>
+
+    <section class="cfg-sub-bloque" id="cfgPlantillasSection">
+      <h3 class="cfg-sub-bloque-titulo">Plantillas rápidas</h3>
+      <div id="cfgPlantillasBody">
+        <p class="cfg-plantillas-hint">Atajos de 1 toque para registrar gastos frecuentes.</p>
+        <div id="cfgPlantillasLista"></div>
+        <form id="cfgPlantillaForm" class="cfg-form-grid" autocomplete="off">
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="cpNombre">Nombre</label>
+            <input type="text" id="cpNombre" class="cfg-input" placeholder="ej: Pasaje" maxlength="40" required>
+          </div>
+          <div class="cfg-input-group">
+            <label class="cfg-label" for="cpMonto">Monto</label>
+            <input type="number" id="cpMonto" class="cfg-input" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
+          </div>
+          <div class="cfg-input-group cfg-col-2">
+            <label class="cfg-label" for="cpCategoria">Categoría</label>
+            <select id="cpCategoria" class="cfg-select"></select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm cfg-col-2">Crear</button>
+        </form>
+      </div>
+    </section>
   </section>
 
-  <!-- S3: Preferencias -->
-  <section class="cfg-card cfg-acord" id="cfgPrefSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPrefBody">
-      <span class="cfg-acord-title">Preferencias</span>
-      <span class="cfg-acord-summary" data-summary="preferencias"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgPrefBody">
-      <div class="cfg-pref-lista">
-        <div class="cfg-pref-row">
-          <span class="cfg-pref-nombre">Modo oscuro</span>
-          <button type="button" class="cfg-toggle" id="cfgDarkToggle"
-                  role="switch" aria-checked="false" aria-label="Activar modo oscuro">
-            <span class="cfg-toggle-thumb"></span>
-          </button>
-        </div>
-        <div class="cfg-pref-row cfg-pref-row--readonly">
-          <span class="cfg-pref-nombre">Moneda principal</span>
-          <span class="cfg-pref-valor" id="cfgMonedaValor">—</span>
-        </div>
-        <div class="cfg-pref-row">
-          <span class="cfg-pref-nombre">Ahorro para metas</span>
-          <span class="cfg-pct-wrap">
-            <input id="cfgPctAhorro" class="cfg-input cfg-pct-input" type="number"
-                   inputmode="numeric" min="0" max="80" step="1"
-                   aria-describedby="cfgPctAhorroHint">
-            <span class="cfg-pct-signo" aria-hidden="true">%</span>
-          </span>
-        </div>
-        <p class="cfg-pref-hint" id="cfgPctAhorroHint">
-          Del dinero que te queda cada mes tras los gastos fijos, cuánto se
-          reserva para tus metas. Afecta al número de «Puedes gastar hoy».
-        </p>
-        <div class="cfg-pref-row" id="cfgPctFondoPersonalRow">
-          <span class="cfg-pref-nombre">Aporte al fondo personal</span>
-          <span class="cfg-pct-wrap">
-            <input id="cfgPctFondoPersonal" class="cfg-input cfg-pct-input" type="number"
-                   inputmode="numeric" min="0" max="50" step="1"
-                   aria-describedby="cfgPctFondoHint">
-            <span class="cfg-pct-signo" aria-hidden="true">%</span>
-          </span>
-        </div>
-        <div class="cfg-pref-row" id="cfgPctFondoHogarRow" hidden>
-          <span class="cfg-pref-nombre">Aporte al fondo del hogar</span>
-          <span class="cfg-pct-wrap">
-            <input id="cfgPctFondoHogar" class="cfg-input cfg-pct-input" type="number"
-                   inputmode="numeric" min="0" max="50" step="1"
-                   aria-describedby="cfgPctFondoHint">
-            <span class="cfg-pct-signo" aria-hidden="true">%</span>
-          </span>
-        </div>
-        <p class="cfg-pref-hint" id="cfgPctFondoHint">
-          De cada ahorro general, cuánto va al fondo de emergencia. El resto se
-          reparte entre tus metas. (Sin metas, el fondo recibe todo.)
-        </p>
-        <div class="cfg-pref-row" id="pushToggleRow" hidden>
-          <span class="cfg-pref-nombre">Notificaciones push</span>
-          <button type="button" class="cfg-toggle" id="pushToggle"
-                  role="switch" aria-checked="false" aria-label="Activar notificaciones push">
-            <span class="cfg-toggle-thumb"></span>
-          </button>
-        </div>
-        <div class="cfg-pref-row cfg-pref-row--readonly">
-          <span class="cfg-pref-nombre">Idioma</span>
-          <span class="cfg-pref-valor">Español</span>
-        </div>
+  <!-- Hogar (Fase 6.1) -->
+  <section class="cfg-card cfg-sub" id="cfgHogarSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Hogar</h2>
+    </div>
+    <div id="cfgHogarBody"></div>
+  </section>
+
+  <!-- Apariencia y avisos -->
+  <section class="cfg-card cfg-sub" id="cfgAparienciaSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Apariencia y avisos</h2>
+    </div>
+    <div class="cfg-pref-lista">
+      <div class="cfg-pref-row" id="pushToggleRow" hidden>
+        <span class="cfg-pref-nombre">Notificaciones push</span>
+        <button type="button" class="cfg-toggle" id="pushToggle"
+                role="switch" aria-checked="false" aria-label="Activar notificaciones push">
+          <span class="cfg-toggle-thumb"></span>
+        </button>
+      </div>
+      <div class="cfg-pref-row cfg-pref-row--readonly">
+        <span class="cfg-pref-nombre">Idioma</span>
+        <span class="cfg-pref-valor">Español</span>
       </div>
     </div>
   </section>
 
-  <!-- S3b: Plantillas rápidas -->
-  <section class="cfg-card cfg-acord" id="cfgPlantillasSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgPlantillasBody">
-      <span class="cfg-acord-title">Plantillas rápidas</span>
-      <span class="cfg-acord-summary" data-summary="plantillas"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgPlantillasBody">
-      <p class="cfg-plantillas-hint">Atajos de 1 toque para registrar gastos frecuentes.</p>
-      <div id="cfgPlantillasLista"></div>
-      <form id="cfgPlantillaForm" class="cfg-form-grid" autocomplete="off">
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="cpNombre">Nombre</label>
-          <input type="text" id="cpNombre" class="cfg-input" placeholder="ej: Pasaje" maxlength="40" required>
-        </div>
-        <div class="cfg-input-group">
-          <label class="cfg-label" for="cpMonto">Monto</label>
-          <input type="number" id="cpMonto" class="cfg-input" step="0.01" min="0.01" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <div class="cfg-input-group cfg-col-2">
-          <label class="cfg-label" for="cpCategoria">Categoría</label>
-          <select id="cpCategoria" class="cfg-select"></select>
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm cfg-col-2">Crear</button>
-      </form>
+  <!-- Cuenta y datos -->
+  <section class="cfg-card cfg-sub" id="cfgCuentaSection" style="display:none">
+    <div class="cfg-sub-header">
+      <a href="#configuracion" class="cfg-sub-back" aria-label="Volver a Configuración">
+        <svg class="cfg-sub-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <h2 class="cfg-sub-titulo">Cuenta y datos</h2>
     </div>
-  </section>
 
-  <!-- S3.5: Hogar (Fase 6.1) -->
-  <section class="cfg-card cfg-acord" id="cfgHogarSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgHogarBody">
-      <span class="cfg-acord-title">Hogar</span>
-      <span class="cfg-acord-summary" data-summary="hogar"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgHogarBody"></div>
-  </section>
+    <div id="cfgPerfilesCont"></div>
 
-  <!-- S4: Datos -->
-  <section class="cfg-card cfg-card--datos cfg-acord" id="cfgDatosSection" style="display:none">
-    <button type="button" class="cfg-acord-head" aria-expanded="false" aria-controls="cfgDatosBody">
-      <span class="cfg-acord-title">Datos</span>
-      <span class="cfg-acord-summary" data-summary="datos"></span>
-      <svg class="cfg-acord-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <div class="cfg-acord-body" id="cfgDatosBody">
-      <div class="cfg-datos-acciones">
-        <button type="button" class="btn btn-secondary" id="cfgBtnExportJson">Exportar respaldo JSON</button>
-        <button type="button" class="btn btn-secondary" id="cfgBtnImportJson">Importar desde respaldo</button>
-        <input type="file" id="cfgImportInput" accept=".json" style="display:none" aria-hidden="true">
+    <div class="cfg-sub-bloque-separador"></div>
+
+    <section class="cfg-sub-bloque cfg-card--datos" id="cfgDatosSection">
+      <h3 class="cfg-sub-bloque-titulo">Datos</h3>
+      <div id="cfgDatosBody">
+        <div class="cfg-datos-acciones">
+          <button type="button" class="btn btn-secondary" id="cfgBtnExportJson">Exportar respaldo JSON</button>
+          <button type="button" class="btn btn-secondary" id="cfgBtnImportJson">Importar desde respaldo</button>
+          <input type="file" id="cfgImportInput" accept=".json" style="display:none" aria-hidden="true">
+        </div>
+
+        <div class="cfg-datos-separador"></div>
+
+        <div class="cfg-datos-acciones">
+          <button type="button" class="btn btn-secondary" id="cfgBtnLogout">Cerrar sesión</button>
+        </div>
+
+        <div class="cfg-zona-peligro">
+          <p class="cfg-peligro-label">Zona de peligro</p>
+          <button type="button" class="btn btn-danger" id="cfgBtnReset">Resetear todos los datos</button>
+        </div>
       </div>
-
-      <div class="cfg-datos-separador"></div>
-
-      <div class="cfg-datos-acciones">
-        <button type="button" class="btn btn-secondary" id="cfgBtnLogout">Cerrar sesión</button>
-      </div>
-
-      <div class="cfg-zona-peligro">
-        <p class="cfg-peligro-label">Zona de peligro</p>
-        <button type="button" class="btn btn-danger" id="cfgBtnReset">Resetear todos los datos</button>
-      </div>
-    </div>
+    </section>
   </section>
 
   <!-- Modal: eliminar categoría -->
@@ -385,6 +422,73 @@
       font-weight: var(--font-weight-bold);
       margin: 0 0 var(--space-lg);
     }
+
+    /* ── Índice de 6 sub-vistas ─────────────────────────── */
+    .cfg-indice {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-light-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .cfg-indice-fila {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-md) var(--space-lg);
+      border-bottom: 1px solid var(--border-light);
+      color: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .cfg-indice-fila:last-child { border-bottom: none; }
+    .cfg-indice-fila:hover { background: var(--bg-light); }
+    .cfg-indice-nombre { font-weight: var(--font-weight-medium); }
+    .cfg-indice-sub {
+      margin-left: auto;
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 55%;
+    }
+    .cfg-indice-dark { margin-left: var(--space-sm); flex-shrink: 0; }
+
+    /* ── Cabecera fija de sub-vista (reemplaza el acordeón) ── */
+    .cfg-sub-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-lg);
+    }
+    .cfg-sub-back {
+      width: 32px; height: 32px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      transition: background 0.15s, color 0.15s;
+    }
+    .cfg-sub-back:hover { background: var(--bg-light); color: inherit; }
+    .cfg-sub-back-icon { width: 20px; height: 20px; }
+    .cfg-sub-titulo {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      margin: 0;
+    }
+    .cfg-sub-bloque { margin-top: var(--space-lg); }
+    .cfg-sub-bloque:first-of-type { margin-top: 0; }
+    .cfg-sub-bloque-titulo {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin: 0 0 var(--space-md);
+    }
+    .cfg-sub-bloque-separador { border-top: 1px solid var(--border-light); margin: var(--space-lg) 0; }
+
     .cfg-card {
       background: var(--bg-light-secondary);
       border: 1px solid var(--border-light);
@@ -952,8 +1056,6 @@
           btnG.disabled = false;
         }
       });
-
-      $('cfgPerfilesSection').style.display = 'block';
     }
 
     /* ── Categorías: render ─────────────────────────────── */
@@ -998,7 +1100,6 @@
       var vacia = '<li style="color:var(--text-secondary);font-size:var(--font-size-sm);padding:var(--space-sm) 0">';
       $('cfgCatListaGastos').innerHTML   = gastos.length   ? gastos.map(renderCatItem).join('')   : vacia + 'Sin categorías de gasto</li>';
       $('cfgCatListaIngresos').innerHTML = ingresos.length ? ingresos.map(renderCatItem).join('') : vacia + 'Sin categorías de ingreso</li>';
-      $('cfgCatSection').style.display = 'block';
     }
 
     /* ── Favorita toggle ────────────────────────────────── */
@@ -1500,7 +1601,11 @@
       t.setAttribute('aria-label', tema === 'dark' ? 'Desactivar modo oscuro' : 'Activar modo oscuro');
     }
 
-    $('cfgDarkToggle').addEventListener('click', function () {
+    $('cfgDarkToggle').addEventListener('click', function (ev) {
+      // El toggle vive dentro de la fila-<a> de Apariencia del índice; sin
+      // esto, el click también navegaría a #configuracion/apariencia.
+      ev.preventDefault();
+      ev.stopPropagation();
       aplicarTema(leerTema() === 'dark' ? 'light' : 'dark');
     });
 
@@ -1516,7 +1621,6 @@
     function initPreferencias() {
       aplicarTema(leerTema());
       initMoneda();
-      $('cfgPrefSection').style.display = 'block';
     }
 
     /* ── Export JSON ────────────────────────────────────── */
@@ -1634,8 +1738,6 @@
         delegarCats('cfgCatListaGastos');
         delegarCats('cfgCatListaIngresos');
         initPreferencias();
-        $('cfgDatosSection').style.display = 'block';
-        $('cfgRecurrentesSection').style.display = 'block';
         try { await cargarRecurrentes(); } catch (recErr) { console.error('cargarRecurrentes:', recErr); }
       } catch (err) {
         console.error('cfg cargar:', err);
@@ -1646,68 +1748,81 @@
       }
     }
 
+    /* ── Sub-vistas: mostrar solo la activa ─────────────────
+       El DOM no se reescribe: solo cambia la visibilidad, así ningún
+       control se pierde ni se descarta estado en curso. Sub-ruta inválida
+       (o ausente) → índice, NUNCA dashboard (eso lo resuelve el router). */
+    var SECCIONES = {
+      dinero: 'cfgDineroSection',
+      categorias: 'cfgCatSection',
+      automatismos: 'cfgAutomatismosSection',
+      hogar: 'cfgHogarSection',
+      apariencia: 'cfgAparienciaSection',
+      cuenta: 'cfgCuentaSection',
+    };
+
+    function mostrarSubvista(sub) {
+      var valida = (typeof subvistaValida === 'function') && subvistaValida(sub);
+      var indice = $('cfgIndice');
+      if (indice) indice.hidden = valida;
+      Object.keys(SECCIONES).forEach(function (k) {
+        var el = document.getElementById(SECCIONES[k]);
+        if (!el) return;
+        el.style.display = (valida && k === sub) ? '' : 'none';
+      });
+      window.scrollTo(0, 0);
+    }
+
+    mostrarSubvista((window.routerContext || {}).sub);
     cargar();
 
-    /* ── Acordeón de secciones (colapsable, persistido) ── */
-    function cfgSummaryText(id) {
+    /* ── Resúmenes del índice ────────────────────────────── */
+    function cfgSummaryText(key) {
       function n(sel) { return document.querySelectorAll(sel).length; }
-      if (id === 'cfgPerfilesSection') {
-        var nm = document.querySelector('#cfgPerfilesCont .cfg-perfil-nombre');
-        return nm ? nm.textContent.trim() : '';
+      if (key === 'dinero') {
+        var pct = document.getElementById('cfgPctAhorro');
+        var moneda = document.getElementById('cfgMonedaValor');
+        var partsD = [];
+        if (pct && pct.value !== '') partsD.push('Ahorro ' + pct.value + '%');
+        if (moneda && moneda.textContent && moneda.textContent !== '—') partsD.push(moneda.textContent);
+        return partsD.join(' · ');
       }
-      if (id === 'cfgCatSection') {
+      if (key === 'categorias') {
         var c = n('#cfgCatListaGastos .cfg-cat-item') + n('#cfgCatListaIngresos .cfg-cat-item');
         return c ? c + (c === 1 ? ' categoría' : ' categorías') : '';
       }
-      if (id === 'cfgRecurrentesSection') {
-        var total = (document.getElementById('recTotalMes') || {}).textContent || '';
-        var cnt = n('#recLista .cfg-rec-item');
-        return (total ? total + '/mes' : '') + (cnt ? ' · ' + cnt : '');
+      if (key === 'automatismos') {
+        var recCnt = n('#recLista .cfg-rec-item');
+        var plaCnt = n('#cfgPlantillasLista .cfg-plantilla-item');
+        var partsA = [];
+        if (recCnt) partsA.push(recCnt + (recCnt === 1 ? ' recurrente' : ' recurrentes'));
+        if (plaCnt) partsA.push(plaCnt + (plaCnt === 1 ? ' plantilla' : ' plantillas'));
+        return partsA.join(' · ');
       }
-      if (id === 'cfgPrefSection') {
+      if (key === 'hogar') {
+        var st = window.hogarState || {};
+        return (st.hogar && st.hogar.nombre) ? st.hogar.nombre : '';
+      }
+      if (key === 'apariencia') {
         var dt = document.getElementById('cfgDarkToggle');
-        var parts = [dt && dt.getAttribute('aria-checked') === 'true' ? 'Oscuro' : 'Claro'];
+        var partsP = [dt && dt.getAttribute('aria-checked') === 'true' ? 'Oscuro' : 'Claro'];
         var pr = document.getElementById('pushToggleRow');
         if (pr && !pr.hidden) {
-          parts.push('Push ' + (document.getElementById('pushToggle').getAttribute('aria-checked') === 'true' ? 'on' : 'off'));
+          partsP.push('Push ' + (document.getElementById('pushToggle').getAttribute('aria-checked') === 'true' ? 'on' : 'off'));
         }
-        return parts.join(' · ');
+        return partsP.join(' · ');
       }
-      if (id === 'cfgPlantillasSection') {
-        var p = n('#cfgPlantillasLista .cfg-plantilla-item');
-        return p ? p + (p === 1 ? ' plantilla' : ' plantillas') : '';
+      if (key === 'cuenta') {
+        var nm = document.querySelector('#cfgPerfilesCont .cfg-perfil-nombre');
+        return nm ? nm.textContent.trim() : '';
       }
-      if (id === 'cfgDatosSection') return 'Exportar · Importar';
       return '';
     }
     function refreshCfgSummaries() {
-      document.querySelectorAll('.cfg-acord').forEach(function (card) {
-        var span = card.querySelector('[data-summary]');
-        if (span) span.textContent = cfgSummaryText(card.id);
+      document.querySelectorAll('#cfgIndice [data-summary]').forEach(function (span) {
+        span.textContent = cfgSummaryText(span.getAttribute('data-summary'));
       });
     }
-    (function initCfgAcordion() {
-      var KEY = 'nestra-cfg-acord';
-      var saved = {};
-      try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
-      function setOpen(card, head, open) {
-        card.setAttribute('data-open', open ? 'true' : 'false');
-        head.setAttribute('aria-expanded', open ? 'true' : 'false');
-      }
-      document.querySelectorAll('.cfg-acord').forEach(function (card) {
-        var head = card.querySelector('.cfg-acord-head');
-        if (!head) return;
-        setOpen(card, head, saved[card.id] === true); // default colapsado
-        head.addEventListener('click', function () {
-          var now = card.getAttribute('data-open') !== 'true';
-          setOpen(card, head, now);
-          saved[card.id] = now;
-          try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
-          refreshCfgSummaries();
-        });
-      });
-      refreshCfgSummaries();
-    })();
 
     (async function initPushToggle() {
       if (typeof pushSupported !== 'function' || !pushSupported()) return;
@@ -1916,7 +2031,6 @@
 
       cargarCats();
       pintar();
-      $('cfgPlantillasSection').style.display = 'block';
     })();
 
     // ── Sección Hogar (Fase 6.1): renombrar + aporte esperado por miembro ──
@@ -1925,7 +2039,11 @@
       if (!sec) return;
       async function render() {
         var hay = (typeof tieneHogar === 'function') && tieneHogar();
-        sec.style.display = hay ? 'block' : 'none';
+        // La visibilidad de la SECCIÓN la decide mostrarSubvista (sub activa),
+        // no esta función — aquí solo se oculta la fila del índice sin hogar,
+        // igual que antes ocultaba la sección entera.
+        var navRow = $('cfgIndiceHogar');
+        if (navRow) navRow.hidden = !hay;
         if (!hay) return;
         var st = window.hogarState || {};
         var hogar = st.hogar || {};
