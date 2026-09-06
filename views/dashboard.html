@@ -177,6 +177,13 @@
     font-size: var(--font-size-sm);
     opacity: 0.92;
   }
+  .dash-s2s-balance {
+    margin: var(--space-xs) 0 0;
+    font-size: var(--font-size-sm);
+    opacity: 0.92;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-s2s-balance-nota { opacity: 0.8; }
   /* Desglose del hero. Va sobre el mismo gradiente, así que hereda el blanco ya
      validado por test/contraste-s2s.test.mjs; las opacidades se mantienen altas
      (≥0.88, como .dash-s2s-sub) para no comerse ese contraste. */
@@ -757,6 +764,7 @@
             <p class="dash-s2s-label">Te pasaste por</p>
             <p class="dash-s2s-monto">${esc(montoHero(res.exceso))}</p>
             <p class="dash-s2s-sub">Quedan ${dias} de mes.</p>
+            ${balanceHTML(res)}
             ${desgloseHTML(res, 'Te pasaste por', res.exceso)}
           </div>`;
         return;
@@ -766,8 +774,25 @@
           <p class="dash-s2s-label">Puedes gastar hoy</p>
           <p class="dash-s2s-monto">${esc(montoHero(res.diario))}</p>
           <p class="dash-s2s-sub">Te quedan ${esc(formatMonto(res.restanteMes))} para ${dias}.</p>
+          ${balanceHTML(res)}
           ${desgloseHTML(res, 'Te queda para el mes', res.restanteMes)}
         </div>`;
+    }
+
+    // balanceHTML(res) — la cifra cruda bajo el estimado. El hero dice cuánto
+    // PUEDES gastar según tu patrón de ingresos; esto dice cuánto llevas
+    // anotado de verdad. Cuando el usuario registra ingresos por lotes, sale
+    // negativa un rato — y ese es justo el dato que faltaba.
+    function balanceHTML(res) {
+      var d = res && res.desglose;
+      if (!d || d.balanceRegistrado === undefined) return '';   // cálculo viejo: no pinta
+      var negativo = d.balanceRegistrado < 0;
+      var nota = d.ingresoRegistrado === 0
+        ? 'aún no registras ingresos este mes'
+        : 'ingresos menos gastos ya anotados';
+      return '<p class="dash-s2s-balance' + (negativo ? ' dash-s2s-balance--neg' : '') + '">' +
+        'Registrado: ' + esc(formatMonto(d.balanceRegistrado)) +
+        ' <span class="dash-s2s-balance-nota">· ' + esc(nota) + '</span></p>';
     }
 
     // desgloseHTML(res, etiquetaFinal, montoFinal) — explica de dónde sale el

@@ -122,6 +122,11 @@ function calcularSafeToSpend(transacciones, metas, opts) {
     disponible: ingresoR - fijosR - metasR,
     yaGastado: Math.round(gastoAcumulado),
     metasFueraDeRitmo,
+    // Cifra cruda, sin estimaciones: lo que de verdad hay anotado este mes.
+    // Puede salir negativa mientras los ingresos no estén registrados —y debe
+    // salir así: es la información que la tarjeta no daba.
+    ingresoRegistrado: Math.round(ingresoMes),
+    balanceRegistrado: Math.round(ingresoMes - gastoAcumulado),
   };
 
   if (numerador < 0) {
