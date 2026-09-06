@@ -179,7 +179,18 @@ function setActiveNav(hash) {
 async function handleRouteChange() {
   try {
     // Get current hash, strip # and lowercase
-    let hash = window.location.hash.slice(1).toLowerCase() || DEFAULT_ROUTE;
+    let hashCompleto = window.location.hash.slice(1).toLowerCase() || DEFAULT_ROUTE;
+
+    // Sub-rutas por barra (#configuracion/categorias → base "configuracion",
+    // sub "categorias"). Solo la vista mira `sub` (vía routerContext); todo
+    // lo demás en esta función — auth, nav activo, FAB — opera sobre la base,
+    // igual que antes de que existieran sub-rutas.
+    const partes = (typeof partirHash === 'function')
+      ? partirHash(hashCompleto)
+      : { base: hashCompleto, sub: '' };
+    let hash = partes.base || DEFAULT_ROUTE;
+    window.routerContext = window.routerContext || {};
+    window.routerContext.sub = partes.sub;
 
     console.log(`Route changed to: ${hash}`);
 

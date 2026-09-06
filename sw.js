@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v49';
+const SHELL_VERSION = 'v50';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -46,6 +46,7 @@ precaching.precacheAndRoute([
   { url: 'js/recurrentes-detect.js', revision: SHELL_VERSION },
   { url: 'js/brujula.js', revision: SHELL_VERSION },
   { url: 'js/flujo-proyeccion.js', revision: SHELL_VERSION },
+  { url: 'js/config-rutas.js', revision: SHELL_VERSION },
   { url: 'js/router.js', revision: SHELL_VERSION },
   { url: 'js/sidebar.js', revision: SHELL_VERSION },
   { url: 'js/nestra-db.js', revision: SHELL_VERSION },
