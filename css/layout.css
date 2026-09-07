@@ -34,7 +34,7 @@
     padding: var(--space-sm) 0;
   }
 
-  body.sidebar-collapsed nav a {
+  body.sidebar-collapsed nav.navbar a {
     justify-content: center;
     padding: var(--space-md) var(--space-sm);
   }
@@ -64,7 +64,7 @@ main {
 /* Navigation — Mobile First (Fixed Bottom) */
 /* ─────────────────────────────────────────────────────────────── */
 
-nav {
+nav.navbar {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -132,7 +132,7 @@ html.light .brand-logo--dark {
 }
 
 /* Nav Links Container — Mobile Flex Row (scrollable) */
-nav ul {
+nav.navbar ul {
   display: flex;
   flex-direction: row;
   list-style: none;
@@ -146,11 +146,11 @@ nav ul {
   -webkit-overflow-scrolling: touch;
 }
 
-nav ul::-webkit-scrollbar {
+nav.navbar ul::-webkit-scrollbar {
   display: none;                /* Chrome/Safari */
 }
 
-nav li {
+nav.navbar li {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
@@ -158,7 +158,7 @@ nav li {
   min-width: 52px;              /* compact when label hidden */
 }
 
-nav a {
+nav.navbar a {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -199,17 +199,17 @@ nav a {
   transition: opacity 0.18s ease, max-height 0.18s ease;
 }
 
-nav a:hover {
+nav.navbar a:hover {
   color: var(--color-primary);
   text-decoration: none;
 }
 
-nav a.active {
+nav.navbar a.active {
   color: var(--color-primary);
 }
 
 /* Refined pill indicator — small centered capsule at top edge */
-nav a.active::before {
+nav.navbar a.active::before {
   content: '';
   position: absolute;
   top: 0;
@@ -222,12 +222,12 @@ nav a.active::before {
 }
 
 /* Active: show label + enlarge icon */
-nav a.active .nav-label {
+nav.navbar a.active .nav-label {
   opacity: 1;
   max-height: 14px;
 }
 
-nav a.active .nav-icon {
+nav.navbar a.active .nav-icon {
   width: 22px;
   height: 22px;
 }
@@ -255,7 +255,7 @@ nav a.active .nav-icon {
   }
 
   /* Navigation — Fixed Left Sidebar */
-  nav {
+  nav.navbar {
     position: fixed;
     left: 0;
     top: 0;
@@ -292,7 +292,7 @@ nav a.active .nav-icon {
   }
 
   /* Nav Links Container — Desktop Flex Column */
-  nav ul {
+  nav.navbar ul {
     flex-direction: column;
     width: 100%;
     height: auto;
@@ -301,12 +301,12 @@ nav a.active .nav-icon {
     overflow-y: unset;
   }
 
-  nav li {
+  nav.navbar li {
     width: 100%;
     justify-content: flex-start;
   }
 
-  nav a {
+  nav.navbar a {
     flex-direction: row;    /* sidebar: icon + label in a row */
     gap: var(--space-sm);
     width: 100%;
@@ -330,16 +330,16 @@ nav a.active .nav-icon {
   }
 
   /* Remove mobile pill indicator on desktop */
-  nav a.active::before {
+  nav.navbar a.active::before {
     display: none;
   }
 
-  nav a.active .nav-icon {
+  nav.navbar a.active .nav-icon {
     width: 20px;
     height: 20px;
   }
 
-  nav a:hover {
+  nav.navbar a:hover {
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 8%, transparent);
     text-decoration: none;
@@ -364,7 +364,7 @@ nav a.active .nav-icon {
     min-width: 15px;
   }
 
-  nav a.active {
+  nav.navbar a.active {
     color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 12%, transparent);
     border-top: none;
@@ -385,7 +385,7 @@ nav a.active .nav-icon {
 /* No-Chrome — Public Views (login/register) Hide Nav */
 /* ─────────────────────────────────────────────────────────────── */
 
-body.no-chrome nav {
+body.no-chrome nav.navbar {
   display: none;
 }
 

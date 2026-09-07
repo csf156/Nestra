@@ -1381,7 +1381,7 @@ hr, .divider {
 body.nestra-offline main { padding-top: var(--offline-banner-h, 0px); }
 /* Desktop: el nav es sidebar fija (top:0); bajarla bajo el banner también. */
 @media (min-width: 768px) {
-  body.nestra-offline nav { top: var(--offline-banner-h, 0px); }
+  body.nestra-offline nav.navbar { top: var(--offline-banner-h, 0px); }
 }
 
 .pending-badge {
