@@ -272,8 +272,11 @@ async function handleRouteChange() {
 // Called automatically on DOMContentLoaded
 async function initRouter() {
   try {
-    // Wait for auth module to initialize (100ms buffer)
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Antes: setTimeout de 100 ms. En un iPhone arrancando la PWA en frío no
+    // alcanzaban nunca, y handleRouteChange preguntaba isAuthenticated() con
+    // currentUser todavía en null → login con sesión válida. Ahora se espera
+    // el HECHO (marcado por initAuth en js/auth.js), no un reloj.
+    if (window.authGate) await window.authGate.cuandoListo();
 
     console.log('Router initialized');
 

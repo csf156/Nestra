@@ -12,7 +12,7 @@ const { precaching, routing, strategies, expiration, cacheableResponse, core } =
 core.setCacheNameDetails({ prefix: 'nestra' });
 
 // Sube esta versión cuando cambies el app shell para forzar refresco de precache.
-const SHELL_VERSION = 'v51';
+const SHELL_VERSION = 'v52';
 
 // App shell precache (manual). revision = versión para invalidar al cambiar.
 precaching.precacheAndRoute([
@@ -22,6 +22,7 @@ precaching.precacheAndRoute([
   { url: 'css/components.css', revision: SHELL_VERSION },
   { url: 'js/config.js', revision: SHELL_VERSION },
   { url: 'js/supabase.js', revision: SHELL_VERSION },
+  { url: 'js/auth-listo.js', revision: SHELL_VERSION },
   { url: 'js/auth.js', revision: SHELL_VERSION },
   { url: 'js/moneda.js', revision: SHELL_VERSION },
   { url: 'js/ahorro-pct.js', revision: SHELL_VERSION },
