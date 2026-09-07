@@ -8,6 +8,40 @@ window.currentUser = null;
 window.currentProfile = null;
 let realtimeChannel = null;
 
+// Bootstrap síncrono de window.authGate — DESVIACIÓN respecto al plan.
+// js/auth-listo.js es `type="module"`, que SIEMPRE se difiere hasta después
+// de parsear todo el documento, sin importar dónde se coloque el tag. Este
+// archivo es un script clásico, y su initAuth() puede terminar de forma
+// SÍNCRONA por el camino "sin token" (sin ningún await antes del return) —
+// exactamente el camino más común (visita sin sesión). Si ese `return`
+// ocurre antes de que el módulo diferido haya corrido, `window.authGate` no
+// existe todavía y ese `finally` no tendría nada que marcar: la puerta
+// jamás se marcaría lista, y el router esperaría los 8 s de seguridad para
+// el caso MÁS simple. Este bootstrap (misma lógica que crearGateAuth(), a
+// propósito duplicada — un script clásico no puede `import` un módulo de
+// forma síncrona) garantiza que la puerta exista ANTES de que initAuth()
+// pueda necesitarla. `js/auth-listo.js` sigue cargándose (ver index.html) y
+// usa `window.authGate || crearGateAuth()` para no pisar esta si ya existe.
+if (!window.authGate) {
+  (function () {
+    var listo = false;
+    var resolver;
+    var promesa = new Promise(function (res) { resolver = res; });
+    var t = setTimeout(function () { marcarListo(); }, 8000);
+    function marcarListo() {
+      if (listo) return;
+      listo = true;
+      clearTimeout(t);
+      resolver();
+    }
+    window.authGate = {
+      marcarListo: marcarListo,
+      estaListo: function () { return listo; },
+      cuandoListo: function () { return promesa; },
+    };
+  })();
+}
+
 // getCurrentUser() — Return current authenticated user
 // Returns: user object or null
 function getCurrentUser() {
@@ -300,6 +334,18 @@ function setupAuthStateListener() {
         window.location.hash = '#dashboard';
       }
     }
+    // La sesión apareció DESPUÉS de que el router decidiera (rehidratación
+    // tardía). Sin esto el usuario se queda en el login con sesión válida.
+    if (event === 'INITIAL_SESSION' && session && session.user) {
+      window.currentUser = session.user;
+      try { await loadProfile(session.user.id); } catch (e) { /* el trigger crea el perfil */ }
+      if (typeof updateUserChip === 'function') updateUserChip();
+      if (window.authGate) window.authGate.marcarListo();
+      if (window.location.hash === '#login' || window.location.hash === '') {
+        window.location.hash = '#dashboard';
+      }
+      return;
+    }
     // Token expired and refresh failed, user signed out, or account removed
     if (event === 'SIGNED_OUT' || ((event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && !session)) {
       var veredicto = (typeof clasificarPerdidaSesion === 'function')
@@ -367,6 +413,11 @@ async function initAuth() {
     window.currentUser = null;
     window.currentProfile = null;
     window.hogarState = null;
+  } finally {
+    // Pase lo que pase (sin token, usuario inválido, éxito, o error), el
+    // router puede seguir: ya sabemos si hay sesión o no. Un finally cubre
+    // los 3 `return` de arriba y el catch sin duplicar la llamada en cada uno.
+    if (window.authGate) window.authGate.marcarListo();
   }
 }
 

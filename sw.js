@@ -22,6 +22,7 @@ precaching.precacheAndRoute([
   { url: 'css/components.css', revision: SHELL_VERSION },
   { url: 'js/config.js', revision: SHELL_VERSION },
   { url: 'js/supabase.js', revision: SHELL_VERSION },
+  { url: 'js/auth-listo.js', revision: SHELL_VERSION },
   { url: 'js/auth.js', revision: SHELL_VERSION },
   { url: 'js/moneda.js', revision: SHELL_VERSION },
   { url: 'js/ahorro-pct.js', revision: SHELL_VERSION },

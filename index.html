@@ -170,6 +170,13 @@
     <!-- Application Scripts (in order) -->
     <script src="js/config.js"></script>
     <script src="js/supabase.js"></script>
+    <!-- type="module" se difiere hasta después de parsear todo el documento
+         (sin importar la posición del tag), así que NO garantiza correr antes
+         de js/auth.js (script clásico, línea siguiente) — por eso auth.js
+         trae su propio bootstrap síncrono de window.authGate. Este tag sigue
+         siendo necesario: expone window.crearGateAuth y, para cuando router.js
+         lo usa (tras DOMContentLoaded, tarde de sobra), la puerta ya existe. -->
+    <script type="module" src="js/auth-listo.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/moneda.js"></script>
     <script src="js/ahorro-pct.js"></script>
