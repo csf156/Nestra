@@ -1682,7 +1682,7 @@ async function getIngestPendientes() {
   const rows = await _mirroredRead('ingest_pendientes', async () => {
     const { data, error } = await supabase
       .from('ingest_pendientes')
-      .select('id, banco, tipo, monto, comercio, fecha, contraparte, monto_original, moneda_original, tasa_cambio, estado, transaccion_id, raw_subject, created_at, updated_at')
+      .select('id, banco, tipo, monto, comercio, fecha, hora, contraparte, monto_original, moneda_original, tasa_cambio, estado, transaccion_id, raw_subject, created_at, updated_at')
       .in('estado', ['pendiente', 'revisar-manual', 'confirmado', 'descartado']);
     if (error) throw error;
     return data || [];

@@ -144,6 +144,18 @@
   .rev-fecha-correo { color: var(--text-secondary); font-size: var(--font-size-xs); }
   .rev-meta .badge { margin-left: auto; }
 
+  /* Encabezado de día (agrupación, Etapa B): no es una card — mismo <ul> para
+     que el orden del list-item marque el orden visual, pero sin fondo ni
+     sombra de .card. */
+  .rev-dia-header { padding: 0 2px; margin-top: var(--space-sm);
+    font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold);
+    color: var(--text-secondary); text-transform: capitalize; }
+  .rev-dia-header:first-child { margin-top: 0; }
+  /* Contexto de contraparte (Etapa B): bajo el nombre, un tono más apagado
+     que el nombre mismo — es información de apoyo, no el dato principal. */
+  .rev-contexto { color: var(--text-secondary); font-size: var(--font-size-xs);
+    margin: 0 0 2px; }
+
   /* El ancla visual de la card. tabular-nums para que los montos de la lista
      alineen en columna, como en dashboard e historial. */
   .rev-monto { margin: 2px 0 0; text-align: right;
@@ -224,7 +236,8 @@
                 'validarPartesGastoHogar', 'confirmarLoteIngest', 'loteable',
                 'resumenLote', 'notaDePendiente', 'getMapaComercioCategoria',
                 'mergeLearned', 'getAliasContrapartes', 'setAliasContraparte',
-                'aliasDe', 'normalizarContraparte'].filter(function (f) {
+                'aliasDe', 'normalizarContraparte', 'contextoContraparte',
+                'agruparPorDia'].filter(function (f) {
     return typeof window[f] !== 'function';
   });
 
@@ -251,6 +264,53 @@
     } catch (e) {
       return String(iso).slice(0, 10);
     }
+  }
+  // "2026-09-01" es fecha LOCAL (ya resuelta a Lima por el Worker, ver
+  // fechaEnLima en utils.js) — parsear a mediodía evita que la conversión a
+  // la zona horaria del navegador la corra al día anterior o siguiente.
+  function _fechaLocal(iso) {
+    return new Date(String(iso) + 'T12:00:00');
+  }
+  // "mar 2 sep" — fecha corta del MOVIMIENTO (p.fecha), no de la llegada del
+  // correo (p.created_at, que fmtFechaCorreo ya cubre para otros usos).
+  function fmtFechaMovCorta(iso) {
+    if (!iso) return '';
+    try {
+      return new Intl.DateTimeFormat('es-PE', { weekday: 'short', day: 'numeric', month: 'short' }).format(_fechaLocal(iso));
+    } catch (e) { return String(iso).slice(0, 10); }
+  }
+  // "mar 2 sep · 14:49" — hora junto a la fecha del movimiento (Etapa B). Sin
+  // hora (10% de las filas, ver B1), solo la fecha, sin hueco raro.
+  // `hora` es columna `time` en Postgres: PostgREST la sirve como "14:49:00"
+  // (con segundos) aunque el Worker solo guardó "HH:MM" — slice(0,5) tolera
+  // los dos formatos (no-op sobre "14:49").
+  function fmtFechaMovHora(fecha, hora) {
+    var base = fmtFechaMovCorta(fecha);
+    var horaCorta = hora ? String(hora).slice(0, 5) : '';
+    return (base && horaCorta) ? (base + ' · ' + horaCorta) : base;
+  }
+  // "Martes 2 de septiembre" — título del encabezado de día.
+  function fmtDiaHeader(iso) {
+    if (!iso) return '';
+    try {
+      var s = new Intl.DateTimeFormat('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).format(_fechaLocal(iso));
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    } catch (e) { return String(iso).slice(0, 10); }
+  }
+  // "12/8" — fecha corta sin año, para "última el 12/8" en el contexto.
+  function fmtFechaDiaMes(iso) {
+    var m = String(iso || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+    return m ? (Number(m[2]) + '/' + Number(m[1])) : '';
+  }
+  // Texto del contexto de contraparte bajo el nombre: "3.ª vez · última el
+  // 12/8 · S/ 50.00", o "primera vez". '' si no hay nada que mostrar.
+  function fmtContexto(c) {
+    if (!c) return '';
+    if (c.primeraVez) return 'primera vez';
+    var partes = [c.veces + '.ª vez'];
+    if (c.ultimaFecha) partes.push('última el ' + fmtFechaDiaMes(c.ultimaFecha));
+    if (c.montoTipico != null) partes.push(fmt(c.montoTipico));
+    return partes.join(' · ');
   }
 
   if (faltan.length) {
@@ -336,7 +396,15 @@
         'aria-label="Ponerle un nombre a ' + esc(textoCrudo) + '">✎</button>'
       : '';
 
-    return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '">' +
+    // Contexto de contraparte (Etapa B): contra las OTRAS filas ya en la cola
+    // (mismo lote, sin consulta nueva — ver contextoContraparte). Se compara
+    // por identidad, no por índice: _filas puede tener huecos (null) por
+    // confirmaciones/descartes previos en esta misma carga.
+    var previos = _filas.filter(function (f) { return f && f !== p; });
+    var ctx = (typeof contextoContraparte === 'function') ? contextoContraparte(p, previos) : null;
+    var contextoHTML = ctx ? '<p class="rev-contexto">' + esc(fmtContexto(ctx)) + '</p>' : '';
+
+    return '<li class="card rev-card" id="revCard' + i + '" data-idx="' + i + '" data-dia="' + esc(p.fecha || '') + '">' +
       '<div class="rev-swipe-hint rev-swipe-hint--confirm">Confirmar</div>' +
       '<div class="rev-swipe-hint rev-swipe-hint--descartar">Descartar</div>' +
       '<div class="rev-swipe-surface">' +
@@ -344,10 +412,11 @@
           '<div class="rev-meta">' +
             checkHTML +
             '<span class="rev-banco">' + esc(BANCO_LABEL[p.banco] || p.banco) + '</span>' +
-            '<span class="rev-fecha-correo">' + esc(fmtFechaCorreo(p.created_at)) + '</span>' +
+            '<span class="rev-fecha-correo">' + esc(fmtFechaMovHora(p.fecha, p.hora)) + '</span>' +
             (manual ? '<span class="badge badge-warning">Formato no reconocido</span>' : '') +
           '</div>' +
           (texto ? '<p class="rev-comercio">' + esc(texto) + btnAlias + '</p>' : '') +
+          contextoHTML +
           '<p class="rev-monto">' + (p.monto != null ? fmt(p.monto) : '—') + '</p>' +
           '<div class="rev-compact-foot">' +
             '<button type="button" class="rev-chip' + (sugerida ? ' rev-chip--sugerida' : '') + (sinCat ? ' rev-chip--sin-cat' : '') + '" data-rev-chip="' + i + '" id="revChip' + i + '">' +
@@ -614,10 +683,27 @@
     }
   }
 
+  // sincronizarHeaderDia(dia) — el encabezado de un día se oculta si ninguna
+  // de sus cards sigue visible (todas removidas, o todas con display:none
+  // mientras esperan su undo de 7s), y se muestra de nuevo si "Deshacer"
+  // devuelve alguna. Nunca se remueve el nodo del encabezado: solo se
+  // alterna su display, igual que ya se hace con las cards mismas — así
+  // deshacer() no necesita recrearlo.
+  function sincronizarHeaderDia(dia) {
+    if (!dia) return;
+    var header = listaEl.querySelector('[data-dia-header="' + dia + '"]');
+    if (!header) return;
+    var cards = listaEl.querySelectorAll('.rev-card[data-dia="' + dia + '"]');
+    var hayVisible = Array.prototype.some.call(cards, function (c) { return c.style.display !== 'none'; });
+    header.style.display = hayVisible ? '' : 'none';
+  }
+
   function quitarCard(i) {
     var card = document.getElementById('revCard' + i);
+    var dia = card ? card.getAttribute('data-dia') : null;
     if (card) card.remove();
     _filas[i] = null;
+    sincronizarHeaderDia(dia);
     if (!_filas.some(Boolean)) renderVacio();
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
   }
@@ -784,6 +870,7 @@
     indices.forEach(function (i) {
       var card = document.getElementById('revCard' + i);
       if (card) card.style.display = 'none';
+      sincronizarHeaderDia(card ? card.getAttribute('data-dia') : null);
     });
     if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
     var item = { is: indices.slice(), ctx: ctx, timerId: null };
@@ -817,8 +904,10 @@
     if (idx !== -1) _undoQueue.splice(idx, 1);
     item.is.forEach(function (i) {
       var card = document.getElementById('revCard' + i);
+      var dia = card ? card.getAttribute('data-dia') : null;
       if (card) card.remove();
       _filas[i] = null;
+      sincronizarHeaderDia(dia);
     });
     if (!_filas.some(Boolean)) renderVacio();
     pintarBarraLote();
@@ -844,6 +933,7 @@
       item.is.forEach(function (i) {
         var card = document.getElementById('revCard' + i);
         if (card) card.style.display = '';
+        sincronizarHeaderDia(card ? card.getAttribute('data-dia') : null);
       });
       if (typeof actualizarIngestBadge === 'function') actualizarIngestBadge();
       pintarBarraLote();
@@ -949,22 +1039,38 @@
       loadingEl.style.display = 'none';
       if (!_filas.length) { renderVacio(); return; }
 
+      // Agrupación por día (Etapa B): SOLO decide el orden de pintado. _filas
+      // no se reordena — data-rev-check/alias/chip siguen usando la posición
+      // en _filas (i = _filas.indexOf(p)), no la posición en pantalla. Ver
+      // agruparPorDia en js/revisar-lote.js y la nota del plan sobre este
+      // riesgo ("es el error probable de esta task").
+      var grupos = (typeof agruparPorDia === 'function') ? agruparPorDia(_filas) : [{ fecha: null, filas: _filas }];
       var html = '';
-      for (var i = 0; i < _filas.length; i++) html += await cardHTML(_filas[i], i);
+      var idxDemo = -1;   // primera fila pintada que admite swipe (ver abajo)
+      for (var g = 0; g < grupos.length; g++) {
+        var grupo = grupos[g];
+        if (grupo.fecha) {
+          html += '<li class="rev-dia-header" data-dia-header="' + esc(grupo.fecha) + '">' + esc(fmtDiaHeader(grupo.fecha)) + '</li>';
+        }
+        for (var k = 0; k < grupo.filas.length; k++) {
+          var p = grupo.filas[k];
+          var i = _filas.indexOf(p);
+          if (i < 0) continue; // defensivo: no debería pasar, agruparPorDia no clona
+          // Una fila 'revisar-manual' no puede completarse con un solo gesto
+          // (pendienteCompleto la bloquea por falta de categoría/fecha), así
+          // que enseñar el swipe ahí sería engañoso.
+          if (idxDemo < 0 && p.estado !== 'revisar-manual') idxDemo = i;
+          html += await cardHTML(p, i);
+        }
+      }
       listaEl.innerHTML = html;
       listaEl.style.display = '';
       pintarBarraLote();
 
-      // Demo de swipe: solo en la primera card elegible, y solo en esta carga
-      // de la vista. Una fila 'revisar-manual' no puede completarse con un
-      // solo gesto (pendienteCompleto la bloquea por falta de categoría/fecha),
-      // así que enseñar el swipe ahí sería engañoso — se busca la primera
-      // fila de _filas que no sea de ese estado. Si ninguna califica, no se
-      // muestra demo en nadie (no se fuerza sobre una manual).
-      var idxDemo = -1;
-      for (var di = 0; di < _filas.length; di++) {
-        if (_filas[di] && _filas[di].estado !== 'revisar-manual') { idxDemo = di; break; }
-      }
+      // Demo de swipe: solo en la primera card ELEGIBLE tal como se ve en
+      // pantalla (orden agrupado por día), y solo en esta carga de la vista.
+      // Si ninguna califica, no se muestra demo en nadie (no se fuerza sobre
+      // una manual).
       var primera = idxDemo >= 0 ? document.getElementById('revCard' + idxDemo) : null;
       if (primera) {
         primera.classList.add('is-demo');
