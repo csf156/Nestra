@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   parseCorreo, parse, PARSERS, FormatoNoReconocidoError,
   parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima, esAnteriorAlCorte,
-  lineasPlanas,
+  lineasPlanas, parseHora,
 } from '../workers/ingest/parsers/index.js';
 import { huboInsercion } from '../workers/ingest/src/index.js';
 
@@ -648,6 +648,81 @@ test('ultimos4: BBVA consumo sin la línea de tarjeta → null (no crashea)', ()
     body: BBVA_CONSUMO_PEN, date: '2026-07-12T04:04:35.000Z',
   });
   assert.equal(r.ultimos4, null);
+});
+
+// ── hora (B2, patrones ya validados contra las 312 filas reales) ──
+test('parseHora: "Fecha y hora:" seguida en la misma frase (BBVA PLIN)', () => {
+  assert.equal(parseHora('Fecha y hora: 12 de julio, 2026 15:44'), '15:44');
+});
+
+test('parseHora: "Fecha y Hora de la operacion" (Yape saliente)', () => {
+  assert.equal(parseHora('Fecha y Hora de la operacion 30 agosto 2026 - 11:39 a. m.'), '11:39');
+});
+
+test('parseHora: "Hora:" en línea aparte, con segundos que se truncan (BBVA consumo)', () => {
+  assert.equal(parseHora(BBVA_CONSUMO_USD), '17:22');
+  assert.equal(parseHora(BBVA_CONSUMO_PEN), '23:04');
+});
+
+test('parseHora: "Fecha y hora" sin dos puntos (BCP)', () => {
+  // No hay conversión de 12h a 24h a propósito: mismo comportamiento que la
+  // migración ya aplicada sobre las 312 filas reales — este parser tiene que
+  // seguir dando el mismo valor para no desalinear lo retroactivo de lo nuevo.
+  assert.equal(parseHora('Fecha y hora 23 de junio de 2026 - 06:03 PM'), '06:03');
+});
+
+test('parseHora: Yape recarga — solo "Fecha:" combinada, sin la palabra "Hora"', () => {
+  assert.equal(parseHora(YAPE_RECARGA_2026_08), '10:29');
+});
+
+test('parseHora: sin ningún patrón reconocible → null, nunca inventa', () => {
+  assert.equal(parseHora('sin nada'), null);
+  assert.equal(parseHora(''), null);
+  assert.equal(parseHora(null), null);
+  assert.equal(parseHora(undefined), null);
+});
+
+test('parseHora: correo real sin hora en el cuerpo (BBVA QR 2026-09) → null', () => {
+  // ~3% de las filas reales (9/312) no traen hora en ningún formato conocido.
+  assert.equal(parseHora(BBVA_QR_2026_09), null);
+});
+
+test('bbva: el consumo trae hora en la propuesta', () => {
+  const p = parse('bbva', {
+    subject: 'Has realizado un consumo con tu tarjeta BBVA',
+    body: BBVA_CONSUMO_USD, date: '2026-07-06T22:22:47.000Z',
+  });
+  assert.equal(p.hora, '17:22');
+});
+
+test('bcp: el consumo trae hora en la propuesta', () => {
+  const r = parseCorreo({
+    from: BCP, subject: 'Realizaste un consumo con tu Tarjeta de Débito BCP',
+    body: BCP_CONSUMO, date: '2026-06-23T23:03:00.000Z',
+  });
+  assert.equal(r.hora, '06:03');
+});
+
+test('yape: el yapeo saliente y la recarga traen hora en la propuesta', () => {
+  const yapeo = parse('yape', {
+    subject: 'Por tu seguridad, te notificaremos por cada yapeo que realices',
+    body: YAPE_SALIENTE_2026_08, date: '2026-08-30T16:39:00Z',
+  });
+  assert.equal(yapeo.hora, '11:39');
+
+  const recarga = parse('yape', {
+    subject: 'Tu recarga en Yape ha sido confirmada',
+    body: YAPE_RECARGA_2026_08, date: '2026-08-30T15:29:00Z',
+  });
+  assert.equal(recarga.hora, '10:29');
+});
+
+test('bbva: el QR de comercio sin hora en el cuerpo → hora null (no inventa)', () => {
+  const p = parse('bbva', {
+    subject: 'BBVA - Constancia de pago a comercios con QR',
+    body: BBVA_QR_2026_09, date: '2026-09-01T14:00:00Z',
+  });
+  assert.equal(p.hora, null);
 });
 
 // ── registry por banco_slug ──────────────────────────────────────

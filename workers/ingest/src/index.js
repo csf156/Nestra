@@ -350,6 +350,7 @@ export default {
       monto,
       comercio: prop.comercio,
       fecha: prop.fecha,
+      hora: prop.hora,
       contraparte: prop.contraparte,
       monto_original: montoOriginal,
       moneda_original: monedaOriginal,

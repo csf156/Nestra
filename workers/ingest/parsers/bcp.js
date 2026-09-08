@@ -10,7 +10,7 @@
 
 import {
   normalizar, lineas, parseMonto, parseFechaLarga,
-  fechaEnLima, campoInline, ultimos4De,
+  fechaEnLima, campoInline, ultimos4De, parseHora,
 } from './utils.js';
 import { FormatoNoReconocidoError } from './errores.js';
 
@@ -47,6 +47,7 @@ function parse({ subject, body, date }) {
       contraparte: p2p ? comercio.replace(/^(PLIN|YAPE)\s*-\s*/i, '') : comercio,
       operacion: campoInline(ls, 'Numero de operacion'),
       p2p, ultimos4,
+      hora: parseHora(body),
     };
   }
 
@@ -65,6 +66,7 @@ function parse({ subject, body, date }) {
       comercio: emisor, fecha, contraparte: emisor,
       operacion: campoInline(ls, 'Numero de operacion'),
       p2p: true, ultimos4: null,
+      hora: parseHora(body),
     };
   }
 

@@ -111,6 +111,34 @@ function esAnteriorAlCorte(dateIso, corteIso) {
   return d < c;
 }
 
+// Hora del movimiento ("HH:MM", 24h tal como aparece impreso — sin convertir
+// a. m./p. m., ver nota abajo) | null si no hay ningún patrón reconocible.
+//
+// Los 3 patrones son los que ya se aplicaron en la migración retroactiva
+// (20260908_ingest_hora.sql, 303/312 filas, 0 perdidas contra los patrones
+// originales del plan que daban 90,3%). Cualquier cambio acá debe seguir
+// dando los mismos resultados sobre esas filas o el histórico y lo nuevo
+// quedan desalineados.
+//
+// Sin conversión 12h→24h a propósito: "06:03 PM" da "06:03", igual que en la
+// base ya migrada. Arreglarlo aquí sin re-migrar el histórico sería peor:
+// mismo campo con dos convenciones distintas según cuándo entró la fila.
+const _PATRONES_HORA = [
+  /[Ff]echa y [Hh]ora.{0,60}?([0-9]{1,2}:[0-9]{2})/,
+  /[Hh]ora[^0-9]{0,12}([0-9]{1,2}:[0-9]{2})/,
+  /[Ff]echa[^0-9]{0,15}[0-9]{1,2}[^0-9]{1,15}[0-9]{4}\s*-\s*([0-9]{1,2}:[0-9]{2})/,
+];
+
+function parseHora(txt) {
+  if (!txt) return null;
+  const s = normalizar(txt);
+  for (const re of _PATRONES_HORA) {
+    const m = s.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 // "*1902" | "************5632" | "tarjeta terminada en *1902" → "1902" | null
 function ultimos4De(txt) {
   if (!txt) return null;
@@ -121,4 +149,5 @@ function ultimos4De(txt) {
 export {
   normalizar, lineas, lineasPlanas, parseMonto, parseFechaLarga, parseFechaCorta,
   fechaEnLima, campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte,
+  parseHora,
 };

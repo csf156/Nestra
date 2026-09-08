@@ -10,7 +10,7 @@
 
 import {
   normalizar, lineas, parseMonto, parseFechaLarga, parseFechaCorta,
-  fechaEnLima, campoTrasEtiqueta, campoInline, ultimos4De,
+  fechaEnLima, campoTrasEtiqueta, campoInline, ultimos4De, parseHora,
 } from './utils.js';
 import { FormatoNoReconocidoError } from './errores.js';
 
@@ -42,6 +42,7 @@ function parse({ subject, body, date }) {
     return {
       banco: slug, tipo: 'gasto', monto, moneda, comercio: comercio || null,
       fecha, contraparte: null, operacion: null, p2p: false, ultimos4,
+      hora: parseHora(body),
     };
   }
 
@@ -59,6 +60,7 @@ function parse({ subject, body, date }) {
       comercio: destino, fecha, contraparte: destino,
       operacion: campoInline(ls, 'Numero de operacion:'),
       p2p: true, ultimos4: null,
+      hora: parseHora(body),
     };
   }
 
@@ -78,6 +80,7 @@ function parse({ subject, body, date }) {
       operacion: campoTrasEtiqueta(ls, 'ID de compra'),
       p2p: false,
       ultimos4: ultimos4De(campoTrasEtiqueta(ls, 'Numero de tarjeta')),
+      hora: parseHora(body),
     };
   }
 
