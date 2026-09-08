@@ -11,7 +11,7 @@
 
 import {
   normalizar, lineasPlanas, parseMonto, parseFechaLarga,
-  fechaEnLima, campoTrasEtiqueta,
+  fechaEnLima, campoTrasEtiqueta, parseHora,
 } from './utils.js';
 import { FormatoNoReconocidoError } from './errores.js';
 
@@ -60,6 +60,7 @@ function parse({ subject, body, date }) {
       comercio, fecha, contraparte: comercio,
       operacion: mOp ? mOp[1] : null,
       p2p: true, ultimos4: null,
+      hora: parseHora(body),
     };
   }
 
@@ -81,6 +82,7 @@ function parse({ subject, body, date }) {
       // Una recarga es consumo de un servicio, no una transferencia entre
       // personas: p2p false para que no entre en la lógica de contrapartes.
       p2p: false, ultimos4: null,
+      hora: parseHora(body),
     };
   }
 

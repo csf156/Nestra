@@ -25,6 +25,7 @@ import { FormatoNoReconocidoError } from './errores.js';
 import {
   normalizar, parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima,
   campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte, lineasPlanas,
+  parseHora,
 } from './utils.js';
 
 const PARSERS = Object.freeze({
@@ -66,4 +67,5 @@ export {
   // helpers puros re-exportados para los tests
   normalizar, parseMonto, parseFechaLarga, parseFechaCorta, fechaEnLima,
   campoTrasEtiqueta, campoInline, ultimos4De, esAnteriorAlCorte, lineasPlanas,
+  parseHora,
 };
